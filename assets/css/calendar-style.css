@@ -1,0 +1,594 @@
+/* Fullscreen wrapper has screen aspect */
+#fsb-fullscreen-wrapper {
+    width: 100%;
+    display: flex;
+    justify-content: center; /* This replaces the margin-left: 50% */
+    position: relative;
+    overflow: visible;
+}
+
+
+/* This is the calendar itself, 17X11 aspect */
+#fsb-calendar-app {
+    /* Calculate max possible size while maintaining 17:11 */
+    height: 85vh; 
+    aspect-ratio: 17 / 11;
+    width: auto;
+    
+    /* This ensures it fits on any screen, Hello Elementor or Astra */
+    max-width: 95vw; 
+
+    background-size: cover;
+    background-position: center top;
+    background-color: transparent !important;
+
+    position: relative;
+    
+    /* Use a fixed top nudge that we can easily adjust on the live site */
+    margin-top: -84px !important; 
+    
+    padding: 0 !important;
+    border: 0 !important;
+    overflow: visible;
+}
+
+/* Ensure the standard Monthly Grid is locked and centered */
+#fsb-calendar-app:not(:has(.no-bg)) {
+    height: 85vh !important;
+    aspect-ratio: 17 / 11 !important;
+    overflow: visible !important;
+}
+
+/* Ensure the Stage centers the 17:11 box */
+#fsb-fullscreen-wrapper:not(:has(.no-bg)) {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+/* 2. Position the Grid exactly over the Canva boxes */
+#calendar-grid {
+    display: grid !important;
+    position: absolute;
+
+    /* These are tuned for the 17:11 verticality */
+    top: 14%;   /* Adjust this so row 1 hits your Canva boxes */
+    left: 0%;   /* Adjust this for the left margin of your grid */
+    width: 100%; /* Adjust this for the right margin */
+    height: 86%;  /* Adjust this so the bottom row hits the bottom box */
+
+    grid-template-columns: repeat(7, minmax(0,1fr));
+    grid-template-rows: repeat(5, 1fr);
+
+    background: transparent !important;
+    border: none !important;
+    gap: 0 !important;
+}
+
+/* Fully hide the plugin's text header and buttons for now */
+#fsb-calendar-app .calendar-header {
+	display: none !important;
+}
+
+
+/*  This is the text in the calendar cell */
+#fsb-calendar-app .event-item {
+    display: block;
+    width: 100%;
+
+    /* Truncation Logic */
+    white-space: nowrap;      /* Keep it to one line */
+    overflow: hidden;         /* Hide the spill-over */
+    text-overflow: ellipsis;  /* Add the "..." at the end */
+
+    line-height: 1.2;
+    padding: 1px 4px;
+    margin-bottom: 2px;
+    font-size: 0.75rem;
+    border-radius: 3px;
+    cursor: pointer;
+
+    /* Category Left-Border Indicator */
+    border-left: 3px solid #ccc; /* Fallback color */
+    background: rgba(255, 255, 255, 0.8); /* Slight contrast against Canva */
+
+    /* Font */
+    font-size: 0.65rem; /* Smaller, sharper font */
+    font-weight: 500;
+    letter-spacing: -0.02em; /* Tighter letter spacing to fit more characters */
+    padding: 1px 3px;
+    margin-bottom: 1px;
+}
+/* Category Specifics - Ensure these are below the block above */
+#fsb-calendar-app .event-item.resident { border-left-color: #ff9800; background: #fff3e0; }
+#fsb-calendar-app .event-item.public   { border-left-color: #0288d1; background: #e1f5fe; }
+
+
+
+/*  Magnifier */
+/*  Only magnify if the day is NOT a past day AND contains events */
+/* The :has(.event-item) ensures we only zoom on days with actual content */
+#fsb-calendar-app .calendar-day:not(.past-day):not(.empty):has(.event-item), :has(.corner-unit)):hover {
+    z-index: 1000;
+    transform: scale(1.35);
+    transform-origin: center;
+    background: #ffffff !important;
+    box-shadow: 0 15px 45px rgba(0,0,0,0.5);
+    border: 1px solid #0288d1;
+    cursor: pointer;
+}
+
+/* Explicitly prevent zoom on past days or days without events */
+#fsb-calendar-app .calendar-day.past-day:hover,
+#fsb-calendar-app .calendar-day:not(:has(.event-item)):hover {
+    transform: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+}
+
+/* Ensure empty days are truly "dead" to the mouse */
+#fsb-calendar-app .calendar-day.empty {
+    pointer-events: none; /* This prevents ANY hover or click on empty cells */
+    background: transparent !important;
+    border: none !important;
+}
+
+/* When zoomed, let the text wrap so they can read the whole title */
+#fsb-calendar-app .calendar-day:hover .event-item {
+    white-space: normal !important;
+    font-size: 0.8rem; /* Make font slightly larger during zoom */
+}
+
+/* If the 'magnifier-disabled' class is present, kill the scale and shadow */
+.magnifier-disabled .calendar-day:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    background: transparent !important;
+    border: 1px solid rgba(0,0,0,0.1) !important;
+}
+
+/* 2. Past Days - Restoring the Gray Tint */
+#fsb-calendar-app .calendar-day.past-day {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+#fsb-calendar-app .calendar-day.past-day .day-number {
+    color: #888 !important;
+}
+
+#fsb-calendar-app .calendar-day.past-day .event-item {
+    opacity: 0.7;
+    filter: grayscale(0.8);
+}
+
+/* 3. Empty Days - Truly Dead */
+#fsb-calendar-app .calendar-day.empty {
+    pointer-events: none !important;
+    background: transparent !important;
+    border: none !important;
+}
+
+/* 4. The Header (Number + Plus) */
+#fsb-calendar-app .day-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    height: 22px !important;
+    padding: 2px 5px !important;
+    box-sizing: border-box;
+}
+
+/* 5. The Plus Button - Only for Non-Past, Non-Empty days */
+#fsb-calendar-app .add-event-plus {
+    display: none !important; /* Hidden by default */
+    font-size: 1.2rem;
+    color: #0288d1;
+    cursor: pointer;
+    font-weight: bold;
+    line-height: 1;
+}
+
+/* Show Plus on Hover, but NOT on past days or empty days */
+#fsb-calendar-app .calendar-day:not(.past-day):not(.empty):hover .add-event-plus {
+    display: inline-block !important;
+}
+
+
+
+/* -- Modal list spacing -- */
+.modal-event-list {
+    padding: 0;
+    list-style: none;
+}
+
+.modal-event-card {
+    padding: 10px;
+    border-bottom: 1px solid #eee;
+    line-height: 1.1; /* Slightly more room for readability in modal */
+}
+
+.fsb-modal {
+    display: none; 
+    position: fixed; 
+    z-index: 9999; 
+    left: 0; top: 0;
+    width: 100%; height: 100%; 
+    background-color: rgba(0,0,0,0.7);
+    align-items: center; 
+    justify-content: center;
+}
+
+.modal-content {
+    background: #fff;
+    padding: 30px;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 500px;
+    position: relative;
+}
+
+.close-modal {
+    position: absolute;
+    right: 20px; top: 10px;
+    font-size: 30px;
+    cursor: pointer;
+}
+
+/* Full-screen Modal container */
+.fsb-full-modal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100vw; height: 100vh;
+    z-index: 1000;
+}
+
+.modal-backdrop {
+    position: absolute;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85); /* Darken everything else */
+    backdrop-filter: blur(5px);
+}
+
+.modal-window {
+    position: relative;
+    width: 90%;
+    max-width: 1000px;
+    height: 90vh;
+    margin: 5vh auto;
+    background: white;
+    border-radius: 12px;
+    overflow-y: auto;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+}
+
+.modal-close {
+    position: absolute;
+    top: 20px; right: 30px;
+    font-size: 40px;
+    color: #333;
+    background: white;
+    border-radius: 50%;
+    width: 50px; height: 50px;
+    border: none;
+    cursor: pointer;
+    z-index: 1010;
+}
+
+/* Content Styling */
+.flyer-image {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+.template-content {
+    padding: 60px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+/* Navigation Arrows Styling */
+.nav-arrow {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+
+    /* Colors to pop against the Canva backgrounds */
+    background: rgba(2, 136, 209, 0.8) !important; /* HOA Blue */
+    color: white !important;
+    border: 2px solid white !important;
+
+    font-size: 2.5rem !important;
+    width: 60px;
+    height: 80px;
+    border-radius: 10px;
+    cursor: pointer;
+    z-index: 3000 !important; /* High enough to beat the magnifier and the grid */
+
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s ease;
+}
+
+.nav-arrow:hover {
+    background: rgba(2, 136, 209, 1) !important;
+    transform: translateY(-50%) scale(1.1);
+}
+
+/* Positioning them far enough out to clear the 1.35x zoom */
+.nav-arrow.prev {
+    left: -60px; /* Adjust this if they are off-screen */
+}
+
+.nav-arrow.next {
+    right: -60px;
+}
+
+/* IMPORTANT: Ensure the parent container doesn't hide the arrows */
+#fsb-calendar-app {
+    overflow: visible !important;
+}
+
+
+/* -- Footer Toolbar -- */
+/* Ensure the app container can contain the footer at the bottom */
+#fsb-calendar-app {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end; /* Pushes content (footer) to bottom */
+}
+
+
+.calendar-footer-toolbar {
+    position: absolute;
+    bottom: -35px; /* Sits just below the 11x17 boundary */
+    left: 0;
+    width: 100%;
+    height: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.95);
+    border: 1px solid #ccc;
+    z-index: 4000; /* Above everything */
+}
+
+/*  -- Full screen behavior -- */
+/* 1. The Stage: The Wrapper fills the monitor */
+#fsb-fullscreen-wrapper:fullscreen {
+    background-color: #000 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+}
+
+/* 2. The Actor: The App stays 17:11 and transparent */
+#fsb-fullscreen-wrapper:fullscreen #fsb-calendar-app {
+    position: relative !important; 
+    /* Master Height: 80% of screen to leave room for toolbar */
+    height: 96vh !important; 
+    width: calc(96vh * (17 / 11)) !important;
+    max-width: 100vw !important;
+    aspect-ratio: 17 / 11 !important;
+    margin: 0 !important;
+}
+
+
+/* 3. The Footer: Position it inside the view in Fullscreen */
+#fsb-fullscreen-wrapper:fullscreen .calendar-footer-toolbar {
+    position: relative !important;
+    margin-top: 20px !important; /* Space between calendar and buttons */
+    width: calc(96vh * (17 / 11)) !important;
+    max-width: 95vw !important;
+    height: 35px !important;
+}
+
+/* 4. The Grid: Ensure it stays locked in FS */
+#fsb-fullscreen-wrapper:fullscreen #calendar-grid {
+    top: 14%;
+    height: 86%;
+    grid-template-rows: repeat(5, 1fr) !important;
+    grid-template-columns: repeat(7, 1fr) !important;
+}
+
+
+.toolbar-left, .toolbar-right {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    white-space: nowrap; /* Prevents the label from wrapping */
+    flex-shrink: 0;
+}
+
+.fsb-mini-btn {
+    background: #ffffff;
+    border: 1px solid #bbb;
+    color: #000000 !important; /* Force black text */
+    padding: 3px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+.fsb-mini-btn:hover {
+    background: #f0f0f0;
+    border-color: #888;
+}
+
+.mini-label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #000 !important;
+}
+
+
+.fsb-mini-select {
+    padding: 1px;
+    font-size: 11px;
+    height: 22px;
+}
+
+/* -- Agenda layout -- */
+
+/* When Agenda is active, align the "Stage" to the top, not the center */
+#fsb-fullscreen-wrapper:has(.no-bg) {
+    align-items: flex-start !important;
+    padding-top: 20px;
+    overflow-y: auto !important;
+}
+
+/* Ensure the wrapper allows the grid to expand */
+#fsb-calendar-app:has(.no-bg) {
+    height: auto !important;
+    min-height: 100vh;
+    overflow: visible !important;
+}
+
+/* Make the arrows "Sticky" so they stay on the screen while you scroll the list */
+#fsb-calendar-app:has(.no-bg) .nav-arrow {
+    position: fixed !important;
+    top: 50% !important; /* Keep them vertically centered in the viewport */
+    transform: translateY(-50%);
+    z-index: 9999;
+}
+/* Ensure the arrows don't overlap the list text on narrow screens */
+#fsb-calendar-app:has(.no-bg) .nav-arrow.prev { left: 10px; }
+#fsb-calendar-app:has(.no-bg) .nav-arrow.next { right: 10px; }
+
+/* Force the grid to behave like a normal list in Agenda mode */
+/* This handles the switch from Grid to List */
+#calendar-grid.no-bg {
+    display: block !important;       /* Kills the 7-column grid */
+    position: relative !important;   /* Allows it to push the footer down */
+    top: 0 !important;               /* Resets the 14% top nudge */
+    height: auto !important;         /* Let it grow as long as the list is */
+    min-height: 600px;               /* Keeps it from looking collapsed if empty */
+    width: 100% !important;
+    padding: 20px !important;
+    background: #ffffff !important;  /* Provides the clean "paper" look */
+    box-sizing: border-box;
+}
+
+
+.agenda-container {
+    background: #fff;
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    text-align: left;
+}
+
+.agenda-day-header {
+    background: #f4f4f4;
+    padding: 8px 15px;
+    font-weight: 800;
+    color: #0288d1;
+    border-left: 5px solid #0288d1;
+    margin-top: 20px;
+    text-transform: uppercase;
+    font-size: 0.9rem;
+}
+
+.agenda-row {
+    padding: 15px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.agenda-row:hover {
+    background: #fdfdfd;
+}
+
+.agenda-main-line {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #000;
+}
+
+.agenda-time {
+    color: #0288d1;
+    margin: 0 5px;
+}
+
+/* Ensure the Lodge text is aligned */
+.agenda-sub-line {
+    font-size: 0.9rem;
+    color: #555;
+    text-align: left;
+}
+
+/* -- layout of day cell -- */
+
+#fsb-calendar-app .calendar-day {
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 1px solid rgba(0,0,0,0.05) !important;
+    position: relative;
+    background: transparent !important;
+    height: 100% !important; /* Force respect of the 1/5th row height */
+    overflow: hidden;
+}
+
+#fsb-calendar-app .day-top {
+    display: flex !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    height: 20px !important; /* Tightened to prevent grid creep */
+    padding: 0px 5px !important;
+    box-sizing: border-box;
+    width: 100%;
+}
+
+#fsb-calendar-app .day-number {
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+/* SUPER MAGNIFIER - 1.5x for better visibility */
+/* Only triggers if the parent grid does NOT have the .magnifier-disabled class */
+#fsb-calendar-app #calendar-grid:not(.magnifier-disabled) .calendar-day:not(.past-day):not(.empty):is(:has(.event-item), :has(.corner-unit)):hover {
+    z-index: 9999 !important;
+    transform: scale(1.5) !important; /* High zoom for readability */
+    transform-origin: center;
+    background: #ffffff !important;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.6);
+    border: 1.5px solid #0288d1 !important;
+    cursor: pointer;
+}
+
+#fsb-calendar-app .day-events {
+    flex-grow: 1;
+    padding: 0 2px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+}
+
+.day-icons-corner {
+    display: flex !important;
+    gap: 3px;
+    align-items: center;
+    height: 100%; /* Ensures icons center within the 20px bar */
+}
+
+.corner-unit svg {
+    height: 18px; /* Slightly smaller than the 20px container to prevent clipping */
+    width: auto;
+    display: block;
+    filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.2));
+}
