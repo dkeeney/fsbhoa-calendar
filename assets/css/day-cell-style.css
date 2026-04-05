@@ -1,0 +1,272 @@
+/* --- FSBHOA CALENDAR: THE DAY CELL ENGINE --- */
+/*  
+ *  The calendar-day is the base.
+ *  All cells will have a background that is transparent so the Canva 
+ *  background can show through. The background contains the cell borders.
+ *
+ *  A day cell that contains no day-number is an empty cell and will 
+ *  not be magnified.
+ *
+ *  A normal day cell that is a past-day will be grayed, same if both 
+ *  halves of a split cell are past-day.  If only the top part of a 
+ *  split cell is past-day, only the upper triangle will be grayed.
+ *
+ *  Within a day cell, for normal days, and upper split days we have:
+ *  The day-top which contains the day-number on left and a set of icons 
+ *  (day-icons-corner) on the right.  For the magnifier only, on the 
+ *  far right is a + (add-event-plus).
+ *
+ *  For for normal days and top of split days, day-events stack and 
+ *  follow just under the day-top. The day-events are containers 
+ *  colored by category.  It is made up of the event title (with 
+ *  time on front or on back), followed by an edit pencil icon 
+ *  (if being seen by admin or owner).  The event title will normally 
+ *  be trimmed if it overflows the the cell but in the magnifier 
+ *  it will wrap.  This means the magnifier cell must be able to 
+ *  grow larger if needed to hold all of the events.
+ *
+ *  For the bottom of split days, The bottom will be the day-bottom 
+ *  which is just the reverse of the day-top with day-number on the 
+ *  right, icons (contained in day-icons-corner) on the left (with 
+ *  their edit pencils) with a + (add-event-plus) on the far left 
+ *  if in a magnifier.  The events for a bottom split day will float 
+ *  to the bottom just above the day-bottom.
+ *
+ *  For any split day there will be a svg drawn line that runs from 
+ *  corner to corner.
+ *
+ *  All cells must display exactly the same in monthly view grid, 
+ *  fullscreen grid, and printed grid.
+ *
+ *  Anatomy of a Cell
+ *  1. The Normal Day (The Vertical Stack)
+ *    Top: day-top (Flex Row: Number [Left] | Icons [Right] | + [Far Right, Hover only])
+ *    Middle: day-events (Flex Column: Vertical list of event "chips")
+ *  Behavior: Stays transparent. Grays out if past-day. Magnifier 
+ *  allows it to grow vertically to show wrapped text.
+ *
+ *  2. The Split Day (The "Sandwich")
+ *  Layer 1 (Top Day):
+ *    day-top (Number [Left] | Icons [Right] | + [Far Right, Hover only])
+ *    day-events (Stacked immediately under day-top)
+ *  Layer 2 (Space): Flex-grow spacer (pushes the two days apart).
+ *  Layer 3 (Bottom Day):
+ *    day-events-bottom (Stacked immediately above day-bottom)
+ *    day-bottom (Number [Right] | Icons [Left] | + [Far Left, Hover only])
+ *  Behavior: Only grays out the triangles/sections that are actually "past."
+ *  Background: transparent except for a SVG Diagonal Line (Corner to corner).
+ */
+
+/* --- 1. GLOBAL BASE ARCHITECTURE --- */
+#fsb-calendar-app, #fsb-calendar-app * {
+    box-sizing: border-box !important;
+}
+
+.calendar-day {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    width: 100% !important;
+    position: relative !important;
+    background: transparent !important; /* Let Canva show through */
+    overflow: hidden;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+/* Empty Cell Rule */
+.calendar-day.empty {
+    pointer-events: none !important;
+    opacity: 0;
+}
+
+/* --- 2. HEADER ROWS (Top & Bottom Strips) --- */
+.day-top, .day-bottom {
+    display: flex !important;
+    flex-direction: row !important;
+    flex-wrap: nowrap !important;
+    align-items: center !important;
+    height: 24px !important;
+    padding: 0 5px !important;
+    z-index: 10;
+}
+
+.day-number {
+    flex: 0 0 30px !important;
+    font-size: 1rem;
+    font-weight: 900;
+    line-height: 1;
+}
+
+.day-icons-corner {
+    display: flex !important;
+    gap: 4px;
+    align-items: center;
+    min-width: 0;
+}
+
+/* Standard/Top Alignment: Number Left, Icons Pushed Right */
+.day-top .day-number { text-align: left; }
+.day-top .day-icons-corner { margin-left: auto !important; }
+
+/* Bottom Alignment: Icons Left, Number Pushed Right */
+.day-bottom .day-number { text-align: right; }
+.day-bottom .day-icons-corner { margin-right: auto !important; }
+
+/* Magnifier-only Plus Button */
+.add-event-plus {
+    display: none !important; /* Hidden by default */
+    font-weight: bold;
+    color: #0288d1;
+    cursor: pointer;
+    margin: 0 5px;
+}
+
+/* --- 3. EVENT CONTAINERS & CHIPS --- */
+.day-events, .day-events-bottom {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 1px !important;
+    padding: 0 4px !important;
+    z-index: 10;
+}
+
+.event-item {
+    display: flex !important;
+    align-items: center !important;
+    font-size: 0.65rem;
+    line-height: 1.1;
+    padding: 1px 3px;
+    border-radius: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.event-item img {
+    height: 12px;
+    width: 12px;
+    margin-right: 4px;
+    object-fit: cover;
+}
+
+.edit-pencil, .edit-pencil-mini {
+    display: none !important; /* Hidden by default in standard grid */
+    margin-left: auto;
+    font-size: 0.6rem;
+    padding-left: 4px;
+    cursor: pointer !important;
+    user-select: none !important;
+    -webkit-user-select: none;
+}
+
+/* --- 4. SPLIT CELL SPECIFICS --- */
+.split-line-container {
+    position: absolute !important;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 1;
+}
+
+/* The Spring: Pushes bottom events and day-bottom to the floor */
+.split-cell .day-events-bottom {
+    margin-top: auto !important;
+}
+/* Right-justify events in the bottom triangle of split cells */
+.day-events-bottom .event-item {
+    justify-content: flex-end !important; /* Pushes flex content to the right */
+    text-align: right !important;        /* Aligns text to the right */
+}
+
+/* Ensure the edit pencil stays on the far right even when reversed */
+.day-events-bottom .event-item .edit-pencil {
+    margin-left: 4px !important;
+    margin-right: 0 !important;
+    order: 2; /* Keeps pencil after text */
+}
+
+
+/* --- 5. PAST DAY & GRAY-OUT STATES --- */
+/* Normal Day Past */
+.calendar-day.past-day {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.calendar-day.past-day .day-number,
+.calendar-day.past-day .event-item {
+    filter: grayscale(1) opacity(0.6);
+}
+
+/* Split Cell Partial Past (handled by JS classes on sub-containers) */
+.past-day.day-top, 
+.past-day.day-bottom, 
+.past-day.day-events, 
+.past-day.day-events-bottom {
+    filter: grayscale(1) opacity(0.6);
+}
+
+/* --- 5b. TODAY HIGHLIGHT --- */
+/* * We use a semi-transparent yellow so the Canva background 
+ * and grid lines still show through. 
+ */
+.calendar-day.today {
+    background-color: rgba(255, 249, 196, 0.5) !important; /* Pale Yellow (Material 100) at 50% */
+    outline: 2px solid #fbc02d; /* Solid gold outline to make it pop */
+    outline-offset: -2px;
+    z-index: 5; /* Ensure it stays above the background but below modals */
+}
+
+/* Ensure Today stays yellow even if it's considered "past" (rare but possible at midnight) */
+.calendar-day.today.past-day {
+    background-color: rgba(255, 249, 196, 0.7) !important;
+    filter: none !important; /* Keep the yellow bright */
+}
+
+/* Keep the highlight when magnified */
+#calendar-grid:not(.magnifier-disabled) .calendar-day.today:hover {
+    background-color: #fff9c4 !important; /* Solid yellow when magnified for readability */
+}
+
+/* --- 6. THE MAGNIFIER (HOVER) --- */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.empty):hover {
+    /* this should be higher than the Nav Arrows (3000) and Modals */
+    z-index: 5000 !important;
+    transform: scale(1.5) !important;
+    transform-origin: center;
+    background: #ffffff !important;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    overflow: visible !important;
+    height: auto !important;
+    min-height: 100%;
+}
+
+/* Show Plus only on Magnifier */
+.calendar-day:hover .add-event-plus {
+    display: inline-block !important;
+}
+
+/* Show Pencils only on Magnifier */
+.calendar-day:hover .edit-pencil,
+.calendar-day:hover .edit-pencil-mini {
+    display: inline-block !important;
+    cursor: pointer !important;
+}
+
+/* Wrap text in Magnifier */
+.calendar-day:hover .event-item {
+    white-space: normal !important; /* This allows wrapping */
+    word-break: break-word;
+    font-size: 0.75rem;
+}
+
+/* --- 7. PRINT OVERRIDES --- */
+@media print {
+    .calendar-day {
+        transform: none !important;
+        background: transparent !important;
+        -webkit-print-color-adjust: exact !important;
+    }
+    .add-event-plus, .edit-pencil {
+        display: none !important;
+    }
+}

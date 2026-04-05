@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FSBHOA Calendar
  * Description: The complete HOA event engine (display + Compiler).
- * Version: 1.0.0
+ * Version: 1.0.3
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -51,9 +51,15 @@ add_action('wp_enqueue_scripts', function() {
         return;
     }
 
+    if (current_user_can('manage_options')) {
+        wp_enqueue_media();
+    }
+
     // 1. Enqueue the script first
     wp_enqueue_script('fsb-cal-logic', plugins_url('assets/js/calendar-logic.js', __FILE__), array('jquery'), '1.1', true);
     wp_enqueue_style('fsb-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
+    wp_enqueue_style('fsb-agenda-style', plugins_url('assets/css/agenda-style.css', __FILE__));
+    wp_enqueue_style('fsb-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
 
     // 2. Fetch data for the JS
     global $wpdb;
@@ -88,43 +94,60 @@ add_shortcode('fsbhoa_calendar', function() {
 
     ob_start();
     ?>
-    <div id="fsb-fullscreen-wrapper">
-        <div id="fsb-calendar-app" data-json-url="<?php echo esc_url($json_url); ?>" data-user-email="<?php echo esc_attr($user_email); ?>" data-is-admin="<?php echo $is_admin; ?>">
+    <div id="fsb-monthly-wrapper">
+        <div id="fsb-calendar-app" 
+            data-json-url="<?php echo esc_url($json_url); ?>" 
+            data-user-email="<?php echo esc_attr($user_email); ?>" 
+            data-is-admin="<?php echo $is_admin; ?>">
+
             <button type="button" id="prevMonth" class="nav-arrow prev">&#10094;</button>
             <button type="button" id="nextMonth" class="nav-arrow next">&#10095;</button>
-            <div id="fsb-calendar-container">
-                <h2 id="currentMonthDisplay" style="display:none;"></h2>
-                <div id="calendar-grid" class="calendar-grid"></div>
-                <div id="fsb-detail-modal" class="fsb-full-modal">
-                    <div class="modal-backdrop"></div>
-                    <div class="modal-window">
-                        <button class="modal-close" onclick="closeDetailModal()">&times;</button>
-                        <div id="modal-content-area">
-                        </div>
-                    </div>
-                </div>
-                <div id="fsb-edit-modal" class="fsb-modal">
-                    <div class="modal-content">
-                        <span class="close-modal">&times;</span>
-                        <div id="edit-form-container"></div>
-                    </div>
+
+            <div id="calendar-grid" class="calendar-grid"></div>
+            <div id="fsb-detail-modal" class="fsb-full-modal">
+                <div class="modal-backdrop"></div>
+                <div class="modal-window">
+                    <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                    <div id="modal-content-area"> </div>
                 </div>
             </div>
-            <div class="calendar-footer-toolbar">
-                <div class="toolbar-left">
-                    <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
-                    <button type="button" id="toggleFullScreen" class="fsb-mini-btn">⛶ Fullscreen</button>
+            <div id="fsb-edit-modal" class="fsb-modal">
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <div id="edit-form-container"></div>
                 </div>
+            </div>
+            <div id="fsb-reschedule-modal" class="fsb-modal">
+                <div class="modal-content" style="max-width: 400px;">
+                    <span class="close-modal" onclick="closeRescheduleModal()">&times;</span>
+                    <div id="reschedule-form-container"></div>
+                </div>
+            </div>
+            <div id="fsb-day-modal" class="fsb-modal">
+                <div class="modal-content">
+                    <span class="close-modal">&times;</span>
+                    <div id="fsb-modal-content"></div>
+                </div>
+            </div>
+        </div>
+        <div id="fsb-monthly-toolbar" class="calendar-footer-toolbar">
+            <div class="toolbar-left">
+                <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
+                <button type="button" id="toggleFullScreen" class="fsb-mini-btn">⛶ Fullscreen</button>
+            </div>
     
-                <div class="toolbar-right">
-                    <button type="button" id="printCal" class="fsb-mini-btn">Print (PDF)</button>
-                    <label class="mini-label">
-                        <input type="checkbox" id="toggle-magnifier" checked> Magnifier
+            <div class="toolbar-right">
+                <button type="button" id="printCal" class="fsb-mini-btn">Print (PDF)</button>
+                <label class="mini-label">
+                    <input type="checkbox" id="toggle-magnifier" checked> Magnifier
+                </label>
+                <div class="view-toggle-container">
+                    <span class="toggle-label">Monthly</span>
+                    <label class="fsb-switch">
+                        <input type="checkbox" id="viewToggle">
+                        <span class="slider round"></span>
                     </label>
-                    <select id="viewSelector" class="fsb-mini-select">
-                        <option value="month">Monthly</option>
-                        <option value="agenda">Agenda</option>
-                    </select>
+                    <span class="toggle-label">Agenda</span>
                 </div>
             </div>
         </div>
@@ -134,6 +157,61 @@ add_shortcode('fsbhoa_calendar', function() {
     <?php
     return ob_get_clean();
 });
+
+// Add the new Agenda-specific shortcode
+add_shortcode('fsbhoa_agenda', function() {
+    $json_url = admin_url('admin-ajax.php') . '?action=fsb_get_calendar_json';
+    $json_url .= '&v=' . get_option('fsb_cal_version', time());
+
+    $current_user = wp_get_current_user();
+    $user_email = $current_user->user_email;
+    $is_admin = current_user_can('manage_options') ? 'true' : 'false';
+
+    ob_start();
+    ?>
+    <div id="fsb-agenda-wrapper">
+        <div id="fsb-agenda-app" 
+             class="agenda-mode-only"
+             data-json-url="<?php echo esc_url($json_url); ?>" 
+             data-user-email="<?php echo esc_attr($user_email); ?>" 
+             data-is-admin="<?php echo $is_admin; ?>">
+            
+            <button type="button" id="prevMonth" class="nav-arrow prev">&#10094;</button>
+            <button type="button" id="nextMonth" class="nav-arrow next">&#10095;</button>
+
+            <div id="agenda-view">
+                <div id="agenda-sticky-header"></div>
+                <div id="agenda-content-area"></div>
+            </div>
+
+            <div id="fsb-detail-modal" class="fsb-full-modal">
+                <div class="modal-backdrop"></div>
+                <div class="modal-window">
+                    <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                    <div id="modal-content-area"></div>
+                </div>
+            </div>
+        </div>
+        <div id="fsb-agenda-toolbar" class="calendar-footer-toolbar">
+            <div class="toolbar-left">
+                <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
+            </div>
+            <div class="toolbar-right">
+                <div class="view-toggle-container">
+                    <span class="toggle-label">Monthly</span>
+                    <label class="fsb-switch">
+                        <input type="checkbox" id="viewToggle">
+                        <span class="slider round"></span>
+                    </label>
+                    <span class="toggle-label">Agenda</span>
+                </div>
+            </div>
+        </div>
+    </div>
+    <?php
+    return ob_get_clean();
+});
+
 
 
 // Use 'admin_init' to catch the redirect back from options.php
@@ -151,6 +229,9 @@ add_action('admin_init', function() {
 add_action('wp_ajax_fsb_get_event_details', 'fsb_handle_get_event_details');
 
 function fsb_handle_get_event_details() {
+    $tz = get_option('timezone_string') ?: timezone_name_from_abbr('', get_option('gmt_offset') * 3600, false);
+    if ($tz) date_default_timezone_set($tz);
+
     check_ajax_referer('fsb_cal_nonce', 'nonce');
 
     $event_id = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
@@ -161,9 +242,9 @@ function fsb_handle_get_event_details() {
 
     if ($event) {
         // Map DB fields to JS-friendly keys if they differ
-        $event->start_time_raw = date('H:i', strtotime($event->start_datetime));
-        $event->end_time_raw   = date('H:i', strtotime($event->end_datetime));
-        $event->flyer_url      = $event->website_url;
+        $event->start_time = date('H:i', strtotime($event->start_datetime));
+        $event->end_time   = date('H:i', strtotime($event->end_datetime));
+        $event->base_date  = date('Y-m-d', strtotime($event->start_datetime));
 
         wp_send_json_success($event);
     } else {
@@ -188,7 +269,21 @@ add_action('fsbhoa_event_updated', function($event_id) {
 // Listen for the AJAX call from the JS "Save Changes" button
 add_action('wp_ajax_fsb_save_calendar_event', 'fsb_handle_save_event');
 
+
+
 function fsb_handle_save_event() {
+    $tz = get_option('timezone_string') ?: timezone_name_from_abbr('', get_option('gmt_offset') * 3600, false);
+    if ($tz) date_default_timezone_set($tz);
+
+    $edit_mode  = sanitize_text_field($_POST['edit_mode'] ?? 'single');
+    $master_id   = isset($_POST['event_id']) ? intval($_POST['event_id']) : null;
+    $pivot_id   = isset($_POST['pivot_id']) ? intval($_POST['pivot_id']) : $master_id;
+    $move_id   = isset($_POST['move_id']) ? intval($_POST['move_id']) : null;
+
+    error_log("FSBHOA AJAX TRIGGERED: Mode=" . $edit_mode . 
+              " ID=$master_id move_id=$move_id pivot_id=$pivot_id");
+
+    
     // 1. Security & Permission Check
     check_ajax_referer('fsb_cal_nonce', 'nonce');
 
@@ -200,25 +295,15 @@ function fsb_handle_save_event() {
     $repo = new \FSBHOA\Cal\Repository();
     $compiler = new \FSBHOA\Cal\Compiler();
 
-    $title = sanitize_text_field($_POST['title'] ?? '');
 
-    // --- MANUAL BAKE TRIGGER ---
-    // If title is empty, just bake and exit.
-    if (empty($title)) {
-        $compiler->bake();
-        wp_send_json_success(['message' => 'Manual Bake Complete! No record created.']);
-        wp_die();
-    }
 
     // 2. Collect and Sanitize Data
-    $event_id   = isset($_POST['event_id']) ? intval($_POST['event_id']) : null;
-    $edit_mode  = sanitize_text_field($_POST['edit_mode'] ?? 'single');
-    $event_date = sanitize_text_field($_POST['date']);
-    $start_time = sanitize_text_field($_POST['start_time']);
-    $end_time   = sanitize_text_field($_POST['end_time']);
+    $title      = sanitize_text_field($_POST['title'] ?? '');
+    $event_date = sanitize_text_field($_POST['date']);  // date clicked on
     //
-    // 1. Fetch the existing record to see its original "Anchor Date"
-    $existing_event = $event_id ? $repo->get($event_id) : null;
+    // 1. Fetch the existing master record to see its original "Anchor Date"
+    $existing_event = $master_id ? $repo->get($master_id) : null;
+
 
     // 2. Decide which date to use
     // If it's a Master event (no parent_id), keep its original date.
@@ -231,30 +316,20 @@ function fsb_handle_save_event() {
         $target_date = date('Y-m-d', strtotime($existing_event->start_datetime));
     }
 
-    // Standard data payload used for most operations
-    $data = [
-        'title'          => $title,
-        'content'        => wp_kses_post($_POST['content'] ?? ''),
-        'start_datetime' => "$target_date $start_time:00",
-        'end_datetime'   => "$target_date $end_time:00",
-        'location_id'    => !empty($_POST['location_id']) ? intval($_POST['location_id']) : null,
-        'category_id'    => !empty($_POST['category_id']) ? intval($_POST['category_id']) : null,
-        'is_ticketed'    => isset($_POST['is_ticketed']) && $_POST['is_ticketed'] === 'true' ? 1 : 0,
-        'cost'           => sanitize_text_field($_POST['cost']),
-        'website_url'    => esc_url_raw($_POST['flyer_url'] ?? ''),
-        'rrule'          => !empty($_POST['rrule']) ? sanitize_text_field($_POST['rrule']) : null,
-        'visibility'     => 'resident',
-        'status'         => 'active'
-    ];
-
     try {
         switch ($edit_mode) {
             case 'instance_cancel':
                 // "Punch a hole" in a repeating series
-                $data['parent_id'] = $event_id;
-                $data['status']    = 'cancelled';
-                $data['rrule']     = null; // Children never repeat
-                unset($data['id']);
+                $start_time = date('H:i', strtotime($existing_event->start_datetime));
+                $end_time   = date('H:i', strtotime($existing_event->end_datetime));
+                $data = [
+                    'title'          => $title,
+                    'parent_id'      => $master_id,
+                    'start_datetime' => "$target_date $start_time:00",
+                    'end_datetime'   => "$target_date $end_time:00",
+                    'status'         => 'cancelled',
+                    'rrule'          => null // Children never repeat
+                ];
                 $repo->save($data);
                 break;
 
@@ -263,62 +338,128 @@ function fsb_handle_save_event() {
                 $wpdb->update(
                     $wpdb->prefix . 'fsbhoa_events',
                     ['status' => 'cancelled'],
-                    ['id' => $event_id]
+                    ['id' => $master_id]
                 );
                 break;
 
             case 'series_end':
                 // Stop the series before this date
-                $existing = $repo->get($event_id);
-                if ($existing && !empty($existing->rrule)) {
+                $existing_pivot = $repo->get($pivot_id);   // pivot or master record
+                if ($existing_pivot && !empty($existing_pivot->rrule)) {
                     // Calculate yesterday's date for the UNTIL rule
                     $until_date = date('Ymd\T235959\Z', strtotime($event_date . ' -1 day'));
         
                     // Strip any existing UNTIL or COUNT and append the new one
-                    $base_rule = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $existing->rrule);
+                    $base_rule = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $existing_pivot->rrule);
                     $new_rrule = $base_rule . ";UNTIL=$until_date";
         
-                    $wpdb->update($wpdb->prefix . 'fsbhoa_events', ['rrule' => $new_rrule], ['id' => $event_id]);
+                    $wpdb->update($wpdb->prefix . 'fsbhoa_events', ['rrule' => $new_rrule], ['id' => $master_id]);
                 }
                 break;
 
             case 'master_delete':
                 // The Nuclear Option
-                $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['id' => $event_id]);
-                $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['parent_id' => $event_id]);
-                break;
-
-            case 'master_cancel':
-                // Fallback for one-shots
-                $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['id' => $event_id]);
+                $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['id' => $master_id]);
+                $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['parent_id' => $master_id]);
                 break;
 
             case 'instance_move':
-                // 1. Create the Cancelled Hole for the original date
-                $hole = $data;
-                $hole['parent_id'] = $event_id;
-                $hole['status']    = 'cancelled';
-                $hole['rrule']     = null;
-                unset($hole['id']);
-                $repo->save($hole);
-
-                // 2. Create a new One-Shot for the new date
+                $event_date   = sanitize_text_field($_POST['date']);
                 $move_to_date = sanitize_text_field($_POST['move_to_date']);
-                $data['start_datetime'] = "$move_to_date $start_time:00";
-                $data['end_datetime']   = "$move_to_date $end_time:00";
-                $data['rrule']          = null; // The moved instance becomes a one-shot
-                unset($data['id']);
-                $repo->save($data);
+                $new_start    = sanitize_text_field($_POST['move_to_start_time']);
+                $scope        = sanitize_text_field($_POST['reschedule_scope'] ?? 'instance');
+
+                error_log("FSBHOA DEBUG: Entering move logic for ID $master_id, pivot_id: $pivot_id, move_id: $move_id");
+
+                // Calculate end time based on the original duration
+                $existing_pivot = $repo->get($pivot_id);   // pivot or master
+                if (!$existing_pivot) {
+                    error_log("FSBHOA DEBUG: active pivot $pivot_id not found");
+                    wp_send_json_error('Event not found');
+                }
+                $duration_seconds = strtotime($existing_pivot->end_datetime) - strtotime($existing_pivot->start_datetime);
+                $new_end = date('H:i', strtotime($new_start) + $duration_seconds);
+
+                $result = $repo->move_event_instance(
+                    $master_id,
+                    $pivot_id,   // id of pivot or master
+                    $move_id,    // if moving from a move record or null
+                    $event_date, // The date from the calendar cell
+                    $move_to_date,
+                    $new_start,
+                    $new_end,
+                    $scope
+                );
+
+                if (is_wp_error($result)) {
+                    error_log("FSBHOA DEBUG: Repo error: " . $result->get_error_message());
+                    wp_send_json_error($result->get_error_message());
+                }
+                error_log("FSBHOA DEBUG: Move call finished successfully");
                 break;
 
+
             default:
-                // Standard Save or Master Update
-                if ($event_id) {
-                    $data['id'] = $event_id;
-                } else {
-                    $data['owner_email'] = wp_get_current_user()->user_email;
+                // GUARDRAIL: make sure there is a title.
+                // If there is no title, assume we just want to do a bake.
+                if (empty($title)) {
+                    error_log("FSBHOA DEBUG: title empty, just doing a bake.");
+                    break;
                 }
-                $repo->save($data);
+
+                error_log("FSBHOA DEBUG: taking default case.");
+
+                // Standard data payload used add/edit.
+                $start_time = sanitize_text_field($_POST['start_time']); 
+                $end_time   = sanitize_text_field($_POST['end_time']);
+                $data = [
+                    'title'          => $title,
+                    'content'        => wp_kses_post($_POST['content'] ?? ''),
+                    'setup_notes'    => wp_kses_post($_POST['setup_notes'] ?? ''),
+                    'location_id'    => !empty($_POST['location_id']) ? intval($_POST['location_id']) : null,
+                    'category_id'    => !empty($_POST['category_id']) ? intval($_POST['category_id']) : null,
+                    'is_ticketed'    => isset($_POST['is_ticketed']) && $_POST['is_ticketed'] === 'true' ? 1 : 0,
+                    'cost'           => sanitize_text_field($_POST['cost']),
+                    'flyer_url'      => esc_url_raw($_POST['flyer_url'] ?? ''),
+                    'visibility'     => isset($_POST['visibility']) ? sanitize_text_field($_POST['visibility']) : 'public',
+                    'status'         => 'active',
+                    'owner_email'    => isset($_POST['owner_email']) ? sanitize_email($_POST['owner_email']) : null,
+                ];
+
+                if ($edit_mode == 'soft_save') {
+                    // Just update the metadata on the Master record
+                    $data['id'] = $master_id;
+                    $repo->save($data);
+                    // Note: We EXPLICITLY do not call fsb_maybe_pivot_series here.
+                    break;
+                }
+
+                $new_rrule = !empty($_POST['rrule']) ? sanitize_text_field($_POST['rrule']) : null;
+                $new_start_datetime = "$target_date $start_time:00";
+                $new_end_datetime   = "$target_date $end_time:00";
+
+                if (!$master_id) {
+                    // this is an Add
+                    error_log("FSBHOA Doing a master add");
+                    $data['rrule']          = $new_rrule;
+                    $data['start_datetime'] = $new_start_datetime;
+                    $data['end_datetime']   = $new_end_datetime;
+                    $repo->save($data);
+
+                } else {
+                    // this is an update
+                    error_log("FSBHOA Doing an update on $pivot_id.");
+                    $data['id'] = $master_id;
+                    $repo->save($data);
+
+                    //  Check for a Series Pivot
+                    $data = [];
+                    $data['title']          = $title;   // for debugging
+                    $data['rrule']          = $new_rrule;
+                    $data['start_datetime'] = $new_start_datetime;
+                    $data['end_datetime']   = $new_end_datetime;
+                    fsb_maybe_pivot_series($repo, $pivot_id, $data, $target_date);
+                }
                 break;
         }
 
@@ -328,6 +469,7 @@ function fsb_handle_save_event() {
         wp_send_json_success(['message' => 'Success! Calendar baked.', 'mode' => $edit_mode]);
 
     } catch (\Exception $e) {
+        error_log("FSBHOA CRITICAL ERROR: in save logic. " . $e->getMessage());
         wp_send_json_error('Database error: ' . $e->getMessage());
     }
 
@@ -386,3 +528,88 @@ function fsb_serve_calendar_json() {
     exit;
 }
 
+
+/**
+ * Saves DNA fields: the rrule, start and end datetimes.  
+ * 1) Find active rule. We look for pivot point or master closest 
+ *    but <= to the pivot date. 
+ * 2) If the DNA fields have not changed, return; nothing to do.
+ * 3) If the start_datetime is the same, save the DNA fields in-place
+ *    and delete all pivots, exceptions, and holes that follow.
+ * 4) else, create a new pivot record with the DNA fields.
+ * Note:  If the pivot date is in the past, move the pivot date to today.
+ */
+function fsb_maybe_pivot_series($repo, $pivot_id, $dna_data, $clicked_date) {
+    $active_rule = $repo->get($pivot_id);
+    if (!$active_rule) {
+        error_log("FSBHOA PIVOT: Could not find Pivot record $pivot_id");
+        return; // Should not happen if Master exists
+    }
+    $master_id = !empty($active_rule->parent_id) ? $active_rule->parent_id : $active_rule->id;
+
+    $today_str = date('Y-m-d');
+
+    // --- NORMALIZE PIVOT DATE ---
+    // If they clicked a past date, the "New Era" starts Today.
+    // If they clicked a future date, the "New Era" starts then.
+    $pivot_date = ($clicked_date < $today_str) ? $today_str : $clicked_date;
+
+
+    // --- 3. DNA CHANGE DETECTION ---
+    $new_start_time = date('H:i', strtotime($dna_data['start_datetime']));
+    $new_end_time   = date('H:i', strtotime($dna_data['end_datetime']));
+    $old_start_time = date('H:i', strtotime($active_rule->start_datetime));
+    $old_end_time   = date('H:i', strtotime($active_rule->end_datetime));
+    $old_start_time_full = date('H:i:s', strtotime($active_rule->start_datetime));
+
+    $dna_changed = (
+        $active_rule->rrule !== $dna_data['rrule'] || 
+        $old_start_time !== $new_start_time || 
+        $old_end_time !== $new_end_time
+    );
+
+    if (!$dna_changed) {
+        // nothing to do.
+        error_log("FSBHOA PIVOT: No DNA change detected. Skipping.");
+        return;
+    }
+    
+    error_log("FSBHOA PIVOT check: DNA changed id=$pivot_id");
+
+    // --- 4. DECIDE: UPDATE IN-PLACE OR INSERT NEW PIVOT ---
+    $rule_start_date = date('Y-m-d', strtotime($active_rule->start_datetime));
+
+    if ($rule_start_date === $pivot_date) {
+        // CASE: Update In-Place
+        // The user is editing a rule that starts exactly on the pivot date.
+        error_log("FSBHOA PIVOT: Updating existing record ID {$active_rule->id} in-place.");
+
+        // update pivot record (or master)
+        $repo->save([
+            'id'             => $active_rule->id,
+            'rrule'          => $dna_data['rrule'],
+            'start_datetime' => "$pivot_date $new_start_time:00",
+            'end_datetime'   => "$pivot_date $new_end_time:00"
+        ]);
+
+        // Nuke all downstream children of the master for this era
+        $repo->delete_downstream($master_id, $pivot_date, $old_start_time_full);
+    } else {
+        // CASE: Create New Pivot
+        // We are branching off from an older rule.
+        error_log("FSBHOA PIVOT: Creating new pivot era starting $pivot_date.");
+
+        // 1. Nuke downstream first to clear the path
+        $repo->delete_downstream($master_id, $pivot_date, $old_start_time_full);
+
+        // 2. Insert the new Pivot
+        $repo->save([
+            'parent_id'      => $master_id,
+            'title'          => $dna_data['title'] ?? '',
+            'rrule'          => $dna_data['rrule'],
+            'start_datetime' => "$pivot_date $new_start_time:00",
+            'end_datetime'   => "$pivot_date $new_end_time:00",
+            'status'         => 'active'
+        ]);
+    }
+}

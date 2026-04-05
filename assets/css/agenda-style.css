@@ -1,0 +1,165 @@
+/* --- Agenda Specific Styles  --- */
+
+
+#fsb-agenda-wrapper {
+    display: none;  /* Stays hidden unless the JS specifically wakes it up */
+    width: 100% !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    /* Push the entire agenda down 70px to clear the site header */
+    padding-top: 70px !important;
+    margin-bottom: 50px !important;
+}
+
+/* 1. The Main Column */
+#fsb-agenda-app {
+    display: block !important;
+    width: 95% !important;
+    max-width: 600px !important;
+    margin: 20px auto !important;
+    height: auto !important;
+    overflow: visible !important;
+    margin-top: -84px !important; /* The Magic Number */
+    padding-top: 0px !important;
+    position: relative;
+}
+
+/* 2. The Month Header (Plain & Simple) */
+#agenda-sticky-header {
+    position: -webkit-sticky;
+    position: sticky !important;
+    top: 60; /* This locks it to the top of the browser as you scroll */
+    z-index: 4000;
+    background: #0288d1;
+    color: white;
+    padding: 15px;
+    font-size: 1.4rem;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    width: 100%;
+}
+
+/* 3. The Content Area */
+#agenda-content-area {
+    padding: 0 10px 20px 10px !important;
+    background: #fff;
+}
+
+/* 4. The Day Headers */
+.agenda-day-header {
+    background: #e1f5fe !important;
+    color: #0288d1 !important;
+    padding: 10px 15px !important;
+    margin-top: 20px !important;
+    font-weight: 800 !important;
+    border-left: 6px solid #0288d1;
+    display: flex;
+    justify-content: space-between;
+}
+
+/* 5. The Row & Chevron */
+.agenda-row {
+    display: flex;
+    align-items: center;
+    padding: 15px 10px;
+    border-bottom: 1px solid #eee;
+    cursor: pointer;
+}
+
+/* The Header for Today */
+.agenda-today-header {
+    background: #fff9c4 !important; /* Light yellow */
+    color: #f57f17 !important; /* Deep orange/gold text */
+    border-left: 8px solid #fbc02d !important; /* Thick gold bar */
+}
+
+/* The Rows for Today */
+.agenda-today-row {
+    background-color: #fffde7 !important; /* Very faint yellow */
+    border-left: 4px solid #fbc02d !important;
+}
+
+.agenda-today-row:hover {
+    background-color: #fff9c4 !important;
+}
+
+/* 6. The Toolbar at the Bottom */
+/* Specifically target the toolbar ONLY when it's inside the Agenda app */
+#fsb-agenda-app .calendar-footer-toolbar {
+    position: relative !important; /* Switch from absolute to relative */
+    bottom: 0 !important;
+    margin-top: 30px !important; /* Space after the last event */
+    width: 100% !important;
+    left: 0 !important;
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
+    background: #f9f9f9;
+    padding: 10px;
+    border-top: 1px solid #ddd;
+    border-radius: 0 0 8px 8px; /* Round the bottom corners of the box */
+}
+
+/* 7. Nav cheverons   */
+.agenda-chevron-icon {
+    margin-left: auto;
+    color: #0288d1 !important;
+    font-size: 1.5rem !important;
+    font-weight: 900;
+    display: inline-block !important;
+}
+
+#fsb-agenda-app .nav-arrow {
+    display: flex !important;
+    position: fixed !important; /* Lock to the browser window */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    z-index: 5000 !important;
+
+    /* Pull them in from the very edges so they are visible on a 32" monitor */
+    width: 50px;
+    height: 70px;
+}
+
+#fsb-agenda-app .nav-arrow.prev {
+    left: 20px !important;
+}
+
+#fsb-agenda-app .nav-arrow.next {
+    right: 20px !important;
+}
+
+.agenda-thumb, .flyer-thumb-container {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 6px;
+    overflow: hidden !important; /* This acts as the "Cutter" */
+    border: 1px solid #ddd;
+    flex-shrink: 0;
+    background: #f0f0f0;
+}
+
+.agenda-thumb img, .flyer-thumb-container img {
+    width: 100% !important;
+    height: 100% !important;
+    object-fit: cover !important; /* Crops the image to fill the square */
+    object-position: center top !important; /* Keeps the top of the flyer visible */
+    display: block !important;
+}
+
+@media (max-width: 768px) {
+    /* Shrink the arrows for mobile thumbs */
+    #fsb-agenda-app .nav-arrow {
+        width: 40px !important;
+        height: 50px !important;
+        font-size: 1.5rem !important;
+    }
+
+    #fsb-agenda-app .nav-arrow.prev { left: 5px !important; }
+    #fsb-agenda-app .nav-arrow.next { right: 5px !important; }
+
+    /* Make the Month Header slightly smaller so it doesn't eat the screen */
+    #agenda-sticky-header {
+        font-size: 1.1rem !important;
+        padding: 10px !important;
+    }
+}
