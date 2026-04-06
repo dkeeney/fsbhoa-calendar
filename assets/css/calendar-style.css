@@ -695,3 +695,53 @@ input:checked + .slider:before { transform: translateX(20px); }
 .manage-btn.danger:hover { background: #ffcdd2; }
 
 
+
+/* --- Drag & Drop ---  */
+/* Disable magnifier during drag */
+#calendar-grid.is-dragging .calendar-day:hover {
+    transform: none !important;
+    box-shadow: none !important;
+    z-index: 1 !important;
+}
+
+/* Day Cell Drop Zone */
+.calendar-day.drop-target {
+    background-color: rgba(2, 136, 209, 0.2) !important;
+    outline: 3px dashed #0288d1 !important;
+    outline-offset: -5px;
+}
+
+.calendar-day.drop-target::after {
+    content: attr(data-drop-text);
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(2, 136, 209, 0.9);
+    color: white;
+    padding: 5px 10px;
+    border-radius: 4px;
+    font-size: 0.7rem;
+    font-weight: bold;
+    pointer-events: none;
+    z-index: 100;
+}
+
+/* Header Drop Zone (Cancel) */
+#fsb-calendar-app.header-drop-active::before {
+    content: attr(data-drop-text);
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 14%; /* Matches your grid top offset */
+    background: rgba(211, 47, 47, 0.8);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 1.2rem;
+    z-index: 4000;
+    pointer-events: none;
+}
+
+
+

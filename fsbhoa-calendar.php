@@ -292,8 +292,10 @@ function fsb_handle_save_event() {
     
     // 1. Security & Permission Check
     check_ajax_referer('fsb_cal_nonce', 'nonce');
+    error_log("PHP DEBUG: Nonce Check Passed");
 
     if (!current_user_can('edit_posts')) {
+        error_log("PHP DEBUG: Permission Denied for user");
         wp_send_json_error('You do not have permission to edit events.');
     }
 
@@ -325,11 +327,12 @@ function fsb_handle_save_event() {
     try {
         switch ($edit_mode) {
             case 'instance_cancel':
+                error_log("PHP DEBUG: Entering instance_cancel for ID: " . $master_id);
                 // "Punch a hole" in a repeating series
                 $dna_start_time = substr($existing_event->start_datetime, 11, 8);
                 $dna_end_time   = substr($existing_event->end_datetime, 11, 8);
                 $data = [
-                    'title'          => $title,
+                    'title'          => $existing_event->title,
                     'parent_id'      => $master_id,
                     'start_datetime' => "$target_date $dna_start_time",
                     'end_datetime'   => "$target_date $dna_end_time",

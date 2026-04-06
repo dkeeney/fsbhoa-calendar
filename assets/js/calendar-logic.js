@@ -1,5 +1,6 @@
 let config = {};
 let allEvents = [];
+let draggedData = null; // Global Drag State
 
 // --- DATE DETECTION LOGIC --- (the month to show at start if not today)
 const urlParams = new URLSearchParams(window.location.search);
@@ -345,6 +346,98 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+
+    /* --- Drag & Drop --- */
+
+    document.addEventListener('dragstart', (e) => {
+        const chip = e.target.closest('.event-item');
+        if (!chip) return;
+
+        draggedData = {
+            id: chip.dataset.eventId,
+            pivotId: chip.dataset.pivotId,
+            moveId: chip.dataset.moveId,
+            originalDate: chip.closest('.calendar-day').dataset.date || chip.closest('.split-cell').dataset.date
+        };
+
+        document.getElementById('calendar-grid').classList.add('is-dragging');
+        e.dataTransfer.effectAllowed = "move";
+    });
+
+    document.addEventListener('dragover', (e) => {
+        e.preventDefault(); // Required to allow drop
+        const dayCell = e.target.closest('.calendar-day');
+        const appHeader = e.target.closest('#fsb-calendar-app');
+        const isShift = e.shiftKey;
+
+        // Reset all targets
+        document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+        appHeader?.classList.remove('header-drop-active');
+
+        // Handle Day Cell Hover
+        if (dayCell && !dayCell.classList.contains('empty')) {
+            dayCell.classList.add('drop-target');
+            dayCell.setAttribute('data-drop-text', isShift ? "Reschedule Following" : "Reschedule Here");
+        }
+        // Handle Header Hover (Check if mouse is in the top 14%)
+        else if (appHeader) {
+            const rect = appHeader.getBoundingClientRect();
+            if (e.clientY - rect.top < (rect.height * 0.14)) {
+                appHeader.classList.add('header-drop-active');
+                appHeader.setAttribute('data-drop-text', isShift ? "DROP TO END SERIES" : "DROP TO CANCEL INSTANCE");
+            }
+        }
+    });
+
+    document.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        const isShift = e.shiftKey;
+        const grid = document.getElementById('calendar-grid');
+        const appContainer = document.getElementById('fsb-calendar-app');
+
+        // 1. Clean up UI immediately
+        grid.classList.remove('is-dragging');
+        appContainer.classList.remove('header-drop-active');
+
+        if (!draggedData) return;
+
+        // 2. Check if we are in the Header (The top 14%)
+        const rect = appContainer.getBoundingClientRect();
+        const relativeY = e.clientY - rect.top;
+        const isInHeader = relativeY >= 0 && relativeY < (rect.height * 0.14);
+
+        if (isInHeader) {
+            const mode = isShift ? 'series_end' : 'instance_cancel';
+            console.log(`FSBHOA: Header Drop [${mode}] for ID ${draggedData.id}`);
+
+            // Pass all IDs to ensure PHP has what it needs
+            await saveEventChanges(mode, draggedData.id, draggedData.originalDate, false);
+
+            // Reset state and exit
+            draggedData = null;
+            return;
+        }
+
+        // 3. Fallback to Day Cell Reschedule
+        const dayCell = e.target.closest('.calendar-day');
+        if (dayCell && !dayCell.classList.contains('empty')) {
+            const targetDate = dayCell.dataset.date;
+            if (targetDate === draggedData.originalDate && !isShift) return;
+
+            submitReschedule(draggedData.id, draggedData.originalDate, draggedData.pivotId, draggedData.moveId, targetDate, isShift);
+        }
+
+        draggedData = null;
+    });
+
+
+    document.addEventListener('dragend', () => {
+        document.getElementById('calendar-grid').classList.remove('is-dragging');
+        document.getElementById('fsb-calendar-app').classList.remove('header-drop-active');
+    });
+
+
+
     loadData();
 
 });
@@ -493,7 +586,9 @@ function renderMonthGrid(monthlyApp) {
             const icons = dayEvents.filter(e => iconLibrary[e.category_id]);
 
             grid.innerHTML += `
-                <div class="calendar-day ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}" onclick="openDayModal('${dateStr}')">
+                <div class="calendar-day ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}" 
+                        data-date="${dateStr}"
+                        onclick="openDayModal('${dateStr}')">
                     <div class="day-top">
                         <div class="day-number">${dayNum}</div>
                         <div class="day-icons-corner">${renderIcons(icons, dateStr)}</div>
@@ -531,7 +626,9 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
     const evtsB = allEvents.filter(e => e.date === dateB);
 
     return `
-        <div class="calendar-day split-cell ${splitStateClass}" onclick="openDayModal('${dateA}')">
+        <div class="calendar-day split-cell ${splitStateClass}" 
+                data-date="${dateA}" data-date-top="${dateA}" data-date-bottom="${dateB}"
+                onclick="openDayModal('${dateA}')">
             <div class="split-line-container">
                 ${activeSVG}
             </div>
@@ -1127,21 +1224,26 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
     modal.classList.add('is-visible');
 }
 
-async function submitReschedule(id, origDate, pivotId = null, moveId = null) {
-    const newDate = document.getElementById('res_date').value;
-    const newTime = document.getElementById('res_time').value;
+async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false) {
+    // Determine the new time.
+    // For a drag-drop, we usually keep the original start time.
+    const event = allEvents.find(e => e.id == id && e.date == origDate);
+    const startTime = event ? event.start_time : "09:00";
 
     const formData = new FormData();
     formData.append('action', 'fsb_save_calendar_event');
     formData.append('nonce', fsb_config.nonce);
     formData.append('edit_mode', 'instance_move');
     formData.append('event_id', id);
-    if (pivotId) formData.append('pivot_id', pivotId);
-    if (moveId)  formData.append('move_id',  moveId);
+    if (pivotId && pivotId !== "null") formData.append('pivot_id', pivotId);
+    if (moveId && moveId !== "null") formData.append('move_id', moveId);
+
     formData.append('date', origDate);
     formData.append('move_to_date', newDate);
-    formData.append('move_to_start_time', newTime);
-    formData.append('reschedule_scope', 'instance');
+    formData.append('move_to_start_time', startTime);
+
+    // Requirement #2: Shift-drag sets scope to 'remaining' (Pivot)
+    formData.append('reschedule_scope', isShift ? 'remaining' : 'instance');
 
     const response = await fetch(fsb_config.ajax_url, {
         method: 'POST',
@@ -1150,10 +1252,8 @@ async function submitReschedule(id, origDate, pivotId = null, moveId = null) {
 
     const result = await response.json();
     if (result.success) {
-        // Success! Use the URL persistence to stay on the new month
-        const currentUrl = new URL(window.location.href);
-        currentUrl.searchParams.set('viewDate', newDate);
-        window.location.href = currentUrl.toString();
+        // Refresh to show the new "Bake"
+        loadData();
     } else {
         alert("Error moving event: " + result.data);
     }
@@ -1328,7 +1428,7 @@ function openDayModal(dateStr) {
 
 // Helper to bridge the Modal to the Edit Form
 async function handleEditClick(id, dateStr, pivot_id, move_id = null) {
-    console.log("Pencil clicked. Closing Day Modal and fetching ID:", id," (Move: ", move_id, " Pivot: ", pivot_id," )");
+    //console.log("Pencil clicked. Closing Day Modal and fetching ID:", id," (Move: ", move_id, " Pivot: ", pivot_id," )");
     const dayModal = document.getElementById('fsb-day-modal');
     if (dayModal) {
         dayModal.classList.remove('is-visible');
@@ -1379,29 +1479,22 @@ function openFlyerMediaLibrary(e) {
 
 async function saveEventChanges(overrideMode = null, overrideId = null, overrideDate = null, silent = false) {
     const form = document.getElementById('fsb-edit-form');
-    const formData = new FormData(form);
+    // If the form exists, use it; otherwise, start with an empty FormData object
+    const formData = form ? new FormData(form) : new FormData();
 
-    // If we passed in a specific mode (like 'master_delete'), use it.
-    // Otherwise, it defaults to what's in the hidden 'edit_mode' input.
-    if (overrideMode) {
-        formData.set('edit_mode', overrideMode);
-    }
-    if (overrideId) {
-        formData.set('event_id', overrideId);
-    }
-    if (overrideDate) {
-        formData.set('date', overrideDate);
-    }
+    // Now set our overrides (this works whether the form existed or not)
+    if (overrideMode) formData.set('edit_mode', overrideMode);
+    if (overrideId)   formData.set('event_id', overrideId);
+    if (overrideDate) formData.set('date', overrideDate);
 
-    // Add the WP Nonce for security
+    // Ensure we have the basic WP requirements
     formData.append('action', 'fsb_save_calendar_event');
     formData.append('nonce', fsb_config.nonce);
 
-    // Visual feedback
-    const saveBtn = form.querySelector('button');
-    const originalText = saveBtn.innerText;
-    saveBtn.innerText = 'Saving';
-    saveBtn.disabled = true;
+    // If we're dragging, we might need the pivot_id too
+    if (typeof draggedData !== 'undefined' && draggedData && draggedData.pivotId) {
+        formData.set('pivot_id', draggedData.pivotId);
+    }
 
     try {
         const response = await fetch(fsb_config.ajax_url, {
@@ -1409,25 +1502,16 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
             body: formData
         });
         const result = await response.json();
-
         if (result.success) {
             if (silent) return true;
-
-            // return to the month that was just edited.
-            const savedDate = formData.get('date');
-            const currentUrl = new URL(window.location.href);
-            currentUrl.searchParams.set('viewDate', savedDate);
-            window.location.href = currentUrl.toString();
+            loadData(); // Refresh the grid
             return true;
         } else {
-            alert('Error: ' + result.data);
-            saveBtn.innerText = originalText;
-            saveBtn.disabled = false;
+            console.error('Save failed:', result.data);
+            if (!silent) alert('Error: ' + result.data);
         }
     } catch (e) {
-        console.error('Save failed', e);
-        saveBtn.innerText = originalText;
-        saveBtn.disabled = false;
+        console.error('AJAX Error:', e);
     }
     return false;
 }
@@ -1473,6 +1557,10 @@ function renderEvents(events) {
 
         return `
             <div class="event-item"
+                 draggable="${canEdit ? 'true' : 'false'}"
+                 data-event-id="${e.id}"
+                 data-pivot-id="${e.pivot_id || e.id}"
+                 data-move-id="${moveId || ''}"
                  style="background-color: ${e.cat_color};"
                  title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
                  onclick="event.stopPropagation(); ${clickAction}">

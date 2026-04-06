@@ -129,7 +129,6 @@ class Compiler {
         // 1. Initial State (The "Era" Metadata)
         $master_id = $master->id;
         $anchor = new \DateTime($master->start_datetime);
-  error_log("FSBHOA DEBUG: first anchor: " . $anchor->format('Y-m-d H:i:s'));
         if ($anchor < $range_start_dt) $anchor = $range_start_dt;
         $end = new \DateTime($master->end_datetime);
         $duration = $end->getTimestamp() - $anchor->getTimestamp();
@@ -152,7 +151,6 @@ class Compiler {
                 if (!empty($exception->rrule)) {
                     $anchor = clone $exception->start_dt;
                     if ($anchor < $range_start_dt) $anchor = $range_start_dt;
-      error_log("FSBHOA DEBUG: new pivot. Anchor=" . $anchor->format('Y-m-d H:i:s'));
                     $rrule = $this->newRRule($exception->rrule, $anchor);
 
                     $end = new \DateTime($exception->end_datetime);
