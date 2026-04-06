@@ -666,4 +666,32 @@ input:checked + .slider:before { transform: translateX(20px); }
     margin-top: 10px !important;
 }
 
+/*  -- For UI --*/
+.manage-actions-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.manage-btn {
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+    text-align: left;
+}
+
+.manage-btn:active { transform: scale(0.98); }
+
+.manage-btn.warning { background: #fff3e0; color: #e65100; border: 1px solid #ffcc80; }
+.manage-btn.warning:hover { background: #ffe0b2; }
+
+.manage-btn.success { background: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9; }
+.manage-btn.success:hover { background: #c8e6c9; }
+
+.manage-btn.danger { background: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
+.manage-btn.danger:hover { background: #ffcdd2; }
+
 

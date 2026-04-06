@@ -185,6 +185,7 @@ class Repository {
         $target_start = "$target_date $target_start_time:00";
         $target_end   = "$target_date $target_end_time:00";
 
+
         // ---  THE RECONCILIATION CHECK ---
         // Is there already a 'cancelled' record (a hole) at the destination?
         $collision = $wpdb->get_row($wpdb->prepare(
@@ -216,8 +217,8 @@ class Repository {
 
             // For the source, get the RAW time strings from the pivot record.
             // $pivot->start_datetime is text like "2026-04-08 08:00:00"
-            $dna_start_time = date('H:i:s', strtotime($pivot->start_datetime));
-            $dna_end_time   = date('H:i:s', strtotime($pivot->end_datetime));
+            $dna_start_time = substr($pivot->start_datetime, 11, 8);
+            $dna_end_time   = substr($pivot->end_datetime, 11, 8);
             $natural_start  = "$original_date $dna_start_time";
             $natural_end    = "$original_date $dna_end_time";
             if ($target_start === $natural_start) {
@@ -261,18 +262,21 @@ class Repository {
                 if ( $collision->status === 'cancelled') {
                     // We are moving from a moved-to location to a hole location, 
                     // delete both hole and move records.
+                    error_log("move_event_instance()  moving from Moved-to location to hole.");
                     $wpdb->delete($event_table, ['id' => $move_id]);
-                    $wpdb->delete($event_table, ['id' => $existing_hole->id]);
+                    $wpdb->delete($event_table, ['id' => $collision->id]);
                     return true;
                 } else {
                     // We are moving from a moved-to location to a another 
                     // moved-to location. Just remove the source. 
+                    error_log("move_event_instance()  moving from Moved-to location to another Moved-to.");
                     $wpdb->delete($event_table, ['id' => $move_id]);
                     return true;
                 }
             } else {
                 // We are moving from a moved-to location to someplace else,
                 // Just update the original move record.
+                error_log("move_event_instance()  moving from Moved-to location to another place.");
                 return $wpdb->update($event_table, [
                     'start_datetime' => $target_start, 
                     'end_datetime' => $target_end], 
@@ -302,5 +306,15 @@ class Repository {
             $pivot_date,
             $time_slot
         ));
+    }
+
+    /**
+     * Standardizes extraction of H:i:s from a DB record to prevent TZ shifts.
+     */
+    private function get_dna_times($record) {
+        return [
+            'start' => substr($record->start_datetime, 11, 8), // "08:00:00"
+            'end'   => substr($record->end_datetime, 11, 8)    // "09:00:00"
+        ];
     }
 }

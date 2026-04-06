@@ -212,26 +212,29 @@ class Compiler {
 
 
     private function newRRule($rrule_str, $anchor) {
-        // 1. Clean the string (remove any accidental "RRULE:" if it exists)
-        $clean_rule = str_ireplace('RRULE:', '', trim($rrule_str));
+        // 1. Clean the string to get JUST the parts (FREQ=WEEKLY;BYDAY=MO...)
+        $clean_rule = trim(str_ireplace('RRULE:', '', $rrule_str));
+    
+        // 2. Parse the semicolon string into a PHP array
+        $parts = [];
+        foreach (explode(';', $clean_rule) as $pair) {
+            if (strpos($pair, '=') !== false) {
+                list($key, $value) = explode('=', $pair);
+                $parts[trim($key)] = trim($value);
+            }
+        }
 
-        // 2. Build a valid RFC string with a forced newline
-        // We use the 'Z' suffix or specify the TZ if needed, but since we set
-        // date_default_timezone_set in bake(), this format is usually sufficient.
-        $rfc_str = "DTSTART:" . $anchor->format('Ymd\THis') . "\n" .
-                   "RRULE:" . $clean_rule;
-
-        error_log("FSBHOA COMPILE: RFC string check: " . str_replace("\n", " [NL] ", $rfc_str));
+        // 3. Add the anchor (DTSTART) to the array
+        $parts['DTSTART'] = $anchor; 
 
         try {
-            return new \RRule\RRule($rfc_str);
+            // Passing an array is 100% immune to newline/prefix issues
+            return new \RRule\RRule($parts);
         } catch (\Exception $e) {
-            error_log("FSBHOA CRITICAL: RRule Parse Failed: " . $e->getMessage());
-            // Fallback to a single occurrence if the rule is garbage
+            error_log("FSBHOA CRITICAL: RRule Array Parse Failed: " . $e->getMessage());
             return new \RRule\RRule(['COUNT' => 1, 'DTSTART' => $anchor]);
         }
     }
-
 
     // $master: This is always the original root record (ID from the database, that has
     // no parent_id). It provides the default Title, Description, Category, and Color. 

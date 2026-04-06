@@ -130,6 +130,12 @@ add_shortcode('fsbhoa_calendar', function() {
                 </div>
             </div>
         </div>
+        <div id="fsb-manage-modal" class="fsb-modal">
+            <div class="modal-content" style="max-width: 450px;">
+                <span class="close-modal">&times;</span>
+                <div id="manage-form-container"></div>
+            </div>
+        </div>
         <div id="fsb-monthly-toolbar" class="calendar-footer-toolbar">
             <div class="toolbar-left">
                 <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
@@ -320,13 +326,13 @@ function fsb_handle_save_event() {
         switch ($edit_mode) {
             case 'instance_cancel':
                 // "Punch a hole" in a repeating series
-                $start_time = date('H:i', strtotime($existing_event->start_datetime));
-                $end_time   = date('H:i', strtotime($existing_event->end_datetime));
+                $dna_start_time = substr($existing_event->start_datetime, 11, 8);
+                $dna_end_time   = substr($existing_event->end_datetime, 11, 8);
                 $data = [
                     'title'          => $title,
                     'parent_id'      => $master_id,
-                    'start_datetime' => "$target_date $start_time:00",
-                    'end_datetime'   => "$target_date $end_time:00",
+                    'start_datetime' => "$target_date $dna_start_time",
+                    'end_datetime'   => "$target_date $dna_end_time",
                     'status'         => 'cancelled',
                     'rrule'          => null // Children never repeat
                 ];
@@ -342,18 +348,46 @@ function fsb_handle_save_event() {
                 );
                 break;
 
+            case 'instance_restore':
+               // $target_date is the date of the cell clicked.
+               // We look for the first record >= that date that is 'cancelled'.
+               $hole_to_remove = $wpdb->get_var($wpdb->prepare(
+                   "SELECT id FROM {$wpdb->prefix}fsbhoa_events
+                    WHERE parent_id = %d
+                    AND status = 'cancelled'
+                    AND start_datetime >= %s
+                    ORDER BY start_datetime ASC
+                    LIMIT 1",
+                   $master_id,
+                   $target_date . ' 00:00:00'
+               ));
+
+               if ($hole_to_remove) {
+                   $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['id' => $hole_to_remove]);
+                   error_log("FSBHOA REPO: Undeleted instance. Removed hole ID: $hole_to_remove");
+               } else {
+                   error_log("FSBHOA REPO: No future holes found to undelete for Master ID: $master_id");
+               }
+               break;
+
             case 'series_end':
                 // Stop the series before this date
-                $existing_pivot = $repo->get($pivot_id);   // pivot or master record
+                $existing_pivot = $repo->get($pivot_id);
                 if ($existing_pivot && !empty($existing_pivot->rrule)) {
-                    // Calculate yesterday's date for the UNTIL rule
-                    $until_date = date('Ymd\T235959\Z', strtotime($event_date . ' -1 day'));
-        
-                    // Strip any existing UNTIL or COUNT and append the new one
-                    $base_rule = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $existing_pivot->rrule);
-                    $new_rrule = $base_rule . ";UNTIL=$until_date";
-        
-                    $wpdb->update($wpdb->prefix . 'fsbhoa_events', ['rrule' => $new_rrule], ['id' => $master_id]);
+                    // REMOVE THE 'Z': Use local time to match your DTSTART format
+                    $until_date = date('Ymd\T235959', strtotime($event_date . ' -1 day'));
+
+                    $clean = str_ireplace('RRULE:', '', trim($existing_pivot->rrule));
+                    $clean = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $clean);
+                    $clean = rtrim($clean, ';');
+
+                    $new_rrule = $clean . ";UNTIL=$until_date";
+
+                    $wpdb->update($wpdb->prefix . 'fsbhoa_events',
+                        ['rrule' => $new_rrule],
+                        ['id' => $pivot_id]
+                    );
+                    error_log("FSBHOA REPO: Series ended (Local Time): $new_rrule");
                 }
                 break;
 
@@ -396,6 +430,33 @@ function fsb_handle_save_event() {
                     wp_send_json_error($result->get_error_message());
                 }
                 error_log("FSBHOA DEBUG: Move call finished successfully");
+                break;
+
+
+            case 'series_resume':
+                // 1. Remove the UNTIL clause from the Pivot/Master
+                $existing_pivot = $repo->get($pivot_id);
+                if ($existing_pivot && !empty($existing_pivot->rrule)) {
+                    // Strip UNTIL and COUNT to make it infinite again
+                    $new_rrule = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $existing_pivot->rrule);
+                    $wpdb->update($wpdb->prefix . 'fsbhoa_events',
+                        ['rrule' => $new_rrule],
+                        ['id' => $pivot_id]
+                    );
+                    error_log("FSBHOA REPO: Series resumed. RRule updated for ID: $pivot_id");
+                }
+
+                // 2. Clean up all future holes/cancellations for this lineage
+                // We target anything >= today's date that is marked 'cancelled'
+                $wpdb->query($wpdb->prepare(
+                    "DELETE FROM {$wpdb->prefix}fsbhoa_events
+                     WHERE parent_id = %d
+                     AND status = 'cancelled'
+                     AND start_datetime >= %s",
+                    $master_id,
+                    $target_date . ' 00:00:00'
+                ));
+                error_log("FSBHOA REPO: Future holes cleared for master: $master_id starting $target_date");
                 break;
 
 

@@ -1159,31 +1159,93 @@ async function submitReschedule(id, origDate, pivotId = null, moveId = null) {
     }
 }
 
-function handleCancelBtn(event, dateStr) {
-    if (!event) return;
+function handleCancelBtn(eventData, dateStr) {
+    const modal = document.getElementById('fsb-manage-modal');
+    const container = document.getElementById('manage-form-container');
+    const isRecurring = !!eventData.rrule;
 
-    console.log("Checking RRule for Cancel:", event.rrule);
+    // UI Branding based on status
+    const headerColor = isRecurring ? '#f57c00' : '#d32f2f';
+    const isCurrentlyCancelled = eventData.status === 'cancelled';
+    const hasEndDate = (eventData.rrule && eventData.rrule.includes('UNTIL='));
 
-    // TIER 1: One-Shot Event (Simple Delete)
-    if (!event.rrule) {
-        if (confirm("Delete this one-time event?")) {
-            saveEventChanges('master_cancel', event.id);
+    let buttonsHtml = '';
+
+    if (!isRecurring) {
+        // --- SINGLE EVENT OPTIONS ---
+        buttonsHtml = `
+            <button class="manage-btn danger" onclick="confirmAction('master_delete', ${eventData.id})">Delete Event Forever</button>
+        `;
+    } else {
+        // --- RECURRING SERIES OPTIONS ---
+        buttonsHtml += `<button class="manage-btn warning" onclick="confirmAction('instance_cancel', ${eventData.id}, '${dateStr}')">Cancel ONLY this instance</button>`;
+
+        buttonsHtml += `<button class="manage-btn success" onclick="confirmAction('instance_restore', ${eventData.id}, '${dateStr}')">Restore or Undelete Next Cancelled Instance</button>`;
+
+        buttonsHtml += `<button class="manage-btn warning" onclick="confirmAction('series_end', ${eventData.id}, '${dateStr}', ${eventData.pivot_id})">End series starting today</button>`;
+
+        if (hasEndDate) {
+            // 1. Extract the raw string (e.g., "20260414T235959")
+            const rawUntil = eventData.rrule.match(/UNTIL=([^;]+)/)?.[1];
+            let readableUntil = "Fixed Count";
+
+            if (rawUntil) {
+                // 2. Parse YYYY-MM-DD
+                const y = rawUntil.substring(0, 4);
+                const m = rawUntil.substring(4, 6);
+                const d = rawUntil.substring(6, 8);
+
+                // 3. Create a date object (using local time to match the input)
+                const dateObj = new Date(`${y}-${m}-${d}T00:00:00`);
+                readableUntil = dateObj.toLocaleDateString('en-US', {
+                    weekday: 'short',
+                    month: 'short',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
+            }
+            buttonsHtml += `
+                <div style="margin-top:10px; padding:10px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:4px;">
+                    <p style="margin:0 0 8px 0; font-size:0.8rem; color:#2e7d32;"><strong>Series currently ends:</strong> ${readableUntil}</p>
+                    <button class="manage-btn success" style="width:100%;" onclick="confirmAction('series_resume', ${eventData.id}, '${dateStr}', ${eventData.pivot_id})">
+                        Resume Series & Restore All Future
+                    </button>
+                </div>
+            `;
         }
-        return;
+        
+        buttonsHtml += `<hr><button class="manage-btn danger" onclick="confirmAction('master_delete', ${eventData.id})">DELETE ENTIRE SERIES & HISTORY</button>`;
     }
 
-    // TIER 2: Series - Instance vs. Series
-    if (confirm(`Cancel ONLY the session on ${dateStr}?`)) {
-        // Option A: Punch a hole (Instance Cancel)
-        saveEventChanges('instance_cancel', event.id, dateStr);
-    } else if (confirm("Cancel all FUTURE sessions (End the series here)?")) {
-        // Option B: End the series (Set UNTIL in RRule)
-        saveEventChanges('series_end', event.id, dateStr);
-    } else if (confirm("DELETE the entire series and all its history?")) {
-        // Option C: Total Nuke
-        saveEventChanges('master_delete', event.id);
+    container.innerHTML = `
+        <div style="border-left: 5px solid ${headerColor}; padding-left: 15px;">
+            <h3 style="margin:0;">Manage Instance</h3>
+            <p style="margin:5px 0; font-weight:bold;">${eventData.title}</p>
+            <p style="font-size:0.85rem; color:#666;">Date: ${dateStr}</p>
+        </div>
+        <div class="manage-actions-list" style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+            ${buttonsHtml}
+        </div>
+    `;
+
+    document.getElementById('fsb-edit-modal').classList.remove('is-visible');
+    modal.classList.add('is-visible');
+}
+
+// Global Helper for Confirmation
+async function confirmAction(mode, id, date = null, pivotId = null) {
+    const messages = {
+        'instance_cancel': 'Are you sure you want to cancel this specific session?',
+        'instance_restore': 'Restore this session to the calendar?',
+        'series_end': 'This will cut off the series. No sessions will appear after this date. Proceed?',
+        'master_delete': 'CRITICAL: This deletes the entire history and future of this event. Continue?'
+    };
+
+    if (confirm(messages[mode] || 'Proceed with this action?')) {
+        await saveEventChanges(mode, id, date, false);
+        // saveEventChanges already handles the redirect/refresh
     }
-};
+}
 
 
 
