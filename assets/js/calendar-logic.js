@@ -418,13 +418,26 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // 3. Fallback to Day Cell Reschedule
-        const dayCell = e.target.closest('.calendar-day');
-        if (dayCell && !dayCell.classList.contains('empty')) {
-            const targetDate = dayCell.dataset.date;
-            if (targetDate === draggedData.originalDate && !isShift) return;
+        // 3. Day Cell Reschedule
+        const cell = e.target.closest('.calendar-day');
+        if (cell && !cell.classList.contains('empty')) {
+            let targetDate = cell.dataset.date;
+            if (cell.classList.contains('split-cell')) {
+                const cellRect = cell.getBoundingClientRect();
+                const mouseX = e.clientX - cellRect.left;
+                const mouseY = e.clientY - cellRect.top;
 
-            submitReschedule(draggedData.id, draggedData.originalDate, draggedData.pivotId, draggedData.moveId, targetDate, isShift);
+                // In a square/rect split by a \ line:
+                // If (relativeX / width) + (relativeY / height) > 1, we are in the bottom-right.
+                const isBottom = (mouseX / cellRect.width) + (mouseY / cellRect.height) > 1;
+
+                targetDate = isBottom ? cell.dataset.dateBottom : cell.dataset.dateTop;
+                console.log(`FSBHOA: Split Cell Drop Detected. Target: ${isBottom ? 'Bottom' : 'Top'} (${targetDate})`);
+            }
+
+            if (targetDate !== draggedData.originalDate || e.shiftKey) {
+                submitReschedule(draggedData.id, draggedData.originalDate, draggedData.pivotId, draggedData.moveId, targetDate, e.shiftKey);
+            }
         }
 
         draggedData = null;
