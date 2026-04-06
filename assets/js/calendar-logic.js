@@ -1504,7 +1504,18 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
         const result = await response.json();
         if (result.success) {
             if (silent) return true;
-            loadData(); // Refresh the grid
+
+            const editModal = document.getElementById('fsb-edit-modal');
+            if (editModal) {
+                editModal.classList.remove('is-visible');
+                document.body.classList.remove('modal-open');
+            }
+
+            // After a slight delay for database write, refresh the grid
+            setTimeout(() => {
+                loadData(); // Refresh the grid
+            }, 100);
+
             return true;
         } else {
             console.error('Save failed:', result.data);

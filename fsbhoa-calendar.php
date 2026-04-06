@@ -2,7 +2,7 @@
 /**
  * Plugin Name: FSBHOA Calendar
  * Description: The complete HOA event engine (display + Compiler).
- * Version: 1.0.3
+ * Version: 1.0.4
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
