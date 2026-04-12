@@ -21,9 +21,9 @@
  *  colored by category.  It is made up of the event title (with 
  *  time on front or on back), followed by an edit pencil icon 
  *  (if being seen by admin or owner).  The event title will normally 
- *  be trimmed if it overflows the the cell but in the magnifier 
+ *  be trimmed with ... if it overflows the the cell but in the magnifier 
  *  it will wrap.  This means the magnifier cell must be able to 
- *  grow larger if needed to hold all of the events.
+ *  grow larger vertically if needed to hold all of the events.
  *
  *  For the bottom of split days, The bottom will be the day-bottom 
  *  which is just the reverse of the day-top with day-number on the 
@@ -32,7 +32,7 @@
  *  if in a magnifier.  The events for a bottom split day will float 
  *  to the bottom just above the day-bottom.
  *
- *  For any split day there will be a svg drawn line that runs from 
+ *  For any split day there will be a 2px svg drawn line that runs from 
  *  corner to corner.
  *
  *  All cells must display exactly the same in monthly view grid, 
@@ -46,18 +46,39 @@
  *  allows it to grow vertically to show wrapped text.
  *
  *  2. The Split Day (The "Sandwich")
- *  Layer 1 (Top Day):
- *    day-top (Number [Left] | Icons [Right] | + [Far Right, Hover only])
- *    day-events (Stacked immediately under day-top)
- *  Layer 2 (Space): Flex-grow spacer (pushes the two days apart).
- *  Layer 3 (Bottom Day):
+ *  Layer 1 (Top Day heading):
+ *    day-top (Number [Left] | Icons [Right] | "+" [Far Right, Hover only])
+ *  Layer 2 (Top Day Events)
+ *    day-events (Stacked immediately under day-top) 
+ *    The event text left justified and trimmed with ... if too long for
+ *    the cell. The text will extend accross the dividing line.
+ *    The event text background bar will start on the left but will
+ *    stop at the line, cut at an angle that matches the line.
+ *
+ *  Layer 3 (The Line)
+ *    The line goes from corner to corner, black, 2px.
+ *  
+ *  Layer 4 (Bottom Day Events)
  *    day-events-bottom (Stacked immediately above day-bottom)
- *    day-bottom (Number [Right] | Icons [Left] | + [Far Left, Hover only])
+ *  Layer 5 (Bottome Day Header)
+ *    day-bottom (Number [Justified Right] | Icons [Left] | "+" [Far Left, Hover only])
+ *
  *  Behavior: Only grays out the triangles/sections that are actually "past."
  *  Background: transparent except for a SVG Diagonal Line (Corner to corner).
+ *
+ *  3. Split Day Magnifier
+ *  Each 1/2 day pops up as a triangle on hover, independent of the other.
+ *  Each triangle will be magnified by the same amount as the normal day 
+ *  magnification.  Each triangle will have a black boarder, 1px black.
+ *  The layout of the layers in the magnifier will be the same as 
+ *  the normal split day. The text for an event can extend out beyond
+ *  the line but must wrap at the cell width. But the background color
+ *  for the text will stop at the triangle boarder and will be cut with
+ *  the same angle as the diagonal line so it looks like it stays in 
+ *  the triangle.
  */
 
-/* --- 1. GLOBAL BASE ARCHITECTURE --- */
+/* --- Section 1. GLOBAL BASE ARCHITECTURE --- */
 #fsb-calendar-app, #fsb-calendar-app * {
     box-sizing: border-box !important;
 }
@@ -70,7 +91,7 @@
     position: relative !important;
     background: transparent !important; /* Let Canva show through */
     overflow: hidden;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease;
 }
 
 /* Empty Cell Rule */
@@ -79,7 +100,7 @@
     opacity: 0;
 }
 
-/* --- 2. HEADER ROWS (Top & Bottom Strips) --- */
+/* --- Section 2. HEADER ROWS (Top & Bottom Strips) --- */
 .day-top, .day-bottom {
     display: flex !important;
     flex-direction: row !important;
@@ -121,7 +142,7 @@
     margin: 0 5px;
 }
 
-/* --- 3. EVENT CONTAINERS & CHIPS --- */
+/* --- Section 3. EVENT CONTAINERS & CHIPS --- */
 .day-events, .day-events-bottom {
     display: flex !important;
     flex-direction: column !important;
@@ -133,9 +154,9 @@
 .event-item {
     display: flex !important;
     align-items: center !important;
-    font-size: 0.65rem;
-    line-height: 1.1;
-    padding: 1px 3px;
+    font-size: 0.6rem;
+    line-height: 1.0;
+    padding: 0px 3px;
     border-radius: 2px;
     white-space: nowrap;
     overflow: hidden;
@@ -160,33 +181,149 @@
     -webkit-user-select: none;
 }
 
-/* --- 4. SPLIT CELL SPECIFICS --- */
+/* --- Section 4. SPLIT CELL ARCHITECTURE (TRIANGLES) --- */
+.calendar-day.split-cell {
+    position: relative !important;
+    display: block !important;
+}
+
+.split-half {
+    position: absolute !important;
+    width: 100%;
+    height: 100%;
+    z-index: 5;
+    display: flex !important;
+    flex-direction: column !important;
+    pointer-events: none;
+}
+
+.split-half-top { top: 0; left: 0; justify-content: flex-start !important; }
+.split-half-bottom { bottom: 0; left: 0; justify-content: flex-end !important; }
+
+/* Day Headers */
+.day-top, .day-bottom {
+    position: relative !important;
+    z-index: 20 !important;
+    pointer-events: auto !important;
+}
+
+
+
+/* --- Section 5. THE VISUAL TRIANGLE SHARDS --- */
+/*  Normal split-day display.
+    We use a mirrored layer approach: 
+    layer-bg holds the colors (clipped by a mask), 
+    layer-text holds the content (unclipped). */
+
+/* --- Section 5. THE VISUAL TRIANGLE SHARDS (MIRRORED) --- */
+
+/* 1. LAYER BASE: Only affects split-cells */
+.split-cell .layer-bg,
+.split-cell .layer-text {
+    position: absolute !important;
+    top: 0;
+    left: 0;
+    width: 100% !important;
+    height: 100% !important;
+    pointer-events: none !important;
+}
+
+/* 2. THE BACKGROUND LAYER (The 'Curtain') */
+.layer-bg { z-index: 1; }
+
+.split-half-top .layer-bg { 
+    clip-path: polygon(0 0, 100% 0, 0 100%) !important; 
+}
+
+.split-half-bottom .layer-bg { 
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important; /* Pushes color bars to the bottom */ 
+    clip-path: polygon(100% 0, 100% 100%, 0 100%) !important; 
+}
+
+/* The colored bars inside the background mirror */
+.layer-bg .day-events {
+    padding-top: 24px;
+    padding-bottom: 24px;
+}
+.layer-bg .day-events-bottom,
+.layer-text .day-events-bottom {
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 4px !important;
+}
+
+.layer-bg .event-item {
+    background: var(--event-bg) !important;
+    color: transparent !important;
+    border: none !important;
+    width: 100% !important;
+    display: block !important;
+}
+
+/* 3. THE TEXT LAYER (Liberated Foreground) */
+.layer-text {
+    z-index: 5;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+.split-half-top .layer-text { padding-top: 24px; align-items: flex-start !important; }
+.split-half-bottom .layer-text {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-end !important; /* Drops the text to the bottom */
+    padding-bottom: 24px;                 /* Matches the background offset */
+    align-items: flex-end !important;    /* Pushes text/pencil to the right */
+}
+
+/* 4. RESTORE COLOR TO NORMAL DAYS & CLEAN SPLIT TEXT */
+/* Normal Day Events: Keep their background color */
+.calendar-day:not(.split-cell) .event-item {
+    background: var(--event-bg) !important;
+    color: #000 !important;
+}
+
+/* Split Cell Text: Force transparent so the BG layer shows through */
+.split-cell .layer-text .event-item {
+    background: transparent !important;
+    color: #000 !important;
+}
+
+/* 5. SHARED TRUNCATION LOGIC */
+.calendar-day:not(.fsb-ghost-shard) .event-item {
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    width: 100% !important;
+    display: block !important;
+    pointer-events: auto !important;
+}
+
+/* Hide pencils in standard view */
+.calendar-day:not(.fsb-ghost-shard) .edit-pencil {
+    display: none !important;
+}
+
+
+
+/* --- Section 6. SPLIT CELL HEAVY LINE --- */
 .split-line-container {
     position: absolute !important;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    z-index: 1;
+    top: -1px; left: -1px;
+    width: calc(100% + 2px) !important;
+    height: calc(100% + 2px) !important;
+    z-index: 10 !important;
+    pointer-events: none;
 }
 
-/* The Spring: Pushes bottom events and day-bottom to the floor */
-.split-cell .day-events-bottom {
-    margin-top: auto !important;
-}
-/* Right-justify events in the bottom triangle of split cells */
-.day-events-bottom .event-item {
-    justify-content: flex-end !important; /* Pushes flex content to the right */
-    text-align: right !important;        /* Aligns text to the right */
-}
-
-/* Ensure the edit pencil stays on the far right even when reversed */
-.day-events-bottom .event-item .edit-pencil {
-    margin-left: 4px !important;
-    margin-right: 0 !important;
-    order: 2; /* Keeps pencil after text */
-}
+.split-line-container svg { width: 100%; height: 100%; display: block; }
+.split-line-container svg line { stroke: #666 !important; stroke-width: 2 !important; }
 
 
-/* --- 5. PAST DAY & GRAY-OUT STATES --- */
+
+/* --- Section 7. PAST DAY & GRAY-OUT STATES --- */
 /* Normal Day Past */
 .calendar-day.past-day {
     background-color: rgba(0, 0, 0, 0.05) !important;
@@ -205,7 +342,8 @@
     filter: grayscale(1) opacity(0.6);
 }
 
-/* --- 5b. TODAY HIGHLIGHT --- */
+
+/* --- Section 8. TODAY HIGHLIGHT --- */
 /* * We use a semi-transparent yellow so the Canva background 
  * and grid lines still show through. 
  */
@@ -227,39 +365,219 @@
     background-color: #fff9c4 !important; /* Solid yellow when magnified for readability */
 }
 
-/* --- 6. THE MAGNIFIER (HOVER) --- */
-#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.empty):hover {
-    /* this should be higher than the Nav Arrows (3000) and Modals */
+/* --- Section 9. THE MAGNIFIER (HOVER) --- */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.empty):not(.split-cell):hover {
     z-index: 5000 !important;
-    transform: scale(1.5) !important;
-    transform-origin: center;
-    background: #ffffff !important;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    transform: scale(1.35) !important;
+    transform-origin: center center !important;
+    position: relative !important;
     overflow: visible !important;
+    background: #ffffff !important;
+    box-shadow: 0 10px 50px rgba(0,0,0,0.7);
+    border: 1px solid #bbb !important;
+    border-radius: 6px;
+}
+
+/* Keep the split-cell parent transparent so it doesn't create a 'Ghost' rectangle */
+#calendar-grid:not(.magnifier-disabled) .calendar-day.split-cell:hover {
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/*  Fix the 'Spilling' of events below mangifier: Ensure the background follows the events */
+.calendar-day:hover .day-events {
+    background: #ffffff !important; /* Forces the white background to wrap the events */
     height: auto !important;
     min-height: 100%;
+    padding-bottom: 15px !important; /* Space at the bottom of the zoom */
+    border-radius: 0 0 6px 6px;
+    box-shadow: 0 15px 30px rgba(0,0,0,0.3); /* Sub-shadow for the 'drawer' effect */
 }
 
-/* Show Plus only on Magnifier */
-.calendar-day:hover .add-event-plus {
-    display: inline-block !important;
-}
-
-/* Show Pencils only on Magnifier */
+/* Ensure the + and ✎ are forced to show during hover */
+.calendar-day:hover .add-event-plus,
 .calendar-day:hover .edit-pencil,
 .calendar-day:hover .edit-pencil-mini {
-    display: inline-block !important;
-    cursor: pointer !important;
+    display: inline-block !important; /* Force visibility */
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
-/* Wrap text in Magnifier */
-.calendar-day:hover .event-item {
-    white-space: normal !important; /* This allows wrapping */
+/* Allow the events list to stack infinitely during hover
+   without affecting the cell height */
+.calendar-day:hover .day-events {
+    height: auto !important;
+    overflow: visible !important;
+}
+
+
+
+
+/* --- Section 10.  THE SPLIT-CELL TRIANGLE MAGNIFIER --- */
+/* THE HOVER: The triangle (GHOST SHARD PORTAL) itself pops out */
+
+/* 1. THE SHARD CONTAINER: Ensure it doesn't clip the shadow */
+.fsb-ghost-shard {
+    position: fixed !important;
+    background: transparent !important;
+    transform: scale(1.4) !important;
+    transform-origin: center center !important;
+    z-index: 20000 !important;
+    /* CRITICAL: Must be visible so the drop-shadow can 'leak' out */
+    overflow: visible !important;
+    box-shadow: none !important;
+    pointer-events: none !important;
+}
+
+/* Ensure items within the shard remain interactive */
+.fsb-ghost-shard .event-item {
+    pointer-events: auto !important;
+}
+
+.fsb-ghost-shard .add-event-plus,
+.fsb-ghost-shard .edit-pencil {
+    pointer-events: auto !important;
+    position: relative;
+    z-index: 100; /* Ensure they are 'on top' of the white triangle */
+}
+
+/* Add a slight transition so the shard 'pops' instead of flickering */
+.fsb-ghost-shard::before {
+    transition: opacity 0.1s ease-in-out;
+}
+
+/* 2. THE WHITE TRIANGLE PLATE: The Shadow Host */
+.fsb-ghost-shard::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: white !important;
+    z-index: -1;
+    /* apply the clip-path HERE */
+}
+
+/* 3. THE DROP SHADOW: Move the filter to the SHARD itself or the PLATE */
+/* Note: drop-shadow on a clipped element only works if the element
+   is NOT the one being clipped, OR if it's applied to the parent. */
+
+.shard-top::before {
+    clip-path: polygon(0 0, 100% 0, 0 100%) !important;
+}
+.shard-bottom::before {
+    clip-path: polygon(100% 0, 100% 100%, 0 100%) !important;
+}
+
+/* Apply the filter to the shard to ensure it 'sees' the clipped triangle */
+.fsb-ghost-shard {
+    filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.5)) !important;
+}
+
+/* 3. THE "HARD SYNC" LAYERING */
+.fsb-ghost-shard .layer-bg,
+.fsb-ghost-shard .layer-text {
+    position: absolute !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    margin: 0 !important;
+}
+
+/* 4. TOP SHARD ALIGNMENT (Starts at top) */
+.shard-top .layer-bg,
+.shard-top .layer-text {
+    padding: 24px 0 0 0 !important;
+    justify-content: flex-start !important;
+    align-items: flex-start !important;
+}
+
+/* 5. BOTTOM SHARD ALIGNMENT (Starts at bottom) */
+.shard-bottom .layer-bg,
+.shard-bottom .layer-text {
+    padding: 0 0 24px 0 !important;
+    justify-content: flex-end !important;
+    align-items: flex-end !important; /* Right-justify for bottom triangle */
+    text-align: right !important;
+}
+
+/* 6. SHARD CLIPPING: Ensure Background Shard is trimmed corner-to-corner */
+.shard-top .layer-bg { clip-path: polygon(0 0, 100% 0, 0 100%) !important; }
+.shard-bottom .layer-bg { clip-path: polygon(100% 0, 100% 100%, 0 100%) !important; }
+
+.fsb-ghost-shard .layer-bg {
+    z-index: 1;
+    pointer-events: none !important;
+}
+
+/* 7. SYNCED WRAPPING & HEIGHT */
+.fsb-ghost-shard .event-item {
+    white-space: normal !important;
     word-break: break-word;
-    font-size: 0.75rem;
+    display: block !important;
+    width: 100% !important;
+    line-height: 1.2 !important;
+    min-height: 16px;
+    margin: 0 !important;
+    padding: 1px 4px !important;
 }
 
-/* --- 7. PRINT OVERRIDES --- */
+.fsb-ghost-shard .layer-bg .event-item {
+    background: var(--event-bg) !important;
+    color: transparent !important;
+    visibility: visible !important;
+}
+
+.fsb-ghost-shard .layer-text .event-item {
+    background: transparent !important;
+    color: #000 !important;
+    pointer-events: auto !important;
+    z-index: 5;
+}
+
+/* 8. THE TETHERED PENCIL (Flipped for Bottom Shard) */
+.fsb-ghost-shard .edit-pencil {
+    display: inline !important;
+    visibility: visible !important;
+    margin-left: 6px !important;
+    color: #f57c00 !important;
+    font-size: 0.9rem !important;
+    font-weight: bold;
+}
+
+/* In the bottom shard, keep pencil on the right of the right-aligned text */
+.shard-bottom .edit-pencil {
+    margin-left: 6px !important;
+}
+
+/* 9. THE HEADERS */
+.fsb-ghost-shard .day-top {
+    position: absolute !important;
+    top: 0;
+    width: 100%;
+    height: 24px !important;
+    z-index: 100;
+    padding-right: 12px !important;
+}
+.fsb-ghost-shard .day-bottom {
+    position: absolute !important;
+    bottom: 0;
+    width: 100%;
+    height: 24px !important;
+    z-index: 100;
+    padding-left: 12px !important;
+}
+
+.fsb-ghost-shard .add-event-plus {
+    display: inline-block !important;
+    visibility: visible !important;
+    cursor: pointer;
+}
+
+
+/* --- Section 11. 17x11 NEWSLETTER PRINT ENGINE --- */
 @media print {
     .calendar-day {
         transform: none !important;

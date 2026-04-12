@@ -92,7 +92,7 @@ html, body {
     height: 86%;  /* Adjust this so the bottom row hits the bottom box */
 
     grid-template-columns: repeat(7, minmax(0,1fr));
-    grid-template-rows: repeat(5, 1fr);
+    grid-template-rows: repeat(5, 20%) !important;
 
     background: transparent !important;
     border: none !important;
