@@ -579,12 +579,13 @@
 
 /* --- Section 11. 17x11 NEWSLETTER PRINT ENGINE --- */
 @media print {
-    .calendar-day {
-        transform: none !important;
-        background: transparent !important;
-        -webkit-print-color-adjust: exact !important;
+    @page {
+        size: 17in 11in landscape;
+        margin: 0;
     }
-    .add-event-plus, .edit-pencil {
-        display: none !important;
+
+    body {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
     }
 }

@@ -1,8 +1,17 @@
 <?php
 /**
  * Plugin Name: FSBHOA Calendar
- * Description: The complete HOA event engine (display + Compiler).
- * Version: 1.0.4
+ * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
+ * Description:       The complete website calendar talored for an HOA.
+ * Version:           1.0.6
+ * Author:            David Keeney
+ * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
+ * Requires at least: 5.8
+ * Requires PHP:      7.4
+ * Author URI:        https://github.com/dkeeney
+ * License:           MIT
+ * License URI:       https://opensource.org/licenses/MIT
+ * Text Domain:       fsbhoa-calendar
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
@@ -46,22 +55,53 @@ function fsb_cal_cleanup() {
 }
 
 add_action('wp_enqueue_scripts', function() {
+    //error_log("FSB CALENDAR: wp_enqueue_scripts() running");
+
     // Only load if the shortcode is present
     if (!is_a(get_post(), 'WP_Post') || !has_shortcode(get_post()->post_content, 'fsbhoa_calendar')) {
         return;
     }
+    fsb_enqueue_calendar_scripts();
+});
 
+
+
+function fsb_enqueue_calendar_scripts() {
+    //error_log("FSB CALENDAR: fsb_enqueue_calender_scripts() called");
     if (current_user_can('manage_options')) {
         wp_enqueue_media();
     }
 
-    // 1. Enqueue the script first
-    wp_enqueue_script('fsb-cal-logic', plugins_url('assets/js/calendar-logic.js', __FILE__), array('jquery'), '1.1', true);
+    wp_enqueue_script(
+        'fsb-cal-data',
+        plugins_url('assets/js/calendar-data.js', __FILE__),
+        array(),
+        '1.1',
+        true
+    );
+
+    wp_enqueue_script(
+        'fsb-cal-print',
+        plugins_url('assets/js/calendar-print.js', __FILE__),
+        array('fsb-cal-data'),
+        '1.1',
+        true
+    );
+
+    wp_enqueue_script(
+        'fsb-cal-logic',
+        plugins_url('assets/js/calendar-logic.js', __FILE__),
+        array('fsb-cal-data','fsb-cal-print'),
+        '1.1',
+        true
+    );
+
+
     wp_enqueue_style('fsb-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
     wp_enqueue_style('fsb-agenda-style', plugins_url('assets/css/agenda-style.css', __FILE__));
     wp_enqueue_style('fsb-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
-
-    // 2. Fetch data for the JS
+    //
+    // Fetch data for the JS
     global $wpdb;
     $locations = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}fsbhoa_locations");
     $categories = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}fsbhoa_categories");
@@ -79,9 +119,13 @@ add_action('wp_enqueue_scripts', function() {
         'time_position' => get_option('fsb_time_position', 'prepend'),
         'version'       => time()
     ));
-});
+
+
+}
 
 add_shortcode('fsbhoa_calendar', function() {
+
+
     // Determine the JSON path 
     $json_url = admin_url('admin-ajax.php') . '?action=fsb_get_calendar_json';
     $json_url .= '&v=' . get_option('fsb_cal_version', time());  // cache-buster
@@ -613,10 +657,7 @@ function fsb_maybe_pivot_series($repo, $pivot_id, $dna_data, $clicked_date) {
 
     $today_str = date('Y-m-d');
 
-    // --- NORMALIZE PIVOT DATE ---
-    // If they clicked a past date, the "New Era" starts Today.
-    // If they clicked a future date, the "New Era" starts then.
-    $pivot_date = ($clicked_date < $today_str) ? $today_str : $clicked_date;
+    $pivot_date = $clicked_date;
 
 
     // --- 3. DNA CHANGE DETECTION ---

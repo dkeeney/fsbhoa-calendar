@@ -1,6 +1,7 @@
 let config = {};
 let allEvents = [];
 let draggedData = null; // Global Drag State
+let grid, agendaContainer, display;
 
 // --- DATE DETECTION LOGIC --- (the month to show at start if not today)
 const urlParams = new URLSearchParams(window.location.search);
@@ -33,10 +34,16 @@ let iconLibrary = {
               <line x1="0" y1="100" x2="100" y2="0" stroke="#0288d1" stroke-width="1.5" />
             </svg>`
 };
+window.iconLibrary = iconLibrary;
+
 
 document.addEventListener('DOMContentLoaded', function() {
     const monthlyApp = document.getElementById('fsb-calendar-app');
     const agendaApp = document.getElementById('fsb-agenda-app');
+
+    grid = document.getElementById('calendar-grid');
+    agendaContainer = document.getElementById('agenda-view');
+    display = document.getElementById('currentMonthDisplay');
 
     // 1. EXIT if nothing is found
     if (!monthlyApp && !agendaApp) return;
@@ -57,9 +64,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectors = document.querySelectorAll('#viewSelector, #viewSelectorAgenda');
         selectors.forEach(s => s.style.display = 'none');
     }
-    grid = document.getElementById('calendar-grid');
-    agendaContainer = document.getElementById('agenda-view');
-    display = document.getElementById('currentMonthDisplay');
 
     const activeApp = monthlyApp || agendaApp;
     config = {
@@ -193,146 +197,36 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    document.addEventListener('mouseover', (e) => {
+        const half = e.target.closest('.split-half');
+        if (half) {
+            // Clear any lingering magnifications first
+            document.querySelectorAll('.split-half').forEach(el => el.classList.remove('is-magnified'));
+            // Magnify the specific one we are touching
+            half.classList.add('is-magnified');
+        }
+    });
+
+    document.addEventListener('mouseout', (e) => {
+        const half = e.target.closest('.split-half');
+        if (half && !e.relatedTarget?.closest('.split-half')) {
+            half.classList.remove('is-magnified');
+        }
+    });
+
 
     const printBtn = document.getElementById('printCal');
-    printBtn.onclick = () => {
-        const year = currentViewDate.getFullYear();
-        const monthPad = String(currentViewDate.getMonth() + 1).padStart(2, '0');
-        const bgUrl = `${fsb_config.bg_base_url}cal-${year}-${monthPad}.png?v=${fsb_config.version}`;
-        const gridHtml = document.getElementById('calendar-grid').innerHTML;
-
-        const printWin = window.open('', '', 'width=1100,height=850');
-        printWin.document.write(`
-            <html>
-            <head>
-                <title>FSBHOA Calendar</title>
-                <style>
-                    @page {
-                        size: 17in 11in; /* HOA Newsletter Tabloid Size */
-                        margin: 0;
-                    }
-                    body {
-                        margin: 0; padding: 0;
-                        width: 17in; height: 11in;
-                        overflow: hidden;
-                        position: relative;
-                        -webkit-print-color-adjust: exact !important;
-                        print-color-adjust: exact !important;
-                    }
-                    .print-bg {
-                        position: absolute;
-                        top: 0; left: 0;
-                        width: 100%; height: 100%;
-                        z-index: 1;
-                    }
-                    .calendar-grid {
-                        display: grid !important;
-                        grid-template-columns: repeat(7, 1fr) !important;
-                        grid-template-rows: repeat(5, 1fr) !important;
-                        position: absolute !important;
-                        top: 14%; left: 0; width: 100%; height: 86%;
-                        z-index: 2;
-                        box-sizing: border-box;
-                    }
-                    .calendar-day {
-                        position: relative !important;
-                        display: flex !important;
-                        flex-direction: column !important;
-                        justify-content: flex-start !important; /* Forces top-alignment for normal days */
-                        overflow: hidden !important;
-                        box-sizing: border-box;
-                    }
-
-                    /* --- The Spring for Split Cells --- */
-                    .day-events-bottom {
-                        margin-top: auto !important; /* Pushes the 31st to the bottom */
-                    }
-        
-                    /* The SVG Split Line Fix for Print */
-                    .split-line-container {
-                        position: absolute !important;
-                        top: 0; left: 0; width: 100%; height: 100%;
-                        z-index: 0;
-                    }
-                    .split-line-container svg {
-                        width: 100%; height: 100%;
-                        display: block;
-                    }
-        
-                    /* Cell Headers (Top & Bottom) */
-                    .day-top, .day-bottom {
-                        display: flex !important;
-                        align-items: center !important;
-                        height: 20px !important;
-                        padding: 0 5px !important;
-                        width: 100% !important;
-                        box-sizing: border-box !important;
-                        position: relative;
-                        z-index: 5;
-                    }
-
-                    .day-events-bottom .event-item {
-                        text-align: right !important;
-                    }
-        
-                    .day-number {
-                        flex: 0 0 30px !important;
-                        font-size: 12pt !important;
-                        font-weight: 900 !important;
-                    }
-        
-                    /* Top Day Positioning */
-                    .day-top { justify-content: flex-start !important; }
-                    .day-top .day-icons-corner { margin-left: auto !important; display: flex; gap: 2px; }
-        
-                    /* Bottom Day Positioning */
-                    .day-bottom { justify-content: flex-end !important; }
-                    .day-bottom .day-icons-corner { margin-right: auto !important; display: flex; gap: 2px; }
-        
-                    .corner-unit svg { height: 16px !important; width: auto !important; }
-        
-                    /* Event Bars */
-                    .day-events, .day-events-bottom {
-                        display: flex !important;
-                        flex-direction: column !important;
-                        gap: 1px !important;
-                        padding: 0 2px !important;
-                        position: relative;
-                        z-index: 5;
-                    }
-        
-                    .event-item {
-                        font-size: 9pt !important;
-                        line-height: 1.1 !important;
-                        padding: 1px 4px !important;
-                        white-space: normal !important; /* Allow wrapping on print */
-                        display: block !important;
-                        width: 100% !important;
-                        box-sizing: border-box !important;
-                        border-radius: 3px !important;
-                        color: #000 !important;
-                        margin-bottom: 1px;
-                    }
-        
-                    /* UI Hiding */
-                    .add-event-plus, .edit-pencil, .edit-pencil-mini, .nav-arrow {
-                        display: none !important;
-                    }
-                </style>
-            </head>
-            <body>
-                <img src="${bgUrl}" class="print-bg">
-                <div class="calendar-grid">${gridHtml}</div>
-                <script>
-                    window.onload = function() {
-                        setTimeout(() => { window.print(); window.close(); }, 700);
-                    };
-                </script>
-            </body>
-            </html>
-        `);
-        printWin.document.close();
+    printBtn.onclick = function() {
+        openPrintPreview(
+            window.currentYear,
+            window.currentMonth,
+            allEvents,
+            window.currentBackgroundUrl
+        );
     };
+
+
+
 
     /* "Rotate Tablet" Listener */
     window.addEventListener('resize', () => {
@@ -451,9 +345,116 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 
+
+    // --- THE PIXEL-PERFECT HOVER ENGINE (MAGNIFIER) ---
+    // This uses the actual coordinates of the split line to determine
+    // which triangle the mouse is in, regardless of overlap.
+    let activeShard = null;
+
+    document.addEventListener('mousemove', (e) => {
+        // 1. THE ANCHOR: Interactive items keep the shard alive
+        if (e.target.closest('.event-item, .edit-pencil, .add-event-plus')) return;
+
+        // 2. DETECTION: What is physically under the mouse?
+        const hoveredCell = e.target.closest('.split-cell');
+        let targetCell = hoveredCell;
+
+        if (activeShard) {
+            const activeDate = activeShard.dataset.cellDate;
+        
+            // 3. SHARP EXIT: If we are physically over a DIFFERENT cell, kill shard NOW.
+            if (hoveredCell && hoveredCell.dataset.date !== activeDate) {
+                activeShard.remove();
+                activeShard = null;
+                // targetCell remains hoveredCell to allow the logic below to start the new shard.
+            } 
+            // 4. THE BUFFER: Only use the leash if we are in empty space (margins/padding)
+            else if (!hoveredCell) {
+                const activeCell = document.querySelector(`.calendar-day[data-date="${activeDate}"]`);
+                if (activeCell) {
+                    const rect = activeCell.getBoundingClientRect();
+                
+                    // Tighten the buffer: it should only be as wide as the magnification (approx 20%)
+                    const buffer = rect.width * 0.20; 
+                
+                    const isInsideLeash = (
+                        e.clientX >= rect.left - buffer &&
+                        e.clientX <= rect.right + buffer &&
+                        e.clientY >= rect.top - buffer &&
+                        e.clientY <= rect.bottom + buffer
+                    );
+
+                    if (isInsideLeash) {
+                        targetCell = activeCell;
+                    } else {
+                        // Truly outside the magnified shard's reach
+                        activeShard.remove();
+                        activeShard = null;
+                        return; 
+                    }
+                }
+            }
+        }
+    
+        // 5. FINAL EXIT: No cell detected and no active shard to leash
+        if (!targetCell) {
+            if (activeShard) { activeShard.remove(); activeShard = null; }
+            return;
+        }
+    
+        // 6. TRIANGLE CALCULATION
+        const rect = targetCell.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const positionValue = (x / rect.width) + (y / rect.height);
+    
+        if (Math.abs(positionValue - 1) < 0.02) return; 
+        const newShardType = positionValue < 1 ? 'top' : 'bottom';
+    
+        // 7. INTERNAL SWITCH (Flip halves within same cell)
+        if (activeShard) {
+            const isSameType = activeShard.dataset.type === newShardType;
+            const isSameDate = activeShard.dataset.cellDate === targetCell.dataset.date;
+            
+            if (isSameType && isSameDate) return; 
+            
+            activeShard.remove();
+            activeShard = null;
+        }
+    
+        // 8. CREATE NEW SHARD
+        activeShard = document.createElement('div');
+        activeShard.className = `fsb-ghost-shard shard-${newShardType}`;
+        activeShard.dataset.type = newShardType;
+        activeShard.dataset.cellDate = targetCell.dataset.date;
+    
+        const sourceClass = newShardType === 'top' ? '.split-half-top' : '.split-half-bottom';
+        const sourceContent = targetCell.querySelector(sourceClass);
+        if (sourceContent) {
+            activeShard.innerHTML = sourceContent.innerHTML;
+            activeShard.onclick = sourceContent.onclick;
+        }
+    
+        Object.assign(activeShard.style, {
+            position: 'fixed',
+            top: `${rect.top}px`,
+            left: `${rect.left}px`,
+            width: `${rect.width}px`,
+            height: `${rect.height}px`,
+            pointerEvents: 'none'
+        });
+    
+        const wrapper = document.getElementById('fsb-monthly-wrapper');
+        wrapper.appendChild(activeShard);
+    });
+
+
+
+
     loadData();
 
 });
+
 
 async function loadData() {
         try {
@@ -624,14 +625,18 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
     const isPastA = dateA < todayStr;
     const isPastB = dateB < todayStr;
     
-    let activeSVG = iconLibrary["split-blue"]; // Default
+    // The diaginal line for the split cells.
+    const activeSVG = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="split-diagonal">
+    <line x1="100" y1="0" x2="0" y2="100" stroke="#aaa" stroke-width="1" />
+</svg>`;
+    //let activeSVG = iconLibrary["split-blue"]; // Default
     let splitStateClass = '';
 
     if (isPastA && isPastB) {
-        activeSVG = iconLibrary["split-gray"];
+        //activeSVG = iconLibrary["split-gray"];
         splitStateClass = 'both-past';
     } else if (isPastA) {
-        activeSVG = iconLibrary["split-mixed"]; // The blue line + gray triangle
+        //activeSVG = iconLibrary["split-mixed"]; // The blue line + gray triangle
         splitStateClass = 'top-past';
     }
 
@@ -639,31 +644,55 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
     const evtsB = allEvents.filter(e => e.date === dateB);
 
     return `
-        <div class="calendar-day split-cell ${splitStateClass}" 
-                data-date="${dateA}" data-date-top="${dateA}" data-date-bottom="${dateB}"
-                onclick="openDayModal('${dateA}')">
-            <div class="split-line-container">
-                ${activeSVG}
+    <div class="calendar-day split-cell ${splitStateClass}"
+            data-date="${dateA}" data-date-top="${dateA}" data-date-bottom="${dateB}">
+
+        <div class="split-line-container">${activeSVG}</div>
+
+        <div class="split-half split-half-top ${isPastA ? 'past-day' : ''}"
+             onclick="event.stopPropagation(); openDayModal('${dateA}')">
+
+            <div class="events-layer layer-bg" aria-hidden="true">
+                <div class="day-top" style="visibility: hidden;"></div>
+                <div class="day-events">
+                    ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
+                </div>
             </div>
 
-            <div class="day-top ${isPastA ? 'past-day' : ''}">
+            <div class="day-top">
                 <div class="day-number">${topDay}</div>
                 <div class="day-icons-corner">${renderIcons(evtsA.filter(e => iconLibrary[e.category_id]), dateA)}</div>
                 <div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>
             </div>
-            <div class="day-events ${isPastA ? 'past-day' : ''}">
-                ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
+            <div class="day-events">
+                <div class="events-layer layer-text">
+                    ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
+                </div>
+            </div>
+        </div>
+
+        <div class="split-half split-half-bottom ${isPastB ? 'past-day' : ''}"
+             onclick="event.stopPropagation(); openDayModal('${dateB}')">
+
+            <div class="events-layer layer-bg" aria-hidden="true">
+                <div class="day-events-bottom">
+                    ${renderEvents(evtsB.filter(e => !iconLibrary[e.category_id]))}
+                </div>
+                <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
 
-            <div class="day-events-bottom ${isPastB ? 'past-day' : ''}">
-                ${renderEvents(evtsB.filter(e => !iconLibrary[e.category_id]))}
+            <div class="day-events-bottom">
+                <div class="events-layer layer-text">
+                    ${renderEvents(evtsB.filter(e => !iconLibrary[e.category_id]))}
+                </div>
             </div>
-            <div class="day-bottom ${isPastB ? 'past-day' : ''}">
+            <div class="day-bottom">
                 <div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>
                 <div class="day-icons-corner">${renderIcons(evtsB.filter(e => iconLibrary[e.category_id]), dateB)}</div>
                 <div class="day-number">${botDay}</div>
             </div>
-        </div>`;
+        </div>
+    </div>`;
 }
 
 
@@ -1585,7 +1614,7 @@ function renderEvents(events) {
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${moveId || ''}"
-                 style="background-color: ${e.cat_color};"
+                 style="background-color: ${e.cat_color}; --event-bg: ${e.cat_color || '#ddd'};"
                  title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
                  onclick="event.stopPropagation(); ${clickAction}">
                 <span class="event-title-text" style="flex:1; overflow:hidden; text-overflow:ellipsis;">${combinedTitle}</span>
@@ -1714,10 +1743,17 @@ function updateBackground(appContainer, year, month) {
     const bgUrl = `${fsb_config.bg_base_url}${fileName}?v=${fsb_config.version}`;
 
     // Apply the background
+    window.currentBackgroundUrl = bgUrl;  // for print functions
     appContainer.style.backgroundImage = `url('${bgUrl}')`;
     appContainer.style.backgroundSize = 'cover';
     appContainer.style.backgroundPosition = 'no-repeat';
 }
+
+
+
+
+
+
 
 
 /**
