@@ -269,7 +269,10 @@
     flex-direction: column !important;
 }
 
-.split-half-top .layer-text { padding-top: 24px; align-items: flex-start !important; }
+.split-half-top .layer-text { 
+    padding-top: 24px; 
+    align-items: flex-start !important; 
+}
 .split-half-bottom .layer-text {
     display: flex !important;
     flex-direction: column !important;
@@ -289,6 +292,11 @@
 .split-cell .layer-text .event-item {
     background: transparent !important;
     color: #000 !important;
+}
+
+.split-half-bottom .layer-text .event-item {
+    text-align: right !important;
+    justify-content: flex-end !important;
 }
 
 /* 5. SHARED TRUNCATION LOGIC */

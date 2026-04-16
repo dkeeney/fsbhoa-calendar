@@ -110,10 +110,23 @@ class Compiler {
 
     // Bake a non-repeating event
     private function process_single_root($event, $lineage_map) {
+        $start_dt = new \DateTime($event->start_datetime);
+        $end_dt   = new \DateTime($event->end_datetime);
+
+        // Get the range boundaries from the bake() scope or re-calculate
+        $past_months   = get_option('fs_cal_past_months', 1);
+        $future_months = get_option('fs_cal_future_months', 12);
+        $range_start   = new \DateTime(date('Y-m-01', strtotime("-{$past_months} months")));
+        $range_end     = new \DateTime(date('Y-m-t',  strtotime("+{$future_months} months")));
+
+        // Range Check: Only include if the event falls within our active window
+        if ($start_dt < $range_start || $start_dt > $range_end) {
+            return null;
+        }
         return $this->format_instance(
                 $event, 
-                $event->start_datetime, 
-                $event->end_datetime, 
+                $start_dt,
+                $end_dt,
                 null,
                 null);
     }
