@@ -126,18 +126,51 @@ function openPrintPreview(year, month, events, bgUrl) {
                 }
 
                 /* SPLIT CELL positioning */
-
                 .split-cell {
+                    position: relative; /* required for pseudo-element */
                     display: flex;
                     flex-direction: column;
+                    overflow: hidden;
                 }
 
+                /* Diagonal line: lower-left → upper-right */
+                .split-cell::before {
+                    content: "";
+                    position: absolute;
+
+                    /* anchor at bottom-left */
+                    left: 0;
+                    bottom: 0;
+
+                    /* long enough to cross the cell */
+                    width: 350%;
+                    height: 2px;
+
+                    background-color: rgba(0,0,0,0.9);
+
+                    /* correct angle for your 243×189 cell */
+                    transform: rotate(-38deg);
+                    transform-origin: left bottom;
+
+                    z-index: 5;
+                    pointer-events: none;
+                }
+
+
+
                 .split-top {
+                    position: relative;
                     flex: 1;
                     display: flex;
                     flex-direction: column;
-                    border-bottom: 1px solid rgba(0,0,0,0.6);
+                    overflow: hidden;
                 }
+
+                .split-top-events {
+                     width: 80%;
+                     padding: 0 4px;
+                     overflow: hidden;
+                 }
 
                 .split-bottom {
                     flex: 1;                     /* REQUIRED */
@@ -153,9 +186,11 @@ function openPrintPreview(year, month, events, bgUrl) {
                     display: flex;
                     flex-direction: column;
                     justify-content: flex-end;
+                    align-items: flex-end;
                     overflow: hidden;
                     padding: 0 4px;
                     margin-bottom: 2px;
+                    margin-left: 20%;
                 }
 
                 /* Header pushed to bottom */
@@ -171,8 +206,19 @@ function openPrintPreview(year, month, events, bgUrl) {
 
                 .split-bottom .day-header .day-number {
                     top: auto;
+                    left: auto;
+                    right: 6px;
                     bottom: 3px;
                 }
+
+                .split-top .day-icons-top,
+                .split-bottom .day-icons-bottom {
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    width: 100%;
+                }
+
 
             </style>
         </head>
@@ -233,7 +279,7 @@ function renderPrintGrid(layout, htmlMap) {
     for (let i = 0; i < 35; i++) {
         const {top, bottom} = cellArray[i];
 
-        if (bottom === null) {
+        if (top && !bottom) {
             // Normal cell
             html += `
                 <div class="day-cell">
@@ -244,7 +290,7 @@ function renderPrintGrid(layout, htmlMap) {
                   <div class="day-events"></div>
               </div>
             `;
-        } else {
+        } else if (top && bottom) {
             // Split cell
             html += `
                 <div class="day-cell split-cell">
@@ -258,12 +304,14 @@ function renderPrintGrid(layout, htmlMap) {
                     <div class="split-bottom">
                         <div class="split-bottom-events"></div>
                         <div class="day-header">
-                            <span class="day-number">${bottom}</span>
                             <div class="day-icons-bottom">${htmlMap[i].iconsBottom}</div>
+                            <span class="day-number">${bottom}</span>
                         </div>
                     </div>
                 </div>
             `;
+        } else {
+            html += `<div class="day-cell"></div>`;
         }
     }
 
