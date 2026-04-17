@@ -94,6 +94,10 @@
     transition: transform 0.2s ease;
 }
 
+.calendar-day:hover {
+    overflow: visible !important; /* Allow expansion to show for hover */
+}
+
 /* Empty Cell Rule */
 .calendar-day.empty {
     pointer-events: none !important;
@@ -149,6 +153,7 @@
     gap: 1px !important;
     padding: 0 4px !important;
     z-index: 10;
+    align-items: flex-start !important;
 }
 
 .event-item {
@@ -162,6 +167,19 @@
     overflow: hidden;
     text-overflow: ellipsis;
     cursor: pointer;
+}
+/* Base style for Normal Days */
+.calendar-day:not(.split-cell):not(.fsb-ghost-shard) .event-item {
+    display: inline-block !important;
+    width: auto !important;
+    max-width: 100% !important;
+    padding: 2px 6px !important;
+    border-radius: 4px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    background: var(--event-bg) !important;
+    color: #000 !important;
 }
 
 .event-item img {
@@ -180,6 +198,8 @@
     user-select: none !important;
     -webkit-user-select: none;
 }
+
+
 
 /* --- Section 4. SPLIT CELL ARCHITECTURE (TRIANGLES) --- */
 .calendar-day.split-cell {
@@ -217,7 +237,7 @@
 
 /* --- Section 5. THE VISUAL TRIANGLE SHARDS (MIRRORED) --- */
 
-/* 1. LAYER BASE: Only affects split-cells */
+/* 5.1. LAYER BASE: Only affects split-cells */
 .split-cell .layer-bg,
 .split-cell .layer-text {
     position: absolute !important;
@@ -228,7 +248,7 @@
     pointer-events: none !important;
 }
 
-/* 2. THE BACKGROUND LAYER (The 'Curtain') */
+/* 5.2. THE BACKGROUND LAYER (The 'Curtain') */
 .layer-bg { z-index: 1; }
 
 .split-half-top .layer-bg { 
@@ -262,7 +282,7 @@
     display: block !important;
 }
 
-/* 3. THE TEXT LAYER (Liberated Foreground) */
+/* 5.3. THE TEXT LAYER (Liberated Foreground) */
 .layer-text {
     z-index: 5;
     display: flex !important;
@@ -281,11 +301,22 @@
     align-items: flex-end !important;    /* Pushes text/pencil to the right */
 }
 
-/* 4. RESTORE COLOR TO NORMAL DAYS & CLEAN SPLIT TEXT */
+/* 5.4. RESTORE COLOR TO NORMAL DAYS & CLEAN SPLIT TEXT */
 /* Normal Day Events: Keep their background color */
 .calendar-day:not(.split-cell) .event-item {
+    display: inline-block !important; /* Shrinks the background to the text width */
+    width: auto !important;           /* Allows it to shrink */
+    max-width: 100% !important;       /* Prevents it from breaking out of the cell */
+    padding: 2px 6px !important;      /* Gives it a nice "pill" or "badge" padding */
+    margin-bottom: 1px;               /* Adds a tiny gap between the pills */
+    border-radius: 4px !important;    /* Makes it look cleaner than a hard bar */
     background: var(--event-bg) !important;
     color: #000 !important;
+}
+.calendar-day:not(.split-cell) .day-events {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important; /* Aligns all 'pills' to the left */
 }
 
 /* Split Cell Text: Force transparent so the BG layer shows through */
@@ -299,8 +330,8 @@
     justify-content: flex-end !important;
 }
 
-/* 5. SHARED TRUNCATION LOGIC */
-.calendar-day:not(.fsb-ghost-shard) .event-item {
+/* 5.5. SHARED TRUNCATION LOGIC */
+.calendar-day.split-cell:not(.fsb-ghost-shard) .event-item {
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
@@ -374,11 +405,15 @@
 }
 
 /* --- Section 9. THE MAGNIFIER (HOVER) --- */
+
+/* 9.1. The Main Popup Box */
 #calendar-grid:not(.magnifier-disabled) .calendar-day:not(.empty):not(.split-cell):hover {
     z-index: 5000 !important;
     transform: scale(1.35) !important;
     transform-origin: center center !important;
     position: relative !important;
+    height: auto !important; /* Allow the height to grow */
+    min-height: max-content !important;
     overflow: visible !important;
     background: #ffffff !important;
     box-shadow: 0 10px 50px rgba(0,0,0,0.7);
@@ -386,46 +421,46 @@
     border-radius: 6px;
 }
 
-/* Keep the split-cell parent transparent so it doesn't create a 'Ghost' rectangle */
+/* 9.2. The Event Container inside the Popup */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .day-events {
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: flex-start !important; /* Start from top */
+    align-items: flex-start !important;
+    height: auto !important;
+    gap: 2px !important; /* Space between the pills */
+    padding-top: 5px !important;
+    padding-bottom: 5px !important;
+    background: #ffffff !important;
+}
+
+/* 9.3. The Pills inside the Popup */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .event-item {
+    display: inline-block !important;
+    width: fit-content !important;
+    max-width: 100% !important;
+    white-space: normal !important; /* Force text to wrap */
+    line-height: 1.1 !important;
+    word-break: break-word;
+    padding: 2px 6px !important;
+    margin-bottom: 0px;
+    overflow: visible !important;
+    font-size: 0.65rem !important;
+}
+
+/* Keep the split-cell parent transparent on hover */
 #calendar-grid:not(.magnifier-disabled) .calendar-day.split-cell:hover {
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
+    transform: none !important; /* Shards handle their own transform */
 }
-
-/*  Fix the 'Spilling' of events below mangifier: Ensure the background follows the events */
-.calendar-day:hover .day-events {
-    background: #ffffff !important; /* Forces the white background to wrap the events */
-    height: auto !important;
-    min-height: 100%;
-    padding-bottom: 15px !important; /* Space at the bottom of the zoom */
-    border-radius: 0 0 6px 6px;
-    box-shadow: 0 15px 30px rgba(0,0,0,0.3); /* Sub-shadow for the 'drawer' effect */
-}
-
-/* Ensure the + and ✎ are forced to show during hover */
-.calendar-day:hover .add-event-plus,
-.calendar-day:hover .edit-pencil,
-.calendar-day:hover .edit-pencil-mini {
-    display: inline-block !important; /* Force visibility */
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-
-/* Allow the events list to stack infinitely during hover
-   without affecting the cell height */
-.calendar-day:hover .day-events {
-    height: auto !important;
-    overflow: visible !important;
-}
-
-
 
 
 /* --- Section 10.  THE SPLIT-CELL TRIANGLE MAGNIFIER --- */
 /* THE HOVER: The triangle (GHOST SHARD PORTAL) itself pops out */
 
-/* 1. THE SHARD CONTAINER: Ensure it doesn't clip the shadow */
+/* 10.1. THE SHARD CONTAINER: Ensure it doesn't clip the shadow */
 .fsb-ghost-shard {
     position: fixed !important;
     background: transparent !important;
@@ -455,7 +490,7 @@
     transition: opacity 0.1s ease-in-out;
 }
 
-/* 2. THE WHITE TRIANGLE PLATE: The Shadow Host */
+/* 10.2. THE WHITE TRIANGLE PLATE: The Shadow Host */
 .fsb-ghost-shard::before {
     content: '';
     position: absolute;
@@ -465,7 +500,7 @@
     /* apply the clip-path HERE */
 }
 
-/* 3. THE DROP SHADOW: Move the filter to the SHARD itself or the PLATE */
+/* 10.3. THE DROP SHADOW: Move the filter to the SHARD itself or the PLATE */
 /* Note: drop-shadow on a clipped element only works if the element
    is NOT the one being clipped, OR if it's applied to the parent. */
 
@@ -481,7 +516,7 @@
     filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.5)) !important;
 }
 
-/* 3. THE "HARD SYNC" LAYERING */
+/* 10.4. THE "HARD SYNC" LAYERING */
 .fsb-ghost-shard .layer-bg,
 .fsb-ghost-shard .layer-text {
     position: absolute !important;
@@ -494,7 +529,7 @@
     margin: 0 !important;
 }
 
-/* 4. TOP SHARD ALIGNMENT (Starts at top) */
+/* 10.5. TOP SHARD ALIGNMENT (Starts at top) */
 .shard-top .layer-bg,
 .shard-top .layer-text {
     padding: 24px 0 0 0 !important;
@@ -502,7 +537,7 @@
     align-items: flex-start !important;
 }
 
-/* 5. BOTTOM SHARD ALIGNMENT (Starts at bottom) */
+/* 10.6. BOTTOM SHARD ALIGNMENT (Starts at bottom) */
 .shard-bottom .layer-bg,
 .shard-bottom .layer-text {
     padding: 0 0 24px 0 !important;
@@ -511,7 +546,7 @@
     text-align: right !important;
 }
 
-/* 6. SHARD CLIPPING: Ensure Background Shard is trimmed corner-to-corner */
+/* 10.7. SHARD CLIPPING: Ensure Background Shard is trimmed corner-to-corner */
 .shard-top .layer-bg { clip-path: polygon(0 0, 100% 0, 0 100%) !important; }
 .shard-bottom .layer-bg { clip-path: polygon(100% 0, 100% 100%, 0 100%) !important; }
 
@@ -520,7 +555,7 @@
     pointer-events: none !important;
 }
 
-/* 7. SYNCED WRAPPING & HEIGHT */
+/* 10.8. SYNCED WRAPPING & HEIGHT */
 .fsb-ghost-shard .event-item {
     white-space: normal !important;
     word-break: break-word;
@@ -545,7 +580,7 @@
     z-index: 5;
 }
 
-/* 8. THE TETHERED PENCIL (Flipped for Bottom Shard) */
+/* 10.9. THE TETHERED PENCIL (Flipped for Bottom Shard) */
 .fsb-ghost-shard .edit-pencil {
     display: inline !important;
     visibility: visible !important;
@@ -560,7 +595,7 @@
     margin-left: 6px !important;
 }
 
-/* 9. THE HEADERS */
+/* 10.10. THE HEADERS */
 .fsb-ghost-shard .day-top {
     position: absolute !important;
     top: 0;
