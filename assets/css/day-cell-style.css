@@ -193,7 +193,9 @@
     display: none !important; /* Hidden by default in standard grid */
     margin-left: auto;
     font-size: 0.6rem;
-    padding-left: 4px;
+    white-space: nowrap !important; /* Forces it to stay with the last word */
+    vertical-align: middle;
+    padding-left: 2px;
     cursor: pointer !important;
     user-select: none !important;
     -webkit-user-select: none;
@@ -235,7 +237,6 @@
     layer-bg holds the colors (clipped by a mask), 
     layer-text holds the content (unclipped). */
 
-/* --- Section 5. THE VISUAL TRIANGLE SHARDS (MIRRORED) --- */
 
 /* 5.1. LAYER BASE: Only affects split-cells */
 .split-cell .layer-bg,
@@ -307,11 +308,14 @@
     display: inline-block !important; /* Shrinks the background to the text width */
     width: auto !important;           /* Allows it to shrink */
     max-width: 100% !important;       /* Prevents it from breaking out of the cell */
-    padding: 2px 6px !important;      /* Gives it a nice "pill" or "badge" padding */
+    padding: 1px 4px !important;      /* Gives it a nice "pill" or "badge" padding */
     margin-bottom: 1px;               /* Adds a tiny gap between the pills */
-    border-radius: 4px !important;    /* Makes it look cleaner than a hard bar */
+    border-radius: 2px !important;    /* Makes it look cleaner than a hard bar */
     background: var(--event-bg) !important;
     color: #000 !important;
+    /* clamp font (MIN, PREFERRED, MAX) */
+    font-size: clamp(7px, 0.6vw, 12px) !important;
+    line-height: 1.0 !important;
 }
 .calendar-day:not(.split-cell) .day-events {
     display: flex !important;
@@ -433,6 +437,12 @@
     padding-bottom: 5px !important;
     background: #ffffff !important;
 }
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .day-top {
+    display: flex !important;
+    visibility: visible !important;
+    z-index: 5010 !important; /* Higher than the event list */
+    pointer-events: auto !important;
+}
 
 /* 9.3. The Pills inside the Popup */
 #calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .event-item {
@@ -456,6 +466,22 @@
     transform: none !important; /* Shards handle their own transform */
 }
 
+/* Force show the pencil inside the Magnifier Card */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .edit-pencil {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+}
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .add-event-plus {
+    display: inline-block !important;
+    visibility: visible !important;
+    opacity: 1 !important;
+    color: #0056b3 !important; /* Strong Blue */
+    font-weight: 900 !important;
+    font-size: 1.2rem !important; /* Slightly larger so it's easy to click */
+    cursor: pointer !important;
+    z-index: 5011 !important;
+}
 
 /* --- Section 10.  THE SPLIT-CELL TRIANGLE MAGNIFIER --- */
 /* THE HOVER: The triangle (GHOST SHARD PORTAL) itself pops out */

@@ -1,6 +1,8 @@
 /* CSS for FSBHOA Calendar plugin */
 /*     David Keeney, Mar 24, 2026 */
 
+
+
 /* Hide common WordPress page title from classes that are siblings or parents */
 #fsb-calendar-app ~ .entry-title,
 #fsb-agenda-app ~ .entry-title,
