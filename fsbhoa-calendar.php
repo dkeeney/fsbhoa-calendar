@@ -3,7 +3,7 @@
  * Plugin Name: FSBHOA Calendar
  * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.0.7
+ * Version:           1.0.8
  * Author:            David Keeney
  * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
  * Requires at least: 5.8

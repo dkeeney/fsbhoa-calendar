@@ -583,14 +583,31 @@
 
 /* 10.8. SYNCED WRAPPING & HEIGHT */
 .fsb-ghost-shard .event-item {
+    /* Change: Must be flex for order and alignment to work */
+    display: flex !important;
+    align-items: center !important;
+    gap: 0 !important;
+
     white-space: normal !important;
     word-break: break-word;
-    display: block !important;
     width: 100% !important;
-    line-height: 1.2 !important;
+    line-height: 1.0 !important;
     min-height: 16px;
     margin: 0 !important;
     padding: 1px 4px !important;
+}
+
+/* TOP SHARD: Pencil on Left, Text on Left */
+.shard-top .event-item {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+}
+
+/* BOTTOM SHARD: Pencil on Right, Text on Right */
+.shard-bottom .event-item {
+    flex-direction: row !important;
+    justify-content: flex-end !important;
+    text-align: right !important;
 }
 
 .fsb-ghost-shard .layer-bg .event-item {
@@ -606,19 +623,38 @@
     z-index: 5;
 }
 
-/* 10.9. THE TETHERED PENCIL (Flipped for Bottom Shard) */
+/* --- 10.9. THE TETHERED PENCIL --- */
 .fsb-ghost-shard .edit-pencil {
-    display: inline !important;
+    display: inline-block !important;
     visibility: visible !important;
-    margin-left: 6px !important;
-    color: #f57c00 !important;
-    font-size: 0.9rem !important;
-    font-weight: bold;
+    color: #000 !important;
+    font-size: 0.85em !important; /* Slightly smaller to save horizontal space */
+    font-weight: normal !important;
+    cursor: pointer !important;
+    pointer-events: auto !important;
+    flex-shrink: 0 !important; /* Prevents pencil from being crushed by long text */
 }
 
-/* In the bottom shard, keep pencil on the right of the right-aligned text */
+/* TOP: Move pencil to the front */
+.shard-top .edit-pencil {
+    order: -1 !important;
+    margin-right: 4px !important;
+    margin-left: 0 !important;
+}
+
+/* BOTTOM: Move pencil to the end */
 .shard-bottom .edit-pencil {
-    margin-left: 6px !important;
+    order: 1 !important;
+    margin-left: 4px !important;
+    margin-right: 0 !important;
+}
+
+/* Cleanup: Standardize visibility across layers */
+.fsb-ghost-shard .layer-bg .edit-pencil {
+    display: none !important;
+}
+.fsb-ghost-shard .layer-text .edit-pencil {
+    display: inline-block !important;
 }
 
 /* 10.10. THE HEADERS */

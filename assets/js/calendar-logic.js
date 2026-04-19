@@ -350,102 +350,92 @@ document.addEventListener('DOMContentLoaded', function() {
     // This uses the actual coordinates of the split line to determine
     // which triangle the mouse is in, regardless of overlap.
     let activeShard = null;
+    let lastTargetKey = null; // Stores "date-type" to prevent redundant re-draws
 
     document.addEventListener('mousemove', (e) => {
-        // 1. THE ANCHOR: Interactive items keep the shard alive
-        if (e.target.closest('.event-item, .edit-pencil, .add-event-plus')) return;
+        // 1. ANCHOR CHECK: If we are hovering over an interactive element INSIDE an active shard,
+        // we "freeze" the logic so the shard doesn't swap while the user is trying to click a pencil.
+        const elements = document.elementsFromPoint(e.clientX, e.clientY);
+        // Explicitly find the split-cell, IGNORING any active shards
 
-        // 2. DETECTION: What is physically under the mouse?
-        const hoveredCell = e.target.closest('.split-cell');
-        let targetCell = hoveredCell;
+        // 2. DETECTION: Look for the underlying split-cell
+        const hoveredCell = elements.find(el =>
+            el.classList.contains('split-cell') &&
+            !el.classList.contains('fsb-ghost-shard')
+        );
 
-        if (activeShard) {
-            const activeDate = activeShard.dataset.cellDate;
-        
-            // 3. SHARP EXIT: If we are physically over a DIFFERENT cell, kill shard NOW.
-            if (hoveredCell && hoveredCell.dataset.date !== activeDate) {
+        // 3. EXIT CONDITION: If no cell is hovered, kill the shard and reset state
+        if (!hoveredCell) {
+            if (activeShard) {
                 activeShard.remove();
                 activeShard = null;
-                // targetCell remains hoveredCell to allow the logic below to start the new shard.
-            } 
-            // 4. THE BUFFER: Only use the leash if we are in empty space (margins/padding)
-            else if (!hoveredCell) {
-                const activeCell = document.querySelector(`.calendar-day[data-date="${activeDate}"]`);
-                if (activeCell) {
-                    const rect = activeCell.getBoundingClientRect();
-                
-                    // Tighten the buffer: it should only be as wide as the magnification (approx 20%)
-                    const buffer = rect.width * 0.20; 
-                
-                    const isInsideLeash = (
-                        e.clientX >= rect.left - buffer &&
-                        e.clientX <= rect.right + buffer &&
-                        e.clientY >= rect.top - buffer &&
-                        e.clientY <= rect.bottom + buffer
-                    );
-
-                    if (isInsideLeash) {
-                        targetCell = activeCell;
-                    } else {
-                        // Truly outside the magnified shard's reach
-                        activeShard.remove();
-                        activeShard = null;
-                        return; 
-                    }
-                }
+                lastTargetKey = null;
             }
-        }
-    
-        // 5. FINAL EXIT: No cell detected and no active shard to leash
-        if (!targetCell) {
-            if (activeShard) { activeShard.remove(); activeShard = null; }
             return;
         }
-    
-        // 6. TRIANGLE CALCULATION
-        const rect = targetCell.getBoundingClientRect();
+
+        // 4. TRIANGLE MATH: Determine if mouse is in 'top' or 'bottom'
+        const rect = hoveredCell.getBoundingClientRect();
         const x = e.clientX - rect.left;
         const y = e.clientY - rect.top;
+
+        // The diagonal math: x/w + y/h < 1 is the upper-left triangle
         const positionValue = (x / rect.width) + (y / rect.height);
-    
-        if (Math.abs(positionValue - 1) < 0.02) return; 
+
+        // Add a tiny "dead zone" buffer (0.02) to prevent flickering exactly on the line
+        if (Math.abs(positionValue - 1) < 0.02) return;
+
         const newShardType = positionValue < 1 ? 'top' : 'bottom';
-    
-        // 7. INTERNAL SWITCH (Flip halves within same cell)
+        const currentKey = `${hoveredCell.dataset.date}-${newShardType}`;
+
+        // 5. DEBOUNCE: If the mouse is moving but stays within the same triangle, STOP here.
+        if (currentKey === lastTargetKey) return;
+
+        // 6. CLEANUP: Remove the previous shard before creating the new one
         if (activeShard) {
-            const isSameType = activeShard.dataset.type === newShardType;
-            const isSameDate = activeShard.dataset.cellDate === targetCell.dataset.date;
-            
-            if (isSameType && isSameDate) return; 
-            
             activeShard.remove();
-            activeShard = null;
         }
-    
-        // 8. CREATE NEW SHARD
+
+        // 7. CREATE NEW SHARD
+        lastTargetKey = currentKey;
         activeShard = document.createElement('div');
         activeShard.className = `fsb-ghost-shard shard-${newShardType}`;
         activeShard.dataset.type = newShardType;
-        activeShard.dataset.cellDate = targetCell.dataset.date;
-    
+        activeShard.dataset.cellDate = hoveredCell.dataset.date;
+
+        // Grab content from the hidden source half inside the grid cell
         const sourceClass = newShardType === 'top' ? '.split-half-top' : '.split-half-bottom';
-        const sourceContent = targetCell.querySelector(sourceClass);
+        const sourceContent = hoveredCell.querySelector(sourceClass);
+
         if (sourceContent) {
             activeShard.innerHTML = sourceContent.innerHTML;
+            // Ensure the shard carries over any click handlers (like opening the modal)
             activeShard.onclick = sourceContent.onclick;
         }
-    
+
+        // 8. POSITIONING & POINTER LOGIC
         Object.assign(activeShard.style, {
             position: 'fixed',
             top: `${rect.top}px`,
             left: `${rect.left}px`,
             width: `${rect.width}px`,
             height: `${rect.height}px`,
+            zIndex: '10000',
+            // Make the shard container "invisible" to the mouse so it doesn't
+            // block the 'hoveredCell' detection on the grid below.
             pointerEvents: 'none'
         });
-    
+
         const wrapper = document.getElementById('fsb-monthly-wrapper');
-        wrapper.appendChild(activeShard);
+        if (wrapper) {
+            wrapper.appendChild(activeShard);
+
+            // 9. RE-ENABLE INTERACTION: Allow the user to click the actual items
+            const interactives = activeShard.querySelectorAll('.event-item, .edit-pencil, .add-event-plus');
+            interactives.forEach(el => {
+                el.style.pointerEvents = 'auto';
+            });
+        }
     });
 
 
