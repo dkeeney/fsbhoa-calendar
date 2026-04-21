@@ -110,14 +110,14 @@
     flex-direction: row !important;
     flex-wrap: nowrap !important;
     align-items: center !important;
-    height: 24px !important;
+    height: 18px !important;
     padding: 0 5px !important;
     z-index: 10;
 }
 
 .day-number {
     flex: 0 0 30px !important;
-    font-size: 1rem;
+    font-size: clamp(0.8rem, 1.2vw, 1.1rem) !important;
     font-weight: 900;
     line-height: 1;
 }
@@ -169,18 +169,32 @@
     cursor: pointer;
 }
 /* Base style for Normal Days */
+/*.calendar-day:not(.split-cell) .event-item {
+    background: var(--event-bg) !important;
+} */
+/* Normal Day Events (The Standard Pill) */
 .calendar-day:not(.split-cell):not(.fsb-ghost-shard) .event-item {
     display: inline-block !important;
     width: auto !important;
     max-width: 100% !important;
-    padding: 2px 6px !important;
+    background-color: var(--event-bg, #ddd) !important;
+    color: #000 !important;
+    margin-bottom: 1px;
     border-radius: 4px !important;
+    font-size: clamp(7px, 0.6vw, 11px) !important;
+    line-height: 0.95 !important;
+    padding: 1px 2px !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;
-    background: var(--event-bg) !important;
-    color: #000 !important;
 }
+
+.calendar-day:not(.split-cell) .day-events {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+}
+
 
 .event-item img {
     height: 12px;
@@ -192,7 +206,7 @@
 .edit-pencil, .edit-pencil-mini {
     display: none !important; /* Hidden by default in standard grid */
     margin-left: auto;
-    font-size: 0.6rem;
+    font-size: inherit !important;
     white-space: nowrap !important; /* Forces it to stay with the last word */
     vertical-align: middle;
     padding-left: 2px;
@@ -246,8 +260,44 @@
     left: 0;
     width: 100% !important;
     height: 100% !important;
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+    padding: 0 !important;
+    margin: 0 !important;
     pointer-events: none !important;
 }
+
+/* Ensure Top Shard pushes pills from the top */
+.split-half-top .layer-bg,
+.split-half-top .layer-text {
+    justify-content: flex-start !important;
+    align-items: flex-start !important; /* Align pills to the left */
+}
+
+/* Ensure Bottom Shard pushes pills from the bottom */
+.split-half-bottom .layer-bg,
+.split-half-bottom .layer-text {
+    justify-content: flex-end !important;
+    align-items: flex-end !important; /* Align pills to the right */
+}
+.split-cell .day-events,
+.split-cell .day-events-bottom {
+    width: 100% !important;   /* Must be 100% to allow right-justification */
+    max-width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+/* Top Shard: Hug the Left */
+.split-half-top .day-events {
+    align-items: flex-start !important;
+}
+
+/* Bottom Shard: Hug the Far Right */
+.split-half-bottom .day-events-bottom {
+    align-items: flex-end !important;
+}
+
 
 /* 5.2. THE BACKGROUND LAYER (The 'Curtain') */
 .layer-bg { z-index: 1; }
@@ -263,11 +313,11 @@
     clip-path: polygon(100% 0, 100% 100%, 0 100%) !important; 
 }
 
-/* The colored bars inside the background mirror */
-.layer-bg .day-events {
-    padding-top: 24px;
-    padding-bottom: 24px;
+.layer-bg .day-events,
+.layer-text .day-events {
+    gap: 0px !important; /* Remove gaps between items in the grid view */
 }
+
 .layer-bg .day-events-bottom,
 .layer-text .day-events-bottom {
     width: 100% !important;
@@ -275,13 +325,6 @@
     padding: 0 4px !important;
 }
 
-.layer-bg .event-item {
-    background: var(--event-bg) !important;
-    color: transparent !important;
-    border: none !important;
-    width: 100% !important;
-    display: block !important;
-}
 
 /* 5.3. THE TEXT LAYER (Liberated Foreground) */
 .layer-text {
@@ -290,66 +333,92 @@
     flex-direction: column !important;
 }
 
+.split-cell .day-events,
+.split-cell .day-events-bottom {
+    width: 100% !important;
+    padding: 0 4px !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-start !important;
+}
+
 .split-half-top .layer-text { 
-    padding-top: 24px; 
+    padding-top: 18px; 
     align-items: flex-start !important; 
 }
 .split-half-bottom .layer-text {
-    display: flex !important;
-    flex-direction: column !important;
     justify-content: flex-end !important; /* Drops the text to the bottom */
-    padding-bottom: 24px;                 /* Matches the background offset */
+    padding-bottom: 18px;                 /* Matches the background offset */
     align-items: flex-end !important;    /* Pushes text/pencil to the right */
+    text-align: right !important;
+}
+.split-half-bottom .day-events-bottom {
+    align-items: flex-end !important;
 }
 
-/* 5.4. RESTORE COLOR TO NORMAL DAYS & CLEAN SPLIT TEXT */
-/* Normal Day Events: Keep their background color */
-.calendar-day:not(.split-cell) .event-item {
-    display: inline-block !important; /* Shrinks the background to the text width */
-    width: auto !important;           /* Allows it to shrink */
-    max-width: 100% !important;       /* Prevents it from breaking out of the cell */
-    padding: 1px 4px !important;      /* Gives it a nice "pill" or "badge" padding */
-    margin-bottom: 1px;               /* Adds a tiny gap between the pills */
-    border-radius: 2px !important;    /* Makes it look cleaner than a hard bar */
-    background: var(--event-bg) !important;
-    color: #000 !important;
-    /* clamp font (MIN, PREFERRED, MAX) */
-    font-size: clamp(7px, 0.6vw, 12px) !important;
+/* --- Section 5.4. NORMAL SPLIT CELL GRID VIEW --- */
+
+/* The Text Layer: This is your visible "Ink" */
+.split-cell  .event-item {
+    display: inline-block !important;
+    width: auto !important;          
+    max-width: 85% !important;
+
+    /* Ensure the padding and margins are identical for alignment */
+    padding: 1px 3px !important;
+    margin-bottom: 1px !important;
+    font-size: clamp(7px, 0.6vw, 11px) !important;
     line-height: 1.0 !important;
-}
-.calendar-day:not(.split-cell) .day-events {
-    display: flex !important;
-    flex-direction: column !important;
-    align-items: flex-start !important; /* Aligns all 'pills' to the left */
+
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
 }
 
-/* Split Cell Text: Force transparent so the BG layer shows through */
+/* Layer-Specific Styling */
+/* TOP HALF: Hug Left */
+.split-half-top .event-item {
+    align-self: flex-start !important;
+}
+
+/* BOTTOM HALF: Hug Right */
+.split-half-bottom .event-item {
+    align-self: flex-end !important;
+}
+
+/* Background Layer (Paint) */
+.split-cell .layer-bg .event-item {
+    background-color: var(--event-bg, #ddd) !important;
+    color: transparent !important;
+    border-radius: 4px !important;
+}
+
+/* Text Layer (Ink) */
 .split-cell .layer-text .event-item {
     background: transparent !important;
     color: #000 !important;
 }
 
-.split-half-bottom .layer-text .event-item {
-    text-align: right !important;
-    justify-content: flex-end !important;
-}
-
 /* 5.5. SHARED TRUNCATION LOGIC */
-.calendar-day.split-cell:not(.fsb-ghost-shard) .event-item {
-    white-space: nowrap !important;
-    overflow: hidden !important;
-    text-overflow: ellipsis !important;
-    width: 100% !important;
-    display: block !important;
-    pointer-events: auto !important;
-}
 
 /* Hide pencils in standard view */
 .calendar-day:not(.fsb-ghost-shard) .edit-pencil {
     display: none !important;
 }
 
+.split-half-top .event-item,
+.split-half-bottom .event-item,
+.fsb-ghost-shard .event-item {
+    /* Uses the exact same scaling logic as your normal day cells */
+    font-size: clamp(7px, 0.6vw, 11px) !important;
+    line-height: 1.0 !important;
+}
 
+/* Ensure the container doesn't force a larger height than the fluid text */
+.split-half-top, 
+.split-half-bottom {
+    line-height: 1.0 !important;
+}
 
 /* --- Section 6. SPLIT CELL HEAVY LINE --- */
 .split-line-container {
@@ -450,41 +519,46 @@
     width: fit-content !important;
     max-width: 100% !important;
     white-space: normal !important; /* Force text to wrap */
-    line-height: 1.1 !important;
+    font-size: clamp(12px, 1.0vw, 16px) !important;
+    line-height: 1.0 !important;
     word-break: break-word;
     padding: 2px 6px !important;
     margin-bottom: 0px;
     overflow: visible !important;
-    font-size: 0.65rem !important;
 }
 
-/* Keep the split-cell parent transparent on hover */
+/* 9.4  Keep the split-cell parent transparent on hover */
 #calendar-grid:not(.magnifier-disabled) .calendar-day.split-cell:hover {
+    z-index: 10000 !important; /* Sit on top of neighbors */
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
-    transform: none !important; /* Shards handle their own transform */
+    transform: none !important; /* Normal days scale; split-cell parents do not */
 }
 
-/* Force show the pencil inside the Magnifier Card */
-#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .edit-pencil {
-    display: inline-block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-}
-#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .add-event-plus {
-    display: inline-block !important;
-    visibility: visible !important;
-    opacity: 1 !important;
-    color: #0056b3 !important; /* Strong Blue */
-    font-weight: 900 !important;
-    font-size: 1.2rem !important; /* Slightly larger so it's easy to click */
-    cursor: pointer !important;
-    z-index: 5011 !important;
+/* Ensure neighbor cells don't have higher priority */
+.calendar-day.split-cell:hover + .calendar-day {
+    z-index: 1 !important;
 }
 
 /* --- Section 10.  THE SPLIT-CELL TRIANGLE MAGNIFIER --- */
-/* THE HOVER: The triangle (GHOST SHARD PORTAL) itself pops out */
+/* 10.0 EXTEND THE HITBOX FOR SPLIT CELLS */
+/* THE BRIDGE: We scale the invisible triangle halves on hover.
+   This expands the 'hitbox' so the mouse doesn't leave the cell
+   before it hits the pencil. */
+#calendar-grid:not(.magnifier-disabled) .calendar-day.split-cell:hover .split-half:hover {
+    z-index: 9999 !important;
+    transform: scale(1.4) !important; /* Match the shard scale exactly */
+    transform-origin: center center !important;
+    background: transparent !important; /* Keep it invisible */
+    pointer-events: auto !important;
+    overflow: visible !important;
+}
+
+/* Ensure the neighbor doesn't 'steal' the hover focus */
+.calendar-day.split-cell:hover {
+    z-index: 9000 !important;
+}
 
 /* 10.1. THE SHARD CONTAINER: Ensure it doesn't clip the shadow */
 .fsb-ghost-shard {
@@ -492,11 +566,13 @@
     background: transparent !important;
     transform: scale(1.4) !important;
     transform-origin: center center !important;
-    z-index: 20000 !important;
+    z-index: 9001 !important;
     /* CRITICAL: Must be visible so the drop-shadow can 'leak' out */
     overflow: visible !important;
     box-shadow: none !important;
-    pointer-events: none !important;
+    pointer-events: auto !important;
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 /* Ensure items within the shard remain interactive */
@@ -523,7 +599,8 @@
     top: 0; left: 0; width: 100%; height: 100%;
     background: white !important;
     z-index: -1;
-    /* apply the clip-path HERE */
+    visibility: visible !important;
+    opacity: 1 !important;
 }
 
 /* 10.3. THE DROP SHADOW: Move the filter to the SHARD itself or the PLATE */
@@ -558,7 +635,7 @@
 /* 10.5. TOP SHARD ALIGNMENT (Starts at top) */
 .shard-top .layer-bg,
 .shard-top .layer-text {
-    padding: 24px 0 0 0 !important;
+    padding: 18px 0 0 0 !important;
     justify-content: flex-start !important;
     align-items: flex-start !important;
 }
@@ -566,10 +643,10 @@
 /* 10.6. BOTTOM SHARD ALIGNMENT (Starts at bottom) */
 .shard-bottom .layer-bg,
 .shard-bottom .layer-text {
-    padding: 0 0 24px 0 !important;
+    padding: 0 0 18px 0 !important;
     justify-content: flex-end !important;
-    align-items: flex-end !important; /* Right-justify for bottom triangle */
-    text-align: right !important;
+    align-items: flex-end !important; /* Pushes pills to the far right */
+    text-align: right !important;     /* Aligns text inside the pills to the right */
 }
 
 /* 10.7. SHARD CLIPPING: Ensure Background Shard is trimmed corner-to-corner */
@@ -583,45 +660,44 @@
 
 /* 10.8. SYNCED WRAPPING & HEIGHT */
 .fsb-ghost-shard .event-item {
-    /* Change: Must be flex for order and alignment to work */
-    display: flex !important;
-    align-items: center !important;
-    gap: 0 !important;
+    display: flex !important; /* Flex allows the pencil/text alignment */
+    width: auto !important;
+    max-width: 85% !important; /* Wraps text at 85% of shard width */
 
-    white-space: normal !important;
-    word-break: break-word;
-    width: 100% !important;
-    line-height: 1.0 !important;
-    min-height: 16px;
-    margin: 0 !important;
-    padding: 1px 4px !important;
-}
-
-/* TOP SHARD: Pencil on Left, Text on Left */
-.shard-top .event-item {
-    flex-direction: row !important;
-    justify-content: flex-start !important;
-}
-
-/* BOTTOM SHARD: Pencil on Right, Text on Right */
-.shard-bottom .event-item {
-    flex-direction: row !important;
-    justify-content: flex-end !important;
-    text-align: right !important;
-}
-
-.fsb-ghost-shard .layer-bg .event-item {
-    background: var(--event-bg) !important;
-    color: transparent !important;
-    visibility: visible !important;
-}
-
-.fsb-ghost-shard .layer-text .event-item {
-    background: transparent !important;
+    /* THE MAGNIFIED LOOK */
+    background-color: var(--event-bg, #ddd) !important;
     color: #000 !important;
-    pointer-events: auto !important;
-    z-index: 5;
+    border-radius: 4px !important;
+    padding: 1px 6px !important;
+    margin-bottom: 1px !important;
+    min-height: unset !important;   /* Remove any forced minimum height */
+
+    /* THE WRAPPING LOGIC */
+    white-space: normal !important;
+    word-break: break-word !important;
+    font-size: clamp(12px, 1.0vw, 16px) !important;
+    line-height: 1.1 !important;
 }
+
+/* TOP MAGNIFIED: Hug Left */
+.shard-top .event-item {
+    align-self: flex-start !important;
+}
+
+/* BOTTOM MAGNIFIED: Hug Right */
+.shard-bottom .event-item {
+    align-self: flex-end !important;
+    text-align: right !important; /* Right-align text inside the wrapped pill */
+}
+
+/* Clickable Items */
+.fsb-ghost-shard .event-item,
+.fsb-ghost-shard .edit-pencil,
+.fsb-ghost-shard .add-event-plus {
+    pointer-events: auto !important;
+    cursor: pointer !important;
+}
+
 
 /* --- 10.9. THE TETHERED PENCIL --- */
 .fsb-ghost-shard .edit-pencil {
@@ -638,14 +714,14 @@
 /* TOP: Move pencil to the front */
 .shard-top .edit-pencil {
     order: -1 !important;
-    margin-right: 4px !important;
+    margin-right: 0 !important;
     margin-left: 0 !important;
 }
 
 /* BOTTOM: Move pencil to the end */
 .shard-bottom .edit-pencil {
     order: 1 !important;
-    margin-left: 4px !important;
+    margin-left: 0 !important;
     margin-right: 0 !important;
 }
 
@@ -664,7 +740,7 @@
     width: 100%;
     height: 24px !important;
     z-index: 100;
-    padding-right: 12px !important;
+    padding-right: 18px !important;
 }
 .fsb-ghost-shard .day-bottom {
     position: absolute !important;
@@ -672,7 +748,7 @@
     width: 100%;
     height: 24px !important;
     z-index: 100;
-    padding-left: 12px !important;
+    padding-left: 18px !important;
 }
 
 .fsb-ghost-shard .add-event-plus {

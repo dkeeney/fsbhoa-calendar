@@ -247,13 +247,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const chip = e.target.closest('.event-item');
         if (!chip) return;
 
+        // 1. Find the parent cell first
+        const parentCell = chip.closest('.calendar-day, .split-cell');
+
+        // 2. Assign the data once
         draggedData = {
             id: chip.dataset.eventId,
             pivotId: chip.dataset.pivotId,
             moveId: chip.dataset.moveId,
-            originalDate: chip.closest('.calendar-day').dataset.date || chip.closest('.split-cell').dataset.date
+            originalDate: parentCell ? (parentCell.dataset.date || parentCell.dataset.dateTop) : null
         };
 
+        // 3. Update the UI state
         document.getElementById('calendar-grid').classList.add('is-dragging');
         e.dataTransfer.effectAllowed = "move";
     });
@@ -285,15 +290,25 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.addEventListener('drop', async (e) => {
         e.preventDefault();
-        const isShift = e.shiftKey;
+        // --- MOVE CLEANUP TO THE TOP ---
+        document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
         const grid = document.getElementById('calendar-grid');
         const appContainer = document.getElementById('fsb-calendar-app');
+        grid.classList.remove('is-dragging');
+        appContainer.classList.remove('header-drop-active');
+        // -------------------------------
+        console.log("DROP DETECTED"); // Check if the drop is even firing
+        
+        const isShift = e.shiftKey;
 
         // 1. Clean up UI immediately
         grid.classList.remove('is-dragging');
         appContainer.classList.remove('header-drop-active');
 
-        if (!draggedData) return;
+        if (!draggedData) {
+            console.log("DROP ABORTED: No draggedData");
+            return;
+        }
 
         // 2. Check if we are in the Header (The top 14%)
         const rect = appContainer.getBoundingClientRect();
@@ -315,6 +330,8 @@ document.addEventListener('DOMContentLoaded', function() {
         // 3. Day Cell Reschedule
         const cell = e.target.closest('.calendar-day');
         if (cell && !cell.classList.contains('empty')) {
+            console.log("DROPPED ON CELL:", cell.dataset.date);
+
             let targetDate = cell.dataset.date;
             if (cell.classList.contains('split-cell')) {
                 const cellRect = cell.getBoundingClientRect();
@@ -330,7 +347,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
 
             if (targetDate !== draggedData.originalDate || e.shiftKey) {
+                console.log("CALLING SUBMIT RESCHEDULE for:", targetDate);
                 submitReschedule(draggedData.id, draggedData.originalDate, draggedData.pivotId, draggedData.moveId, targetDate, e.shiftKey);
+            } else {
+                console.log("DROP ABORTED: Not a valid cell", e.target);
             }
         }
 
@@ -341,6 +361,9 @@ document.addEventListener('DOMContentLoaded', function() {
     document.addEventListener('dragend', () => {
         document.getElementById('calendar-grid').classList.remove('is-dragging');
         document.getElementById('fsb-calendar-app').classList.remove('header-drop-active');
+        document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+        draggedData = null;
+        grid.classList.remove('is-dragging');
     });
 
 
@@ -353,10 +376,19 @@ document.addEventListener('DOMContentLoaded', function() {
     let lastTargetKey = null; // Stores "date-type" to prevent redundant re-draws
 
     document.addEventListener('mousemove', (e) => {
+        if (grid.classList.contains('is-dragging')) return;
+
         // 1. ANCHOR CHECK: If we are hovering over an interactive element INSIDE an active shard,
         // we "freeze" the logic so the shard doesn't swap while the user is trying to click a pencil.
         const elements = document.elementsFromPoint(e.clientX, e.clientY);
         // Explicitly find the split-cell, IGNORING any active shards
+
+        // --- ANCHOR EXCEPTION FOR MAGNIFY ---
+        // Check if the mouse is currently over the magnified shard or its children
+        const isOverShard = elements.some(el =>
+            el.classList.contains('fsb-ghost-shard') ||
+            el.closest('.fsb-ghost-shard')
+        );
 
         // 2. DETECTION: Look for the underlying split-cell
         const hoveredCell = elements.find(el =>
@@ -365,7 +397,7 @@ document.addEventListener('DOMContentLoaded', function() {
         );
 
         // 3. EXIT CONDITION: If no cell is hovered, kill the shard and reset state
-        if (!hoveredCell) {
+        if (!hoveredCell && !isOverShard) {
             if (activeShard) {
                 activeShard.remove();
                 activeShard = null;
@@ -373,6 +405,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return;
         }
+        // If we are over the shard, stop the math logic so the shard doesn't
+        // flicker or swap while we are clicking the pencil.
+        if (isOverShard && !hoveredCell) return;
+
 
         // 4. TRIANGLE MATH: Determine if mouse is in 'top' or 'bottom'
         const rect = hoveredCell.getBoundingClientRect();
@@ -437,7 +473,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
-
 
 
 
@@ -648,16 +683,17 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
                     ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
                 </div>
             </div>
+            <div class="events-layer layer-text">
+                <div class="day-top" style="visibility: hidden;"></div>
+                <div class="day-events">
+                    ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
+                </div>
+            </div>
 
             <div class="day-top">
                 <div class="day-number">${topDay}</div>
                 <div class="day-icons-corner">${renderIcons(evtsA.filter(e => iconLibrary[e.category_id]), dateA)}</div>
                 <div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>
-            </div>
-            <div class="day-events">
-                <div class="events-layer layer-text">
-                    ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
-                </div>
             </div>
         </div>
 
@@ -671,10 +707,11 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
                 <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
 
-            <div class="day-events-bottom">
-                <div class="events-layer layer-text">
+            <div class="events-layer layer-text">
+                <div class="day-events-bottom">
                     ${renderEvents(evtsB.filter(e => !iconLibrary[e.category_id]))}
                 </div>
+                <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
             <div class="day-bottom">
                 <div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>
