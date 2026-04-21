@@ -376,7 +376,15 @@ document.addEventListener('DOMContentLoaded', function() {
     let lastTargetKey = null; // Stores "date-type" to prevent redundant re-draws
 
     document.addEventListener('mousemove', (e) => {
-        if (grid.classList.contains('is-dragging')) return;
+        if (grid.classList.contains('magnifier-disabled') || grid.classList.contains('is-dragging')) {
+            // Clean up any stray shards before returning
+            if (activeShard) {
+                activeShard.remove();
+                activeShard = null;
+                lastTargetKey = null;
+            }
+            return;
+        }
 
         // 1. ANCHOR CHECK: If we are hovering over an interactive element INSIDE an active shard,
         // we "freeze" the logic so the shard doesn't swap while the user is trying to click a pencil.
@@ -875,6 +883,26 @@ function openEditModal(selectedDate, eventId = null, pivot_id = null, move_id = 
         visibility: 'public',
     };
 
+    const isManualAdd = !selectedDate;
+    const activeDate = selectedDate || new Date().toISOString().split('T')[0];
+
+    // Format the display date for the header (only if we have one)
+    const displayDate = new Date(activeDate + 'T00:00:00').toLocaleDateString('en-US', {
+        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
+    });
+
+    // ---  Conditional Date UI ---
+    // If manual add, show a picker. Otherwise, show the static formatted date.
+    const dateSelectorHtml = isManualAdd
+        ? `<div style="margin-top: 8px;">
+            <label style="font-size: 0.8rem; display:block; margin-bottom:2px;">Select Event Date:</label>
+            <input type="date" name="date" id="manual_date_input" value="${activeDate}" style="padding:4px; font-size:0.9rem;">
+           </div>`
+        : `<div style="font-size: 0.9rem; font-weight: 600; margin-top: 4px;">Date: ${displayDate}</div>
+           <input type="hidden" name="date" value="${selectedDate}">`;
+
+
+
     const hasDelegate = !!(eventData.owner_email && eventData.owner_email.trim() !== '');
     const delegateSection = `
         <div class="form-group" style="margin-top:15px; padding:10px; background:#f0f4f8; border-radius:4px; border:1px solid #d1d9e0;">
@@ -897,11 +925,6 @@ function openEditModal(selectedDate, eventId = null, pivot_id = null, move_id = 
     `;
 
 
-    // Format the display dates for the header
-    const displayDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString('en-US', {
-        weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
-    });
-
     const rescheduled = (move_id && move_id !== "" && move_id !== "null") ? "that was rescheduled." : "";
 
     // If it's a repeating event, find the base date (original start date)
@@ -922,8 +945,7 @@ function openEditModal(selectedDate, eventId = null, pivot_id = null, move_id = 
                     ${typeLabel}
                 </div>
                 <h3 style="margin: 0; font-size: 1.2rem;">${eventId ? 'Update Event' : 'Create New Event'}</h3>
-                <div style="font-size: 0.9rem; font-weight: 600; margin-top: 4px;">Date: ${displayDate}</div>
-                ${baseDateInfo}
+                ${dateSelectorHtml} ${baseDateInfo}
             </div>
 
             <input type="hidden" name="event_id" value="${eventId || ''}">
@@ -1428,7 +1450,17 @@ function openDayModal(dateStr) {
     const dateObj = new Date(dateStr + 'T00:00:00');
     const title = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-    let html = `<h3>Events for ${title}</h3><hr>`;
+    // heading
+    let html = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-right: 30px;">
+            <h3 style="margin:0;">Events for ${title}</h3>
+            ${config.isAdmin ? `
+                <span title="Add New Event"
+                      style="color:#0056b3; cursor:pointer; font-size:2rem; font-weight:900; line-height:1; margin-right:10px;"
+                      onclick="handleAddEventFromModal('${dateStr}')">+</span>
+            ` : ''}
+        </div>
+        <hr>`;
 
     if (events.length === 0) {
         html += '<p>No events scheduled for this day.</p>';
@@ -1494,6 +1526,27 @@ function openDayModal(dateStr) {
     content.innerHTML = html;
     modal.classList.add('is-visible');
 }
+
+/**
+ * Helper to bridge the Day Modal to the New Event Form
+ * Called when the + operator is clicked.
+ */
+function handleAddEventFromModal(dateStr) {
+    const dayModal = document.getElementById('fsb-day-modal');
+    if (dayModal) {
+        dayModal.classList.remove('is-visible');
+    }
+
+    // Call your existing function that opens the blank "Add" form
+    // Assuming it's named openAddModal or openEditModal(dateStr, null...)
+    if (typeof openAddModal === 'function') {
+        openAddModal(dateStr);
+    } else {
+        // If you use the same modal for add/edit:
+        openEditModal(dateStr, null, null, null, null);
+    }
+}
+
 
 // Helper to bridge the Modal to the Edit Form
 async function handleEditClick(id, dateStr, pivot_id, move_id = null) {

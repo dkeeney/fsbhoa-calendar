@@ -54,6 +54,32 @@ function fsb_cal_cleanup() {
     }
 }
 
+
+add_action('admin_enqueue_scripts', function($hook) {
+    // Only load on our settings page to keep admin clean
+    if ($hook !== 'toplevel_page_fsb-cal-settings') return;
+
+    // Load the CSS
+    wp_enqueue_style('fsb-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
+    wp_enqueue_style('fsb-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
+
+    // Enqueue the same scripts used for the front-end
+    fsb_enqueue_calendar_scripts();
+
+    // Force a specific Admin fix for the scrollbar and modal layering
+    wp_add_inline_style('fsb-cal-style', "
+        /* Prevent the modal from being hidden behind the WP Admin Menu */
+        .fsb-modal {
+            z-index: 99999 !important;
+        }
+        /* Override any 'overflow: hidden' that might get stuck on the admin body */
+        body.fsb-admin-scroll-fix {
+            overflow: auto !important;
+            height: auto !important;
+        }
+    ");
+});
+
 add_action('wp_enqueue_scripts', function() {
     //error_log("FSB CALENDAR: wp_enqueue_scripts() running");
 

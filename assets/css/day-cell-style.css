@@ -555,6 +555,14 @@
     overflow: visible !important;
 }
 
+/* If the grid has the disabled class, kill all shards immediately */
+#calendar-grid.magnifier-disabled .fsb-ghost-shard,
+#calendar-grid.magnifier-disabled + .fsb-ghost-shard,
+#fsb-monthly-wrapper:has(#calendar-grid.magnifier-disabled) .fsb-ghost-shard {
+    display: none !important;
+    pointer-events: none !important;
+}
+
 /* Ensure the neighbor doesn't 'steal' the hover focus */
 .calendar-day.split-cell:hover {
     z-index: 9000 !important;
