@@ -61,18 +61,37 @@ html, body {
     overflow: visible !important;
 }
 
-#fsb-agenda-wrapper {
-    margin-top: 20px !important; /* Maybe you want a little more gap here */
+
+/**************************************************************/
+
+/* Section 2. AGENDA  The scrolling list logic
+ *
+ * Framework:
+ * <div class="fsb-agenda-app">
+ *   <div class="nav-arrow prev" id="prevMonthAgenda">❮</div>
+ *   <div class="nav-arrow next" id="nextMonthAgenda">❯</div>
+ *
+ *   <div class="agenda-controls-wrapper">
+ *       <div id="agenda-sticky-header">March 2026</div>
+ *   </div>
+ *   
+ *   <div id="agenda-view">
+ *       <div id="agenda-content-area">…</div>
+ *   </div>
+ * </div>
+**************************/
+.agenda-controls-wrapper {
     width: 100%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+    height: auto !important;
+    flex: 0 0 auto !important;   /* ← THE KEY FIX */
+    display: block !important;
+    pointer-events: none !important; /* wrapper is transparent */
 }
 
-
-/* 2. AGENDA  The scrolling list logic */
 #fsb-agenda-app {
-    height: auto !important; /* Allow it to grow as long as the list needs */
+    display: flex;
+    flex-direction: column;
+    height: 100%; !important; /* Allow it to grow as long as the list needs */
     aspect-ratio: auto !important; /* Kill the 17:11 restriction */
     width: 95% !important;
     max-width: 600px !important;
@@ -81,8 +100,114 @@ html, body {
     background-image: none !important; /* No Canva background for Agenda */
 }
 
+#fsb-agenda-wrapper {
+    position: relative;
+    margin-top: 20px !important;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
 
-/* 2. Position the Grid exactly over the Canva boxes, monthly mode */
+
+body.fsb-agenda-mode,
+html.fsb-agenda-mode {
+    overflow: hidden !important;
+    height: 100vh !important;
+    position: fixed !important;
+    width: 100% !important;
+}
+body.admin-bar.fsb-agenda-mode {
+    top: 32px !important;
+}
+
+.agenda-only {
+    display: none;
+}
+
+.fsb-agenda-mode .agenda-only {
+    display: block;
+}
+
+
+/* --- 1.  Arrows for Agenda --- */
+/* --- 1. Mid-Screen Nav Arrows for Agenda --- */
+#fsb-agenda-wrapper .nav-arrow {
+    display: flex !important;
+    position: fixed !important;
+
+    /* Center them vertically */
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+
+    z-index: 11000 !important;
+    width: 45px; /* Slightly larger for easier thumb-tapping */
+    height: 60px;
+    border-radius: 8px;
+    font-size: 1.8rem !important;
+}
+
+/* Position them on the edges */
+#fsb-agenda-wrapper .nav-arrow.prev {
+    left: 10px; /* Keep them slightly inside the edge for case/bezel clearance */
+}
+
+#fsb-agenda-wrapper .nav-arrow.next {
+    right: 10px;
+}
+
+/* 2. Admin Bar Fix for Header Only */
+/* Since the arrows are now at 50%, they no longer care about the Admin Bar.
+   Only the Header needs the push-down. */
+body.admin-bar #agenda-sticky-header {
+    top: 32px !important;
+}
+
+
+
+/* --- 2.1 AGENDA Sticky Headers --- */
+
+#agenda-sticky-header {
+    position: sticky !important;
+    top: 0 !important;
+    width: 100% !important;
+    max-width: 600px !important;
+    z-index: 10500 !important;
+    background: #ffffff !important;
+    /* Ensure it has height so we can push content below it */
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    pointer-events: auto !important; /* header still clickable */
+
+    /* Force the text color, size, and weight */
+    color: #333333 !important;
+    font-size: 1.5rem !important;
+    font-weight: 800 !important;
+}
+
+
+#agenda-view {
+    flex: 1 1 auto; 
+    overflow-y: auto;
+    min-height: 0;
+    /* height: 100% */
+    /*height: calc(100vh - 120px); */
+    /*max-height: calc(100vh - 120px); */
+    max-height: 65vh;
+}
+#agenda-content-area {
+    margin-top: 10px !important;
+}
+
+
+
+
+/********************************************/
+
+
+/* 3. Position the Grid exactly over the Canva boxes, monthly mode */
 #calendar-grid {
     display: grid !important;
     position: absolute;
@@ -170,12 +295,23 @@ html, body {
     line-height: 1.1; /* Slightly more room for readability in modal */
 }
 
+.fsb-detail-modal {
+    position: fixed !important; /* not absolute */
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    z-index: 9999;
+}
+
+
+
 /* Force all modals to be hidden on page load */
 .fsb-modal,
 .fsb-full-modal,
 #fsb-edit-modal,
 #fsb-day-modal,
-#fsb-detail-modal {
+.fsb-detail-modal {
     display: none;
 }
 
@@ -281,7 +417,7 @@ body.modal-open {
 /* Full-screen Modal container */
 .fsb-full-modal {
     display: none;
-    position: fixed;
+    position: absolute;
     top: 0; left: 0;
     width: 100vw; height: 100vh;
     z-index: 11000;  /* Must be higher than Nav Arrows (2000) */
@@ -316,7 +452,7 @@ body.modal-open {
     width: 50px; height: 50px;
     border: none;
     cursor: pointer;
-    z-index: 1010;
+    z-index: 10010;
 }
 
 /* Content Styling */
@@ -327,7 +463,7 @@ body.modal-open {
 }
 
 .template-content {
-    padding: 60px;
+    padding: 30px 20px 20px 20px; /* Leave room at the top for the X */
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
 }
 
@@ -745,4 +881,21 @@ input:checked + .slider:before { transform: translateX(20px); }
 }
 
 
+/* --- Icon Wrapper --- */
+/*  This allows the icon to have a fixed height but variable width.  */
+/* Container for the icon */
+.fsb-cat-icon-wrapper {
+    height: 24px;   /* Fixed height anchor */
+    display: inline-flex;
+    align-items: center;
+    margin-right: 4px;
+}
 
+/* The SVG itself */
+.fsb-cat-icon-wrapper svg {
+    height: 24px !important; /* Force fixed height */
+    width: auto !important;   /* Let width scale naturally */
+    max-width: 60px;          /* Safety cap so a crazy path doesn't span half the cell */
+    display: block;
+    overflow: visible;        /* Ensure wide paths aren't clipped */
+}

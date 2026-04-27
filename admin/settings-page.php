@@ -34,6 +34,13 @@ add_action('admin_enqueue_scripts', function($hook) {
         .fsb-modal { z-index: 99999 !important; display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
         .fsb-modal.is-visible { display: flex !important; align-items: center; justify-content: center; }
         body.fsb-admin-scroll-fix { overflow: auto !important; height: auto !important; }
+        #dz-preview svg {
+            max-height: 100px; /* Large but contained */
+            width: auto;
+            display: block;
+            margin: 10px auto;
+            transition: fill 0.2s ease;
+        }
     ");
 });
 
@@ -117,19 +124,26 @@ function fsb_render_settings_manager() {
     <?php
 }
 
+
 function fsb_render_bg_manager() {
     if (isset($_POST['fsb_upload_zip'])) {
         fsb_handle_zip_upload();
     }
+
     $upload_dir = wp_upload_dir();
     $bg_url_base = $upload_dir['baseurl'] . '/fsbhoa-calendar/backgrounds/';
     $bg_path_base = $upload_dir['basedir'] . '/fsbhoa-calendar/backgrounds/';
+    $current_file = "cal-" . date('Y-m') . ".png";
+
     ?>
     <h3>Monthly Backgrounds (ZIP Upload)</h3>
+    <p>Upload a ZIP file containing images named <strong>cal-YYYY-MM.png</strong> (e.g., <em>cal-2026-03.png</em>).</p>
+
     <form method="post" enctype="multipart/form-data" style="background:#fff; padding:20px; border:1px solid #ccc; display:inline-block;">
         <input type="file" name="cal_zip" accept=".zip" required>
         <input type="submit" name="fsb_upload_zip" class="button-primary" value="Upload and Process ZIP">
     </form>
+
     <hr>
     <h4>Current Month Preview</h4>
     <?php
@@ -137,112 +151,391 @@ function fsb_render_bg_manager() {
     if (file_exists($bg_path_base . $current_file)) {
         echo '<img src="' . $bg_url_base . $current_file . '" style="max-width:400px; border:2px solid #333;">';
     } else {
-        echo '<p style="color:red;">No background found for ' . date('F Y') . '</p>';
+        echo '<p style="color:red;">No background found for ' . date('F Y') . ' (Expected: ' . $current_file . ')</p>';
     }
 }
+
 
 function fsb_render_location_manager() {
     global $wpdb;
     $table = $wpdb->prefix . 'fsbhoa_locations';
     $edit_loc = null;
+
+    // 1. Handle "Edit" Mode Detection
     if (isset($_GET['edit_loc'])) {
-        $edit_loc = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", intval($_GET['edit_loc'])));
+        $edit_id = intval($_GET['edit_loc']);
+        $edit_loc = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $edit_id));
     }
+
+    // 2. Handle Form Submission (Add or Update)
     if (isset($_POST['save_location'])) {
         check_admin_referer('fsb_location_action', 'fsb_loc_nonce');
-        $name = sanitize_text_field($_POST['loc_name']);
-        if (!empty($_POST['loc_id'])) {
-            $wpdb->update($table, ['name' => $name], ['id' => intval($_POST['loc_id'])]);
-        } else {
-            $wpdb->insert($table, ['name' => $name]);
+
+        $loc_name = sanitize_text_field($_POST['loc_name']);
+
+        if (!empty($loc_name)) {
+            if (!empty($_POST['loc_id'])) {
+                // UPDATE
+                $wpdb->update($table, ['name' => $loc_name], ['id' => intval($_POST['loc_id'])]);
+                echo '<div class="updated"><p>Location updated.</p></div>';
+            } else {
+                // INSERT
+                $wpdb->insert($table, ['name' => $loc_name]);
+                echo '<div class="updated"><p>Location added.</p></div>';
+            }
+
+            $compiler = new FSBHOA\Cal\Compiler();
+            $compiler->bake();
+
+            // Clear edit mode
+            $edit_loc = null;
         }
-        $compiler = new FSBHOA\Cal\Compiler();
-        $compiler->bake();
-        $edit_loc = null;
     }
-    if (isset($_GET['delete_loc']) && wp_verify_nonce($_GET['_wpnonce'], 'delete_loc_' . $_GET['delete_loc'])) {
-        $wpdb->delete($table, ['id' => intval($_GET['delete_loc'])]);
-        $compiler = new FSBHOA\Cal\Compiler();
-        $compiler->bake();
+
+    // 3. Handle Deletion
+    if (isset($_GET['delete_loc']) && isset($_GET['_wpnonce'])) {
+        if (wp_verify_nonce($_GET['_wpnonce'], 'delete_loc_' . $_GET['delete_loc'])) {
+            $wpdb->delete($table, ['id' => intval($_GET['delete_loc'])]);
+            $compiler = new FSBHOA\Cal\Compiler();
+            $compiler->bake();
+            echo '<div class="updated"><p>Location deleted.</p></div>';
+        }
     }
+
     $results = $wpdb->get_results("SELECT * FROM $table ORDER BY name ASC");
     ?>
     <div class="card" style="max-width: 800px;">
-        <h3>Location Management</h3>
-        <table class="wp-list-table widefat fixed striped">
-            <thead><tr><th>Name</th><th style="width:150px;">Actions</th></tr></thead>
+        <h3>Room & Location Management</h3>
+        <p class="description">Define the specific areas within the community (e.g., Lodge, Ballroom, Pool).</p>
+
+        <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th>Location Name</th>
+                    <th style="width: 150px;">Actions</th>
+                </tr>
+            </thead>
             <tbody>
-                <?php foreach ($results as $loc): ?>
-                    <tr>
-                        <td><strong><?php echo esc_html($loc->name); ?></strong></td>
-                        <td>
-                            <a href="?page=fsb-cal-settings&tab=locations&edit_loc=<?php echo $loc->id; ?>" class="button button-small">Edit</a>
-                            <a href="<?php echo wp_nonce_url("?page=fsb-cal-settings&tab=locations&delete_loc=" . $loc->id, 'delete_loc_' . $loc->id); ?>" class="button button-small" style="color:#a00;">Del</a>
-                        </td>
-                    </tr>
-                <?php endforeach; ?>
+                <?php if (empty($results)) : ?>
+                    <tr><td colspan="2">No locations defined.</td></tr>
+                <?php else : ?>
+                    <?php foreach ($results as $loc):
+                        $delete_url = wp_nonce_url("?page=fsb-cal-settings&tab=locations&delete_loc=" . $loc->id, 'delete_loc_' . $loc->id);
+                        $edit_url = "?page=fsb-cal-settings&tab=locations&edit_loc=" . $loc->id;
+                    ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($loc->name); ?></strong></td>
+                            <td>
+                                <a href="<?php echo $edit_url; ?>" class="button button-small">Edit</a>
+                                <a href="<?php echo $delete_url; ?>"
+                                   class="button button-small"
+                                   style="color:#a00;"
+                                   onclick="return confirm('Delete this location? Events using it will show TBD.');">Del</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
-        <div style="margin-top:20px; background:#f9f9f9; padding:20px; border:1px solid #ccc;">
-            <h4>Add/Edit Location</h4>
-            <form method="post">
+
+        <div style="margin-top:30px; background:#f9f9f9; padding:20px; border:1px solid #ccc; border-radius: 4px;">
+            <h4><?php echo $edit_loc ? 'Edit Location: ' . esc_html($edit_loc->name) : 'Add New Location'; ?></h4>
+            <form method="post" action="?page=fsb-cal-settings&tab=locations">
                 <?php wp_nonce_field('fsb_location_action', 'fsb_loc_nonce'); ?>
                 <input type="hidden" name="loc_id" value="<?php echo $edit_loc ? $edit_loc->id : ''; ?>">
-                <input type="text" name="loc_name" value="<?php echo $edit_loc ? esc_attr($edit_loc->name) : ''; ?>" required>
-                <input type="submit" name="save_location" class="button-primary" value="Save">
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Location Name:</label>
+                    <input type="text" name="loc_name" value="<?php echo $edit_loc ? esc_attr($edit_loc->name) : ''; ?>"
+                           placeholder="e.g. Lodge" class="regular-text" required>
+                </div>
+
+                <input type="submit" name="save_location" class="button-primary" value="<?php echo $edit_loc ? 'Update Location' : 'Add Location'; ?>">
+                <?php if ($edit_loc) : ?>
+                    <a href="?page=fsb-cal-settings&tab=locations" class="button">Cancel</a>
+                <?php endif; ?>
             </form>
         </div>
     </div>
     <?php
 }
 
+
 function fsb_render_category_manager() {
     global $wpdb;
     $table = $wpdb->prefix . 'fsbhoa_categories';
     $edit_cat = null;
+
+    // 1. Handle "Edit" Mode Detection
     if (isset($_GET['edit_cat'])) {
-        $edit_cat = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", intval($_GET['edit_cat'])));
+        $edit_id = intval($_GET['edit_cat']);
+        $edit_cat = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $edit_id));
     }
+
+    // 2. Handle Form Submission (Add or Update)
     if (isset($_POST['save_cat'])) {
         check_admin_referer('fsb_category_action', 'fsb_cat_nonce');
-        $data = ['name' => sanitize_text_field($_POST['cat_name']), 'color_hex' => sanitize_hex_color($_POST['cat_color']), 'svg_path' => sanitize_textarea_field($_POST['svg_path'])];
+
+        $data = [
+            'name'      => sanitize_text_field($_POST['cat_name']),
+            'color_hex' => sanitize_hex_color($_POST['cat_color']),
+            'svg_path'  => fsb_sanitize_svg($_POST['svg_path'])
+        ];
+
         if (!empty($_POST['cat_id'])) {
+            // UPDATE
             $wpdb->update($table, $data, ['id' => intval($_POST['cat_id'])]);
+            echo '<div class="updated"><p>Category updated.</p></div>';
         } else {
+            // INSERT
             $wpdb->insert($table, $data);
+            echo '<div class="updated"><p>Category added.</p></div>';
         }
+
         $compiler = new FSBHOA\Cal\Compiler();
         $compiler->bake();
+
+        // Clear edit mode after save
         $edit_cat = null;
     }
+
+    // 3. Handle Deletion
+    if (isset($_GET['delete_cat']) && isset($_GET['_wpnonce'])) {
+        if (wp_verify_nonce($_GET['_wpnonce'], 'delete_cat_' . $_GET['delete_cat'])) {
+            $wpdb->delete($table, ['id' => intval($_GET['delete_cat'])]);
+            $compiler = new FSBHOA\Cal\Compiler();
+            $compiler->bake();
+            echo '<div class="updated"><p>Category deleted.</p></div>';
+        }
+    }
+
     $results = $wpdb->get_results("SELECT * FROM $table ORDER BY name ASC");
     ?>
     <div class="card" style="max-width: 850px;">
         <h3>Event Categories</h3>
-        <table class="wp-list-table widefat fixed striped">
-            <thead><tr><th>Name</th><th>Color</th><th>Actions</th></tr></thead>
+        <p class="description">Categories with an SVG path will render as corner icons on the grid.</p>
+
+        <table class="wp-list-table widefat fixed striped" style="margin-top: 20px;">
+            <thead>
+                <tr>
+                    <th style="width: 25%;">Name</th>
+                    <th style="width: 20%;">Color</th>
+                    <th style="width: 35%;">Icon Preview</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
             <tbody>
-                <?php foreach ($results as $cat): ?>
-                    <tr>
-                        <td><strong><?php echo esc_html($cat->name); ?></strong></td>
-                        <td><span style="background:<?php echo $cat->color_hex; ?>; color:#fff; padding:2px 5px;"><?php echo $cat->color_hex; ?></span></td>
-                        <td><a href="?page=fsb-cal-settings&tab=categories&edit_cat=<?php echo $cat->id; ?>" class="button button-small">Edit</a></td>
-                    </tr>
-                <?php endforeach; ?>
+                <?php if (empty($results)) : ?>
+                    <tr><td colspan="4">No categories defined.</td></tr>
+                <?php else : ?>
+                    <?php foreach ($results as $cat):
+                        $delete_url = wp_nonce_url("?page=fsb-cal-settings&tab=categories&delete_cat=" . $cat->id, 'delete_cat_' . $cat->id);
+                        $edit_url = "?page=fsb-cal-settings&tab=categories&edit_cat=" . $cat->id;
+                    ?>
+                        <tr>
+                            <td><strong><?php echo esc_html($cat->name); ?></strong></td>
+                            <td>
+                                <span style="background:<?php echo $cat->color_hex; ?>; padding: 4px 10px; border-radius: 4px; color: #fff; text-shadow: 1px 1px 1px #000; font-size: 11px;">
+                                    <?php echo esc_html($cat->color_hex); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <?php if ($cat->svg_path): ?>
+                                    <div style="display:flex; align-items:center; gap:10px;">
+                                        <div style="height:24px; width:auto;">
+                                            <?php
+                                                $preview_style = sprintf(
+                                                    'style="height:24px; width:auto; fill:%s; display:block;"',
+                                                    esc_attr($cat->color_hex)
+                                                );
+                                                // The paths inside now HAVE to take this fill because they have none of their own
+                                                echo str_replace('<svg', '<svg ' . $preview_style, $cat->svg_path);
+                                            ?>
+                                        </div>
+                                        <span class="description" style="font-size: 10px; color: #888;">Stored via SVG Library</span>
+                                    </div>
+                                <?php else: ?>
+                                    <span class="description" style="font-size: 11px;">Standard Bar</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <a href="<?php echo $edit_url; ?>" class="button button-small">Edit</a>
+                                <a href="<?php echo $delete_url; ?>" class="button button-small" style="color:#a00;" onclick="return confirm('Delete this category?');">Del</a>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </tbody>
         </table>
-        <div style="margin-top:20px; background:#f9f9f9; padding:20px; border:1px solid #ccc;">
-            <form method="post">
+
+        <div style="margin-top:30px; background:#f9f9f9; padding:20px; border:1px solid #ccc; border-radius: 4px;">
+            <h4><?php echo $edit_cat ? 'Edit Category: ' . esc_html($edit_cat->name) : 'Add New Category'; ?></h4>
+            <form method="post" action="?page=fsb-cal-settings&tab=categories">
                 <?php wp_nonce_field('fsb_category_action', 'fsb_cat_nonce'); ?>
                 <input type="hidden" name="cat_id" value="<?php echo $edit_cat ? $edit_cat->id : ''; ?>">
-                <input type="text" name="cat_name" value="<?php echo $edit_cat ? esc_attr($edit_cat->name) : ''; ?>" placeholder="Name" required>
-                <input type="color" name="cat_color" value="<?php echo $edit_cat ? esc_attr($edit_cat->color_hex) : '#3498db'; ?>">
-                <textarea name="svg_path" placeholder="SVG Path"><?php echo $edit_cat ? esc_textarea($edit_cat->svg_path) : ''; ?></textarea>
-                <input type="submit" name="save_cat" class="button-primary" value="Save Category">
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold;">Category Name:</label>
+                    <input type="text" name="cat_name" value="<?php echo $edit_cat ? esc_attr($edit_cat->name) : ''; ?>" class="regular-text" required>
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold;">Display Color:</label>
+                    <input type="color" name="cat_color" value="<?php echo $edit_cat ? esc_attr($edit_cat->color_hex) : '#3498db'; ?>" style="height:35px; width:60px; cursor:pointer;">
+                </div>
+
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold; margin-bottom:5px;">Category Icon (SVG):</label>
+    
+                    <div id="fsb-dropzone" style="border: 2px dashed #ccc; padding: 20px; text-align: center; background: #fff; cursor: pointer; border-radius: 4px; transition: border 0.2s;">
+                        <p id="dz-instruction" style="margin:0;">Drag an SVG file here, or <strong>click to browse</strong></p>
+                        <div id="dz-preview" style="margin-top: 10px; display: <?php echo $edit_cat && $edit_cat->svg_path ? 'block' : 'none'; ?>;">
+                             <?php
+                             if ($edit_cat && $edit_cat->svg_path) {
+                                 // Inject the color immediately so it's not black while waiting for JS
+                                 echo str_replace('<svg', '<svg style="fill:' . esc_attr($edit_cat->color_hex) . '; height:60px;"', $edit_cat->svg_path);
+                             }
+                             ?>
+                        </div>
+                    </div>
+
+                    <input type="hidden" name="svg_path" id="svg_path_hidden" value="<?php echo $edit_cat ? esc_attr($edit_cat->svg_path) : ''; ?>">
+                    <input type="file" id="svg_file_input" accept=".svg" style="display:none;">
+    
+                    <p class="description">
+                        Upload an SVG icon. It will scale to 24px height on the calendar. 
+                        <br><strong>Tip:</strong> If the icon looks "broken" or is missing parts, run it through 
+                        <a href="https://jakearchibald.github.io/svgomg/" target="_blank" rel="noopener">SVGOMG</a> 
+                        (using default settings) then try again.
+                    </p>
+                </div>
+
+                <input type="submit" name="save_cat" class="button-primary" value="<?php echo $edit_cat ? 'Update Category' : 'Add Category'; ?>">
+                <?php if ($edit_cat) : ?>
+                    <a href="?page=fsb-cal-settings&tab=categories" class="button">Cancel</a>
+                <?php endif; ?>
             </form>
         </div>
     </div>
+    <script>
+(function() {
+    const dz = document.getElementById('fsb-dropzone');
+    const fileInput = document.getElementById('svg_file_input');
+    const hiddenInput = document.getElementById('svg_path_hidden');
+    const preview = document.getElementById('dz-preview');
+    const colorPicker = document.querySelector('input[name="cat_color"]');
+
+    // 1. Unified Function to clean and style the SVG
+    function processAndDisplaySVG(rawSvg) {
+        // 1. Setup a temporary DOM parser to "sanitize" like PHP does
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(rawSvg, 'image/svg+xml');
+        const svgEl = doc.querySelector('svg');
+
+        if (!svgEl) {
+            alert("Invalid SVG structure.");
+            return;
+        }
+
+
+        // Remove fixed dimensions
+        svgEl.removeAttribute('width');
+        svgEl.removeAttribute('height');
+
+        // STRIP ALL FILLS: This makes the paths "naked"
+        svgEl.querySelectorAll('*').forEach(el => {
+            el.removeAttribute('fill');
+            el.removeAttribute('style'); // Strip Canva's inline styles too
+        });
+
+        // Remove non-standard tags/attributes that PHP might strip
+        const allowedTags = ['svg', 'path', 'circle', 'rect', 'g', 'polygon'];
+        const allElements = svgEl.querySelectorAll('*');
+    
+        allElements.forEach(el => {
+            if (!allowedTags.includes(el.tagName.toLowerCase())) {
+                el.remove(); // Remove tags like <metadata>, <defs>, etc.
+            }
+        });
+
+        // 4. Get the cleaned string
+        const cleanedSvg = svgEl.outerHTML;
+
+        // 5. Update Hidden Input and Preview
+        hiddenInput.value = cleanedSvg;
+        preview.innerHTML = cleanedSvg;
+        preview.style.display = 'block';
+    
+        applyColor();
+    }
+
+    function applyColor() {
+        const svg = preview.querySelector('svg');
+        const selectedColor = colorPicker.value;
+
+        if (svg) {
+            // This is the magic line for 'currentColor'
+            svg.style.color = selectedColor;
+
+            // This is the backup for paths that might have missed the memo
+            svg.style.fill = selectedColor;
+
+            // Force all internal paths to inherit the color from the top-level SVG
+            svg.querySelectorAll('path, circle, rect, g').forEach(el => {
+                el.style.fill = 'currentColor';
+            });
+        }
+    }
+
+    // 2. Event Listeners
+    dz.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', e => handleFile(e.target.files[0]));
+    colorPicker.addEventListener('input', applyColor);
+
+    function handleFile(file) {
+        if (!file || file.type !== 'image/svg+xml') return;
+        const reader = new FileReader();
+        reader.onload = (e) => processAndDisplaySVG(e.target.result);
+        reader.readAsText(file);
+    }
+
+    // 3. THE UNIFIER: If editing, process the existing SVG immediately
+    if (hiddenInput.value.trim() !== "") {
+        processAndDisplaySVG(hiddenInput.value);
+    }
+
+    // Drag and drop logic...
+    dz.addEventListener('dragover', e => { e.preventDefault(); dz.style.borderColor = '#2271b1'; });
+    dz.addEventListener('dragleave', () => dz.style.borderColor = '#ccc');
+    dz.addEventListener('drop', e => {
+        e.preventDefault();
+        dz.style.borderColor = '#ccc';
+        handleFile(e.dataTransfer.files[0]);
+    });
+})();
+
+    </script>
+
     <?php
+}
+
+function fsb_sanitize_svg($svg_str) {
+    return wp_kses($svg_str, [
+        'svg'  => [
+            'xmlns'   => true,
+            'viewbox' => true,
+            'fill'    => true,
+            'style'   => true,
+        ],
+        'g'    => ['fill' => true, 'transform' => true],
+        'path' => [
+            'd'    => true,
+            'fill' => true,
+            'transform' => true,
+        ],
+        'circle' => ['cx' => true, 'cy' => true, 'r' => true],
+        'rect'   => ['x' => true, 'y' => true, 'width' => true, 'height' => true],
+    ]);
 }
 
 function fsb_render_event_audit() {

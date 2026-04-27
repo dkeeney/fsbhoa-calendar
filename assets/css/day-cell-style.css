@@ -127,6 +127,40 @@
     gap: 4px;
     align-items: center;
     min-width: 0;
+    height: 100%;
+}
+
+.day-icons-corner svg {
+    height: 16px !important; /* 1px padding top/bottom */
+    width: auto !important;  /* CRITICAL: Respects the wide truck aspect ratio */
+    display: block !important;
+    flex-shrink: 0 !important;
+    pointer-events: none !important; /* we let it's parent be clicked, dragged, and shift dragged */
+}
+/* Ensure the wrapper is the target for both clicks and drags */
+.corner-unit.event-item {
+    background-color: transparent !important;
+    background: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    pointer-events: auto !important;
+    cursor: pointer; /* Shows it can be clicked */
+}
+
+/* Ensure the SVG itself doesn't block the click/drag focus of the container */
+.corner-unit.event-item svg {
+    pointer-events: none !important;
+}
+
+/* Ensure the pencil remains clickable even if the SVG is hollow */
+.corner-unit.event-item .edit-pencil-mini {
+    pointer-events: auto !important;
+}
+
+.corner-unit.event-item[draggable="true"] {
+    cursor: grab; /* Shows it can be dragged */
 }
 
 /* Standard/Top Alignment: Number Left, Icons Pushed Right */
@@ -215,7 +249,20 @@
     -webkit-user-select: none;
 }
 
+/* Neutralize 'pill' styling for icons in the header strips */
+.day-icons-corner .event-item {
+    background: transparent !important;
+    background-color: transparent !important;
+    --event-bg: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+    padding: 0 !important;
+}
 
+/* Ensure the SVG doesn't steal the focus from the draggable/clickable wrapper */
+.day-icons-corner .event-item svg {
+    pointer-events: none !important;
+}
 
 /* --- Section 4. SPLIT CELL ARCHITECTURE (TRIANGLES) --- */
 .calendar-day.split-cell {
@@ -508,9 +555,23 @@
 }
 #calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .day-top {
     display: flex !important;
+    height: auto !important;
+    min-height: 24px;
     visibility: visible !important;
     z-index: 5010 !important; /* Higher than the event list */
     pointer-events: auto !important;
+}
+
+/* Show the Plus icon when hovering a normal day cell */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .add-event-plus {
+    display: inline-block !important;
+    visibility: visible !important;
+}
+
+/* Show the mini pencils on the icons when magnified */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .edit-pencil-mini {
+    display: inline-block !important;
+    visibility: visible !important;
 }
 
 /* 9.3. The Pills inside the Popup */
@@ -529,11 +590,27 @@
 
 /* 9.4  Keep the split-cell parent transparent on hover */
 #calendar-grid:not(.magnifier-disabled) .calendar-day.split-cell:hover {
-    z-index: 10000 !important; /* Sit on top of neighbors */
+    z-index: 5000 !important; /* Sit on top of neighbors */
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
     transform: none !important; /* Normal days scale; split-cell parents do not */
+}
+
+/* --- Section 9.5: Restore Pencil on Magnified Normal Days --- */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .edit-pencil {
+    display: inline-block !important; /* Override the Section 5.5 hide rule */
+    visibility: visible !important;
+    color: #000000; /* Black to match the 'Edit' theme */
+    margin-left: 3px;
+    cursor: pointer;
+}
+
+/* Ensure the event title and pencil stay on the same line if possible */
+#calendar-grid:not(.magnifier-disabled) .calendar-day:not(.split-cell):hover .event-item {
+    display: flex !important;
+    justify-content: space-between;
+    align-items: center;
 }
 
 /* Ensure neighbor cells don't have higher priority */
@@ -547,7 +624,7 @@
    This expands the 'hitbox' so the mouse doesn't leave the cell
    before it hits the pencil. */
 #calendar-grid:not(.magnifier-disabled) .calendar-day.split-cell:hover .split-half:hover {
-    z-index: 9999 !important;
+    z-index: 5001 !important;
     transform: scale(1.4) !important; /* Match the shard scale exactly */
     transform-origin: center center !important;
     background: transparent !important; /* Keep it invisible */
@@ -565,7 +642,7 @@
 
 /* Ensure the neighbor doesn't 'steal' the hover focus */
 .calendar-day.split-cell:hover {
-    z-index: 9000 !important;
+    z-index: 5000 !important;
 }
 
 /* 10.1. THE SHARD CONTAINER: Ensure it doesn't clip the shadow */
@@ -764,7 +841,23 @@
     visibility: visible !important;
     cursor: pointer;
 }
+/* Allow icons to grow in the Magnifier/Shard view */
+.fsb-ghost-shard .day-icons-corner svg {
+    height: 22px !important; /* Larger icon for the zoomed view */
+}
 
+/* Neutralize 'pill' styling for icons inside the magnified shards */
+.fsb-ghost-shard .corner-unit.event-item {
+    background: transparent !important;
+    background-color: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Maintain pencil clickability in the shard */
+.fsb-ghost-shard .corner-unit.event-item .edit-pencil-mini {
+    pointer-events: auto !important;
+}
 
 /* --- Section 11. 17x11 NEWSLETTER PRINT ENGINE --- */
 @media print {

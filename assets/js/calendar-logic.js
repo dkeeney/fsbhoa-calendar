@@ -17,23 +17,7 @@ if (urlDateStr) {
 
 let currentView = 'month'; // 'month' or 'agenda'
 
-let iconLibrary = {
-    // State 1: Standard Blue Line
-    "split-blue": `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">
-             <line x1="0" y1="100" x2="100" y2="0" stroke="#0288d1" stroke-width="1.5" />
-           </svg>`,
-
-    // State 2: Gray Line (for when both days are past)
-    "split-gray": `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">
-             <line x1="0" y1="100" x2="100" y2="0" stroke="#cccccc" stroke-width="1.5" />
-           </svg>`,
-
-    // State 3: Blue Line with Grayed Triangle (Top Day is past, Bottom Day is future)
-    "split-mixed": `<svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%; height:100%; display:block;">
-              <polygon points="0,0 100,0 0,100" fill="rgba(0,0,0,0.05)" />
-              <line x1="0" y1="100" x2="100" y2="0" stroke="#0288d1" stroke-width="1.5" />
-            </svg>`
-};
+let iconLibrary = {};
 window.iconLibrary = iconLibrary;
 
 
@@ -247,18 +231,18 @@ document.addEventListener('DOMContentLoaded', function() {
         const chip = e.target.closest('.event-item');
         if (!chip) return;
 
-        // 1. Find the parent cell first
-        const parentCell = chip.closest('.calendar-day, .split-cell');
 
-        // 2. Assign the data once
+        // Assign the data once
         draggedData = {
             id: chip.dataset.eventId,
             pivotId: chip.dataset.pivotId,
             moveId: chip.dataset.moveId,
-            originalDate: parentCell ? (parentCell.dataset.date || parentCell.dataset.dateTop) : null
+            originalDate: chip.dataset.eventDate,
+            originalStartTime: chip.dataset.eventStartTime,
+            isSingle: chip.dataset.isSingle === 'true'
         };
 
-        // 3. Update the UI state
+        // Update the UI state
         document.getElementById('calendar-grid').classList.add('is-dragging');
         e.dataTransfer.effectAllowed = "move";
     });
@@ -316,11 +300,27 @@ document.addEventListener('DOMContentLoaded', function() {
         const isInHeader = relativeY >= 0 && relativeY < (rect.height * 0.14);
 
         if (isInHeader) {
-            const mode = isShift ? 'series_end' : 'instance_cancel';
+            const ev = allEvents.find(e => e.id == draggedData.id && e.date == draggedData.originalDate);
+            const isRecurring = ev && ev.rrule && ev.rrule.trim() !== '';
+
+            let mode;
+            if (draggedData.isSingle) {
+                // It's a one-time event: Kill the root record
+                mode = 'master_delete';
+            } else {
+                // It's a series: Determine if we are ending it or just poking a hole
+                mode = isShift ? 'series_end' : 'instance_cancel';
+            }
             console.log(`FSBHOA: Header Drop [${mode}] for ID ${draggedData.id}`);
 
             // Pass all IDs to ensure PHP has what it needs
-            await saveEventChanges(mode, draggedData.id, draggedData.originalDate, false);
+            const msg = draggedData.isSingle
+                ? "Delete this one-time event forever?"
+                : (isShift ? "End this series forever starting today?" : "Cancel ONLY this instance?");
+
+            if (confirm(msg)) {
+                await saveEventChanges(mode, draggedData.id, draggedData.originalDate, false);
+            }
 
             // Reset state and exit
             draggedData = null;
@@ -494,6 +494,11 @@ async function loadData() {
             const response = await fetch(config.jsonUrl);
             const data = await response.json();
             allEvents = data.events || [];
+            window.eventInstances = {};
+            // build an index of events so events can be passed by reference to instance_id.
+            allEvents.forEach(ev => {
+                eventInstances[ev.instance_id] = ev;
+            });
             iconLibrary = { ...iconLibrary, ...(data.icons || {}) };
             render();
         } catch (e) {
@@ -530,6 +535,10 @@ function render() {
         monthlyWrapper.style.display = 'flex';
         if (agendaWrapper) agendaWrapper.style.display = 'none';
 
+        // Re-enable page scrolling
+        document.body.classList.remove('fsb-agenda-mode');
+        document.documentElement.classList.remove('fsb-agenda-mode');
+
         // Update Background & Grid (Passing the actual App div inside the wrapper)
         const monthlyApp = monthlyWrapper.querySelector('#fsb-calendar-app');
         updateBackground(monthlyApp, year, month);
@@ -540,8 +549,14 @@ function render() {
         agendaWrapper.style.display = 'flex';
         if (monthlyWrapper) monthlyWrapper.style.display = 'none';
 
+        // Disable page scrolling, let the agenda scroll
+        document.body.classList.add('fsb-agenda-mode');
+        document.documentElement.classList.add('fsb-agenda-mode');
+
+
         const agendaApp = agendaWrapper.querySelector('#fsb-agenda-app');
         renderAgendaView(agendaApp);
+
     }
 
     // 4. NAV GUARDRAILS (Keeps users within your past/future limits)
@@ -662,14 +677,11 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
     const activeSVG = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="split-diagonal">
     <line x1="100" y1="0" x2="0" y2="100" stroke="#aaa" stroke-width="1" />
 </svg>`;
-    //let activeSVG = iconLibrary["split-blue"]; // Default
     let splitStateClass = '';
 
     if (isPastA && isPastB) {
-        //activeSVG = iconLibrary["split-gray"];
         splitStateClass = 'both-past';
     } else if (isPastA) {
-        //activeSVG = iconLibrary["split-mixed"]; // The blue line + gray triangle
         splitStateClass = 'top-past';
     }
 
@@ -734,36 +746,79 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 // Helper to keep the icon HTML clean
 function renderIcons(icons, dateStr) {
     return icons.map(e => {
-        const canEdit = config.isAdmin || (e.owner_email && e.owner_email === config.userEmail);
+        //  Only show the pencil if they have permission AND we aren't in the agenda
+        const canEdit = 
+            ((config.isAdmin || (e.owner_email && e.owner_email === config.userEmail))
+            && currentView !== 'agenda');
+        let svgContent = iconLibrary[e.category_id] || '';
+
+        if (svgContent) {
+            // We only need the color here; we've moved the click and height logic to the parent
+            const colorAttr = `fill="${e.cat_color}" style="color:${e.cat_color};"`;
+            svgContent = svgContent.replace('<svg', `<svg ${colorAttr}`);
+        }
+
         return `
-            <div class="corner-unit" title="${e.title}" style="position:relative; display:inline-flex; align-items:center;">
-                <svg viewBox="0 0 24 24" fill="${e.cat_color}" style="height:18px; width:auto; cursor:pointer;"
-                     onclick="event.stopPropagation(); showEventDetail(${JSON.stringify(e).replace(/"/g, '&quot;')})">
-                    <path d="${iconLibrary[e.category_id]}"></path>
-                </svg>
-                ${canEdit ? `<span class="edit-pencil-mini" onclick="event.stopPropagation(); handleEditClick(${e.id}, '${dateStr}', '${e.prvot_id}', '${e.move_id}')">✎</span>` : ''}
+            <div class="corner-unit event-item"
+                 title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
+                 draggable="${canEdit ? 'true' : 'false'}"
+                 data-event-id="${e.id}"
+                 data-pivot-id="${e.pivot_id || e.id}"
+                 data-move-id="${e.move_id || ''}"
+                 data-event-date="${e.date}"
+                 data-event-start-time="${e.start_time}"
+                 data-is-single="${!!e.single}"
+                 onclick="activateEventDetailClick(event, ${e.instance_id})"
+                 style="display:inline-flex; align-items:center; position:relative; background:transparent !important;">
+
+                ${svgContent}
+
+                ${canEdit ? `
+                    <span class="edit-pencil-mini"
+                          style="pointer-events: auto;"
+                          onclick="event.stopPropagation(); handleEditClick(${e.id}, '${dateStr}', ${e.pivot_id || 'null'}, ${e.move_id || 'null'})">
+                        ✎
+                    </span>` : ''}
             </div>`;
     }).join('');
 }
 
-
+//` Render the Agenda View
 function renderAgendaView(agendaApp) {
     if (!agendaApp) return;
     // 1. Target the NEW container, not the grid
     const agendaContainer = agendaApp.querySelector('#agenda-view');
     if (!agendaContainer) return;
 
+    const contentArea = agendaApp.querySelector('#agenda-content-area');
+
+
+    // Set the listeners for the month nav arrows.
+    const prevAgendaBtn = document.getElementById('prevMonthAgenda');
+    const nextAgendaBtn = document.getElementById('nextMonthAgenda');
+
+    if (prevAgendaBtn) {
+        prevAgendaBtn.onclick = () => {
+            currentViewDate.setMonth(currentViewDate.getMonth() - 1);
+            render();
+        };
+    }
+
+    if (nextAgendaBtn) {
+        nextAgendaBtn.onclick = () => {
+            currentViewDate.setMonth(currentViewDate.getMonth() + 1);
+            render();
+        };
+    }
+
     // 2. Calculate the Month Name
     const todayStr = new Date().toISOString().split('T')[0];
     const monthName = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(currentViewDate);
 
     // 3. Setup the skeleton inside the agenda container
-    agendaContainer.innerHTML = `
-        <div id="agenda-sticky-header">${monthName}</div>
-        <div id="agenda-content-area"></div>
-    `;
-
-    const contentArea = document.getElementById('agenda-content-area');
+    const sticky = agendaApp.querySelector('#agenda-sticky-header');
+    console.log('sticky =', sticky, 'monthName =', monthName, ' currentViewDate=', currentViewDate);
+    sticky.textContent = monthName;
 
     // 4. Filter and Sort Events (Same logic as yours, which is solid)
     const targetMonth = currentViewDate.getMonth();
@@ -801,55 +856,45 @@ function renderAgendaView(agendaApp) {
             );
 
             html += `
-                <div class="agenda-day-header ${isToday ? 'agenda-today-header' : ''}" data-agenda-date="${e.date}">
+                <div class="agenda-day-header ${isToday ? 'agenda-today-header' : ''}"
+                     data-agenda-date="${e.date}">
                     <span>${dateHeader}</span>
+
                     <div class="agenda-header-icons">
-                        ${dayIcons.map(iconEvt => `
-                            <div title="${iconEvt.title}">
-                                <svg viewBox="0 0 24 24" fill="${iconEvt.cat_color}" style="height:18px; width:18px;">
-                                    <path d="${iconLibrary[iconEvt.category_id]}"></path>
-                                </svg>
-                            </div>
-                        `).join('')}
+                        ${renderIcons(dayIcons, e.date)}
                     </div>
-                </div>`;
+                </div>
+            `;
 
             lastDate = e.date; // Update this ONLY ONCE at the end of the header block
         }
 
         // EVENT ROW BLOCK (Only for non-icon events)
         if (!iconLibrary[e.category_id]) {
-            let thumbSrc = (e.flyer_url && /\.(jpg|jpeg|png|gif|svg|webp)/i.test(e.flyer_url))
-                ? e.flyer_url
-                : `https://www.google.com/s2/favicons?domain=${e.flyer_url ? new URL(e.flyer_url).hostname : 'fsbhoa.com'}&sz=128`;
-
-            const flyerAction = e.flyer_url
-                ? `onclick="event.stopPropagation(); window.open('${e.flyer_url}', '_blank');"`
-                : '';
-
             html += `
                 <div class="agenda-row ${isToday ? 'agenda-today-row' : ''}"
-                    onclick="showEventDetail(${JSON.stringify(e).replace(/"/g, '&quot;')})">
-                    ${e.flyer_url
-                        ? `<div class="agenda-thumb" title="Click to open flyer" ${flyerAction}>
-                               <img src="${thumbSrc}">
-                           </div>`
-                        : '<div class="agenda-thumb-placeholder" style="width:50px; margin-right:15px;"></div>'
-                    }
+                      onclick="activateEventDetailClick(event, ${e.instance_id})">
+                    ${renderFlyerThumb(e)}
                     <div class="agenda-info">
-                        <div class="agenda-main-line">${e.title}</div>
+                        <div class="agenda-main-line">
+                            ${e.title}
+                        </div>
                         <div class="agenda-time">⏰ ${e.start_fmt} - ${e.end_fmt}</div>
                         <div class="agenda-location">📍 ${e.location || 'Lodge'}</div>
                     </div>
                     <div class="agenda-chevron-icon">❯</div>
                 </div>`;
         }
+
     });
 
     contentArea.innerHTML = html;
 
+
+
     // 5. Jump to Date logic
-    const scrollTarget = targetDate || todayStr;
+    // We want to scroll to the first date being viewed or today
+    const scrollTarget = (monthEvents.length > 0) ? monthEvents[0].date : todayStr;
 
     setTimeout(() => {
         const targetEl = contentArea.querySelector(`[data-agenda-date="${scrollTarget}"]`);
@@ -859,12 +904,80 @@ function renderAgendaView(agendaApp) {
             const elementPosition = targetEl.getBoundingClientRect().top + window.pageYOffset;
             const offsetPosition = elementPosition - headerHeight;
 
-            window.scrollTo({
-                top: offsetPosition,
+            document.getElementById('agenda-view').scrollTo({
+                top: targetEl.offsetTop - 60,
                 behavior: 'smooth'
             });
         }
     }, 300);
+}
+
+
+function renderFlyerThumb(eventObj) {
+    const url = eventObj.flyer_url ? eventObj.flyer_url.trim() : "";
+
+    // No flyer → return placeholder
+    if (!url) {
+        return `
+            <div class="agenda-thumb-placeholder" style="width:50px; margin-right:15px;"></div>
+        `;
+    }
+
+    let thumbSrc = "";
+
+    // CASE 1 — Image flyer
+    if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url)) {
+        thumbSrc = url;
+    }
+
+    // CASE 2 — PDF flyer
+    else if (/\.pdf$/i.test(url)) {
+        thumbSrc = fsb_config.pdf_icon || "/wp-content/plugins/fsbhoa-calendar/assets/img/pdf-icon.png";
+    }
+
+    // CASE 3 — Website URL → use favicon
+    else if (/^https?:\/\//i.test(url)) {
+        try {
+            const urlObj = new URL(url);
+            thumbSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
+        } catch (err) {
+            // fallback favicon
+            thumbSrc = `https://www.google.com/s2/favicons?domain=fsbhoa.com&sz=128`;
+        }
+    }
+
+    // CASE 4 — Unknown type → fallback icon
+    else {
+        thumbSrc = fsb_config.flyer_fallback || "/wp-content/plugins/fsbhoa-calendar/assets/img/flyer-icon.png";
+    }
+
+    // Return safe, non-navigating HTML
+    return `
+        <div class="thumb"
+             onclick="activateEventDetailClick(event, ${eventObj.instance_id})">
+            <img src="${thumbSrc}">
+        </div>
+    `;
+}
+
+function activateEventDetailClick(e, instanceId) {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const data = eventInstances[instanceId];
+    if (!data) {
+        console.error("Event instance not found:", instanceId);
+        return;
+    }
+
+    // If the event has a flyer, open it
+    if (data.flyer_url && data.flyer_url.trim() !== '') {
+        window.open(data.flyer_url, '_blank');
+        return;
+    }
+
+    // Otherwise open the detail modal
+    showEventDetail(data);
 }
 
 
@@ -1318,8 +1431,18 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
 async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false) {
     // Determine the new time.
     // For a drag-drop, we usually keep the original start time.
-    const event = allEvents.find(e => e.id == id && e.date == origDate);
-    const startTime = event ? event.start_time : "09:00";
+    let startTime = "09:00"; // Absolute fallback
+
+    if (draggedData && draggedData.id == id) {
+        // Use the time grabbed during dragstart
+        startTime = draggedData.originalStartTime;
+    } else {
+        // Look up the time in the global array (for Modal-based moves)
+        const event = allEvents.find(e => e.id == id && e.date == origDate);
+        if (event && event.start_time) {
+            startTime = event.start_time;
+        }
+    }
 
     const formData = new FormData();
     formData.append('action', 'fsb_save_calendar_event');
@@ -1433,6 +1556,8 @@ async function confirmAction(mode, id, date = null, pivotId = null) {
     };
 
     if (confirm(messages[mode] || 'Proceed with this action?')) {
+        // Close the manage modal immediately for better UI feel
+        const manageModal = document.getElementById('fsb-manage-modal');
         await saveEventChanges(mode, id, date, false);
         // saveEventChanges already handles the redirect/refresh
     }
@@ -1449,11 +1574,20 @@ function openDayModal(dateStr) {
 
     const dateObj = new Date(dateStr + 'T00:00:00');
     const title = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+    const dayIcons = eventsForDay; // or filter if needed
 
     // heading
     let html = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-right: 30px;">
-            <h3 style="margin:0;">Events for ${title}</h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; padding-right:30px;">
+
+            <div style="display:flex; align-items:center; gap:15px;">
+                <h3 style="margin:0;">Events for ${title}</h3>
+    
+                <div class="day-modal-header-icons" style="display:flex; gap:8px;">
+                    ${renderIcons(dayIcons, dateStr)}
+                </div>
+            </div>
+
             ${config.isAdmin ? `
                 <span title="Add New Event"
                       style="color:#0056b3; cursor:pointer; font-size:2rem; font-weight:900; line-height:1; margin-right:10px;"
@@ -1471,53 +1605,47 @@ function openDayModal(dateStr) {
             const canEdit = config.isAdmin || 
                 (e.owner_email && e.owner_email.toLowerCase() === config.userEmail.toLowerCase());
 
-            // 1. Debugging: See what URL we are working with
-            console.log("Processing event:", e.title, "Flyer URL:", e.website_url);
-
-            let thumbnailSrc = "";
-            const activeFlyerUrl = e.flyer_url;
-
-            if (activeFlyerUrl && activeFlyerUrl.trim() !== "") {
-                const isImage = /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(activeFlyerUrl);
-                if (isImage) {
-                    // Use the image directly from your media library
-                    thumbnailSrc = activeFlyerUrl;
-                } else {
-                    // It's a webpage (Canva, etc.), so get the favicon
-                    try {
-                        const urlObj = new URL(activeFlyerUrl);
-                        thumbnailSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
-                    } catch(err) {
-                        thumbnailSrc = `https://www.google.com/s2/favicons?domain=fsbhoa.com&sz=128`;
-                    }
-                }
-            }
-
-            // 2. Build the Thumbnail HTML
-            const flyerThumbnail = activeFlyerUrl
-                ? `<div class="flyer-thumb-container" title="Click to open flyer" onclick="window.open('${activeFlyerUrl}', '_blank')">
-                    <img src="${thumbnailSrc}"
-                         alt="Flyer"
-                         referrerpolicy="no-referrer"
-                         style="width:100%; height:100%; object-fit:cover; display:block;">
-                   </div>`
-                : `<div class="flyer-thumb-placeholder" style="width:45px; height:45px; flex-shrink:0;"></div>`;
-
             html += `
-                <li class="modal-event-card" style="border-bottom:1px solid #eee; padding:12px 0; display:flex; justify-content:space-between; align-items:center;">
+                <li class="modal-event-card"
+                    style="border-bottom:1px solid #eee; padding:12px 0; display:flex; justify-content:space-between; align-items:center;"
+                    onclick="activateEventDetailClick(event, ${e.instance_id})">
+            
                     <div style="flex:1; display:flex; align-items:center; gap:15px;">
-                        ${flyerThumbnail}
+                        ${renderFlyerThumb(e)}
+
                         <div>
-                            <div style="font-weight:bold; font-size:1.1rem;">${e.title}</div>
-                            <div style="color:#666; font-size:0.9rem;">📍 ${e.location || 'Lodge'} | ⏰ ${e.start_fmt} - ${e.end_fmt}</div>
+                            <div style="font-weight:bold; font-size:1.1rem;">
+                                ${e.title}
+                            </div>
+
+                            <div style="color:#666; font-size:0.9rem;">
+                                📍 ${e.location || 'Lodge'} | ⏰ ${e.start_fmt} - ${e.end_fmt}
+                            </div>
                         </div>
                     </div>
-        
-                    <div class="modal-icon-actions" style="display:flex; gap:20px; font-size:1.5rem; align-items:center;">
-                        <span title="View Details" style="color:#0288d1; cursor:pointer;" onclick="showEventDetail(${JSON.stringify(e).replace(/"/g, '&quot;')})">ⓘ</span>
-                        ${canEdit ? `<span title="Edit Event" style="color:#f57c00; cursor:pointer;" onclick="handleEditClick(${e.id}, '${dateStr}', '${e.pivot_id}', '${e.move_id}')">✎</span>` : ''}
+
+                    <div class="modal-icon-actions"
+                         style="display:flex; gap:20px; font-size:1.5rem; align-items:center;">
+
+                        <!-- Info icon -->
+                        <span title="View Details"
+                              style="color:#0288d1; cursor:pointer;"
+                              onclick="event.stopPropagation(); activateEventDetailClick(event, ${e.instance_id})">
+                            ⓘ
+                        </span>
+
+                        <!-- Edit icon -->
+                        ${canEdit ? `
+                            <span title="Edit Event"
+                                  style="color:#f57c00; cursor:pointer;"
+                                  onclick="event.stopPropagation(); handleEditClick(${e.id}, '${dateStr}', '${e.pivot_id}', '${e.move_id}')">
+                                ✎
+                            </span>
+                        ` : ''}
                     </div>
-                </li>`;
+                </li>
+            `;
+
         });
 
         html += '</ul>';
@@ -1627,11 +1755,10 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
         if (result.success) {
             if (silent) return true;
 
-            const editModal = document.getElementById('fsb-edit-modal');
-            if (editModal) {
-                editModal.classList.remove('is-visible');
-                document.body.classList.remove('modal-open');
-            }
+            //  Close all possible modals after a successful action
+            const allModals = document.querySelectorAll('.fsb-modal, .fsb-full-modal');
+            allModals.forEach(m => m.classList.remove('is-visible'));
+            document.body.classList.remove('modal-open');
 
             // After a slight delay for database write, refresh the grid
             setTimeout(() => {
@@ -1683,41 +1810,42 @@ function renderEvents(events) {
         // If there is a move_id...
         const moveId = e.move_id || null;
 
-        // If there's a flyer, we open it. Otherwise, we show the details.
-        const clickAction = e.flyer_url
-            ? `window.open('${e.flyer_url}', '_blank')`
-            : `showEventDetail(${JSON.stringify(e).replace(/"/g, '&quot;')})`;
-
         return `
             <div class="event-item"
                  draggable="${canEdit ? 'true' : 'false'}"
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${moveId || ''}"
+                 data-event-date="${e.date}"
+                 data-event-start-time="${e.start_time}"
+                 data-is-single="${!!e.single}"
                  style="background-color: ${e.cat_color}; --event-bg: ${e.cat_color || '#ddd'};"
                  title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
-                 onclick="event.stopPropagation(); ${clickAction}">
-                <span class="event-title-text" style="flex:1; overflow:hidden; text-overflow:ellipsis;">${combinedTitle}</span>
-                ${canEdit ? `<span class="edit-pencil" onclick="event.stopPropagation(); handleEditClick(${e.id}, '${e.date}', '${e.pivot_id}', '${moveId}')">✎</span>` : ''}
+                 onclick="activateEventDetailClick(event, ${e.instance_id})">
+                <span class="event-title-text" style="flex:1; overflow:hidden; text-overflow:ellipsis;">
+                    ${combinedTitle}
+                </span>
+                ${canEdit ? `
+                    <span class="edit-pencil" onclick="event.stopPropagation(); handleEditClick(${e.id}, '${e.date}', '${e.pivot_id}', '${moveId}')">✎</span>` : ''}
             </div>
         `;
     }).join('');
 }
 
-function showEventDetail(event) {
+
+
+// Note that this function is shared between the monthly and the agenda apps so
+// be sure to access Modal and content by class rather than id.
+function showEventDetail(ev) {
     // 1. Identify which "Room" we are standing in
     const activeAppId = (currentView === 'month') ? 'fsb-calendar-app' : 'fsb-agenda-app';
     const activeApp = document.getElementById(activeAppId);
 
     // 2. Find the modal and content area INSIDE that active app
-    const activeModal = activeApp.querySelector('#fsb-detail-modal');
-    const activeContent = activeApp.querySelector('#modal-content-area');
+    const activeModal = activeApp.querySelector('.fsb-detail-modal');
+    const activeContent = activeApp.querySelector('.modal-content-area');
 
-    // Emergency Fallback: if scoped search fails, try global
-    const modal = activeModal || document.getElementById('fsb-detail-modal');
-    const content = activeContent || document.getElementById('modal-content-area');
-
-    if (!modal || !content) {
+    if (!activeModal || !activeContent) {
         console.error("Could not find the Detail Modal in the active view.");
         return;
     }
@@ -1732,13 +1860,13 @@ function showEventDetail(event) {
     let flyerHtml = "";
     let thumbSrc = "";
 
-    if (event.flyer_url && event.flyer_url.trim() !== "") {
-        const isImage = /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(event.flyer_url);
+    if (ev.flyer_url && ev.flyer_url.trim() !== "") {
+        const isImage = /\.(jpg|jpeg|png|gif|svg|webp)(\?.*)?$/i.test(ev.flyer_url);
         if (isImage) {
-            thumbSrc = event.flyer_url;
+            thumbSrc = ev.flyer_url;
         } else {
             try {
-                const urlObj = new URL(event.flyer_url);
+                const urlObj = new URL(ev.flyer_url);
                 thumbSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
             } catch(err) {
                 thumbSrc = `https://www.google.com/s2/favicons?domain=fsbhoa.com&sz=128`;
@@ -1749,7 +1877,7 @@ function showEventDetail(event) {
         flyerHtml = `
             <p style="margin:8px 0; display:flex; align-items:center; gap:10px;">
                 <strong>📄 Flyer:</strong> 
-                <span onclick="window.open('${event.flyer_url}', '_blank')" 
+                <span onclick="window.open('${ev.flyer_url}', '_blank')" 
                       style="display:inline-flex; align-items:center; cursor:pointer; background:#e3f2fd; padding:4px 8px; border-radius:4px; border:1px solid #0288d1; transition: background 0.2s;">
                     <img src="${thumbSrc}" style="width:24px; height:24px; object-fit:cover; border-radius:2px; margin-right:8px; border:1px solid #ccc;">
                     <span style="font-size:0.85rem; color:#0288d1; font-weight:bold;">View Flyer (PDF/Image)</span>
@@ -1760,55 +1888,59 @@ function showEventDetail(event) {
 
 
     // 1. Format the Date for the header
-    const dateObj = new Date(event.date + 'T00:00:00');
+    const dateObj = new Date(ev.date + 'T00:00:00');
     const fullDate = dateObj.toLocaleDateString('en-US', {
         weekday: 'long', month: 'long', day: 'numeric', year: 'numeric'
     });
 
     // 2. Conditional Price Logic
     // Only show if it's ticketed AND has a cost value
-    const isTicketed = (event.is_ticketed === true || event.is_ticketed === 1);
-    const showPrice = isTicketed && event.cost && event.cost.toLowerCase() !== 'free';
-    const costHtml = showPrice ? `<p><strong>💰 Cost:</strong> ${event.cost}</p>` : '';
+    const isTicketed = (ev.is_ticketed === true || ev.is_ticketed === 1);
+    const showPrice = isTicketed && ev.cost && ev.cost.toLowerCase() !== 'free';
+    const costHtml = showPrice ? `<p><strong>💰 Cost:</strong> ${ev.cost}</p>` : '';
 
     // 3. Ticket button logic
     const ticketHtml = (isTicketed) ?
         `<div style="margin: 20px 0;"><p>Ticketed Event.  Get tickets at front desk.</p> ${costHtml} </div>`: '';
 
-    content.innerHTML = `
+    activeContent.innerHTML = `
         <div class="template-content" style="text-align:left; color:#333;">
-            <h1 style="color:#000; font-size:1.8rem; margin-bottom:5px; border-bottom:2px solid ${event.cat_color || '#ccc'}; padding-bottom:10px;">
-                ${event.title}
+            <h1 style="color:#000; font-size:1.8rem; margin-bottom:5px; border-bottom:2px solid ${ev.cat_color || '#ccc'}; padding-bottom:10px;">
+                ${ev.title}
             </h1>
 
             <div class="event-meta" style="background:#f9f9f9; padding:15px; border-radius:8px; margin-bottom:20px;">
                 <p style="margin:5px 0;"><strong>📅 Date:</strong> ${fullDate}</p>
-                <p style="margin:5px 0;"><strong>📍 Where:</strong> ${event.location || 'Lodge'}</p>
-                <p style="margin:5px 0;"><strong>⏰ When:</strong> ${event.start_fmt} - ${event.end_fmt}</p>
+                <p style="margin:5px 0;"><strong>📍 Where:</strong> ${ev.location || 'Lodge'}</p>
+                <p style="margin:5px 0;"><strong>⏰ When:</strong> ${ev.start_fmt} - ${ev.end_fmt}</p>
                 ${flyerHtml}
             </div>
 
             ${ticketHtml}
 
             <div class="event-description" style="line-height:1.6; font-size:1.1rem;">
-                ${event.description || '<em>No description provided.</em>'}
+                ${ev.description || '<em>No description provided.</em>'}
             </div>
 
-            ${event.setup_notes ? `
+            ${ev.setup_notes ? `
                 <div class="setup-notes" style="margin-top:25px; padding-top:15px; border-top:1px dashed #ccc; font-style:italic; color:#666;">
                     <strong>Setup Notes:</strong><br>
-                    ${event.setup_notes}
+                    ${ev.setup_notes}
                 </div>
             ` : ''}
         </div>
     `;
-    modal.classList.add('is-visible');
+    // Lock the background scrolling before showing.
+    document.body.classList.add('modal-open');
+    activeModal.classList.add('is-visible');
 }
 
 function closeDetailModal() {
     // Select all potential modals and hide them
-    const modals = document.querySelectorAll('.fsb-full-modal');
+    const modals = document.querySelectorAll('.fsb-full-modal, .fsb-detail-modal, .fsb-modal');
     modals.forEach(m => m.classList.remove('is-visible'));
+
+    // Unlock background scrolling.
     document.body.classList.remove('modal-open');
 }
 

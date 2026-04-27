@@ -3,7 +3,7 @@
  * Plugin Name: FSBHOA Calendar
  * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.0.8
+ * Version:           1.0.9
  * Author:            David Keeney
  * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
  * Requires at least: 5.8
@@ -174,11 +174,11 @@ add_shortcode('fsbhoa_calendar', function() {
             <button type="button" id="nextMonth" class="nav-arrow next">&#10095;</button>
 
             <div id="calendar-grid" class="calendar-grid"></div>
-            <div id="fsb-detail-modal" class="fsb-full-modal">
+            <div class="fsb-detail-modal fsb-full-modal">
                 <div class="modal-backdrop"></div>
                 <div class="modal-window">
                     <button class="modal-close" onclick="closeDetailModal()">&times;</button>
-                    <div id="modal-content-area"> </div>
+                    <div class="modal-content-area"> </div>
                 </div>
             </div>
             <div id="fsb-edit-modal" class="fsb-modal">
@@ -246,43 +246,44 @@ add_shortcode('fsbhoa_agenda', function() {
     ob_start();
     ?>
     <div id="fsb-agenda-wrapper">
-        <div id="fsb-agenda-app" 
-             class="agenda-mode-only"
-             data-json-url="<?php echo esc_url($json_url); ?>" 
-             data-user-email="<?php echo esc_attr($user_email); ?>" 
-             data-is-admin="<?php echo $is_admin; ?>">
+         <div id="fsb-agenda-app" 
+              class="agenda-mode-only"
+              data-json-url="<?php echo esc_url($json_url); ?>" 
+              data-user-email="<?php echo esc_attr($user_email); ?>" 
+              data-is-admin="<?php echo $is_admin; ?>">
             
-            <button type="button" id="prevMonth" class="nav-arrow prev">&#10094;</button>
-            <button type="button" id="nextMonth" class="nav-arrow next">&#10095;</button>
+              <div class="nav-arrow prev" id="prevMonthAgenda">❮</div>
+              <div class="nav-arrow next" id="nextMonthAgenda">❯</div>
+              <div class="agenda-controls-wrapper">
+                   <div id="agenda-sticky-header" class="agenda-only"></div>
+              </div>
+              <div id="agenda-view">
+                   <div id="agenda-content-area"></div>
+              </div>
 
-            <div id="agenda-view">
-                <div id="agenda-sticky-header"></div>
-                <div id="agenda-content-area"></div>
-            </div>
-
-            <div id="fsb-detail-modal" class="fsb-full-modal">
-                <div class="modal-backdrop"></div>
-                <div class="modal-window">
-                    <button class="modal-close" onclick="closeDetailModal()">&times;</button>
-                    <div id="modal-content-area"></div>
-                </div>
-            </div>
-        </div>
-        <div id="fsb-agenda-toolbar" class="calendar-footer-toolbar">
-            <div class="toolbar-left">
-                <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
-            </div>
-            <div class="toolbar-right">
-                <div class="view-toggle-container">
-                    <span class="toggle-label">Monthly</span>
-                    <label class="fsb-switch">
-                        <input type="checkbox" id="viewToggle">
-                        <span class="slider round"></span>
-                    </label>
-                    <span class="toggle-label">Agenda</span>
-                </div>
-            </div>
-        </div>
+              <div class="fsb-detail-modal fsb-full-modal">
+                   <div class="modal-backdrop"></div>
+                   <div class="modal-window">
+                        <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                        <div class="modal-content-area"></div>
+                   </div>
+              </div>
+         </div>
+         <div id="fsb-agenda-toolbar" class="calendar-footer-toolbar">
+              <div class="toolbar-left">
+                   <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
+              </div>
+              <div class="toolbar-right">
+                   <div class="view-toggle-container">
+                        <span class="toggle-label">Monthly</span>
+                        <label class="fsb-switch">
+                             <input type="checkbox" id="viewToggle">
+                             <span class="slider round"></span>
+                        </label>
+                        <span class="toggle-label">Agenda</span>
+                   </div>
+              </div>
+         </div>
     </div>
     <?php
     return ob_get_clean();

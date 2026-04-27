@@ -120,9 +120,18 @@ function openPrintPreview(year, month, events, bgUrl) {
                 }
 
                 .day-icon {
-                    width: 16px;
-                    height: 16px;
-                    object-fit: contain;
+                    height: 24px !important;
+                    width: auto !important;
+                    display: inline-block;
+                    vertical-align: middle;
+                    flex-shrink: 0 !important;
+                    margin-top: 1px;
+                    /*object-fit: contain;  */
+                }
+                /* Ensure SVGs print their colors */
+                svg {
+                    -webkit-print-color-adjust: exact !important;
+                    print-color-adjust: exact !important;
                 }
 
                 /* SPLIT CELL positioning */
@@ -348,15 +357,18 @@ function renderPrintEvents(eventLayout) {
 
             // If this event has an icon, append it to the correct bucket
             const catId = ev.raw?.category_id || ev.category_id;
-            const svgPath = iconLibrary[catId];
+            let fullSvg = iconLibrary[catId];
 
-            if (svgPath) {
-                const iconHtml = `
-                    <svg class="day-icon" viewBox="0 0 24 24" fill="${ev.color || '#000'}">
-                        <path d="${svgPath}"></path>
-                    </svg>
-                `;
+            if (fullSvg) {
+                // 1. Prepare the icon for printing: set the color and the print class
+                const eventColor = ev.color || '#000';
 
+                // 2. Inject our print-specific class and color into the stored SVG string
+                let iconHtml = fullSvg.replace('<svg',
+                    `<svg class="day-icon" fill="${eventColor}" style="color:${eventColor};"`
+                );
+
+                // 3. Append to the correct cell bucket
                 if (entry.target === "normal") {
                     htmlMap[i].icons += iconHtml;
                 } else if (entry.target === "top") {
@@ -365,7 +377,7 @@ function renderPrintEvents(eventLayout) {
                     htmlMap[i].iconsBottom += iconHtml;
                 }
 
-                continue; // skip text rendering
+                continue; // skip text rendering as before
             }
 
 

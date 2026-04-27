@@ -38,11 +38,19 @@ class Compiler {
 
         // 2. Fetch Category Icons
         $cat_table = $wpdb->prefix . 'fsbhoa_categories';
-        $categories = $wpdb->get_results("SELECT id, svg_path FROM $cat_table WHERE svg_path IS NOT NULL AND svg_path != ''");
+        // We grab all categories. Even if svg_path is empty, we want the ID
+        // so the JS doesn't crash looking for an undefined index.
+        $categories = $wpdb->get_results("SELECT id, svg_path FROM $cat_table");
+
         $icon_library = [];
         foreach ($categories as $cat) {
-            $icon_library[$cat->id] = $cat->svg_path;
+            // Only add to the library if there is actually an SVG string
+            if (!empty($cat->svg_path)) {
+                $icon_library[$cat->id] = $cat->svg_path;
+            }
         }
+        // Log this to the PHP error log so you can verify the 'bake' is working
+        error_log("FSBHOA BAKE: Icon Library built with " . count($icon_library) . " icons.");
 
         // 3. Fetch Root Events & Lineage Map
         // We only start with 'active' roots.
@@ -79,7 +87,14 @@ class Compiler {
             return strcmp($a['sort_key'], $b['sort_key']);
         });
 
-        // 6. Save to Disk with Lock
+        // 6. Add an instance id
+        $counter = 0;
+        foreach ($final_manifest as &$instance) {
+            $instance['instance_id'] = $counter++;
+        }
+
+
+        // 7. Save to Disk with Lock
         $final_output = [
             'icons'  => $icon_library,
             'events' => $final_manifest
@@ -303,6 +318,9 @@ class Compiler {
         }
         if ($move) {
             $instance['move_id'] = $move->id;
+        }
+        if (empty($master->rrule)) {
+            $instance['single'] = true;
         }
 
         return $instance;
