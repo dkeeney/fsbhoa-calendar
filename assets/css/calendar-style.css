@@ -23,6 +23,28 @@ html, body {
     overflow-x: hidden; /* Prevent horizontal wobbling */
 }
 
+/* --- THEME CONFLICT RESOLUTION --- */
+/* Strip default theme padding on calendar pages to allow flush mounting */
+.site-content:has(#fsb-monthly-wrapper),
+.ast-container:has(#fsb-monthly-wrapper),
+#content:has(#fsb-monthly-wrapper),
+#primary:has(#fsb-monthly-wrapper) {
+    padding-top: 0 !important;
+    margin-top: 0 !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+
+    max-width: 100% !important;
+    width: 100% !important;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+
+    padding-bottom: 0 !important;
+    margin-bottom: 0 !important;
+    min-height: 0 !important;
+}
+
 /* Fullscreen wrapper has screen aspect */
 /* The Main Stage - Centers the 17:11 box and clears the header */
 #fsb-monthly-wrapper {
@@ -37,6 +59,9 @@ html, body {
     /* This is your "touch the header" lever */
     margin-top: 0px !important;
     padding-top: 0px !important;
+    max-width: none !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
 }
 
 
@@ -45,10 +70,13 @@ html, body {
 /* Ensure the standard Monthly Grid is locked and centered */
 /* Set your height to fit the screen + toolbar */
 #fsb-calendar-app {
-    height: 80vh !important;
+    /* THE HARD LOCK: Explicitly set both dimensions so the inner Grid never collapses */
+    /* 1. Width is the SMALLER of: the max height scaled up, or the screen width minus arrows */
+    width: min(calc(82vh * (17 / 11)), calc(100% - 120px)) !important;
+    
+    /* 2. Height is the SMALLER of: 82vh, or the safe screen width scaled down */
+    height: min(82vh, calc((100% - 120px) * (11 / 17))) !important;
     aspect-ratio: 17 / 11 !important;
-    width: auto !important;
-    max-width: 95vw !important;
 
     /* Background and Layout */
     background-size: cover;
@@ -507,34 +535,27 @@ body.modal-open {
 
 
 /* -- Footer Toolbar -- */
-/* Ensure the app container can contain the footer at the bottom */
-#fsb-calendar-app {
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end; /* Pushes content (footer) to bottom */
-}
 
-
-/* -- Footer Toolbar: Standard Document Flow -- */
 .calendar-footer-toolbar {
-    /* 1. Reset Positioning: No more floating */
+    /* 1. Sizing: Match the calendar width for a clean look */
+    width: 100% !important;
+    max-width: min(calc(82vh * (17 / 11)), calc(100% - 120px)) !important;
+    height: 40px !important;
+
+    /* 2. Positioning */
     position: relative !important;
     bottom: auto !important;
     left: auto !important;
     transform: none !important;
 
-    /* 2. Layout: Standard block behavior */
+    /* 3. Layout: Standard block behavior */
     display: flex !important;
     justify-content: space-between;
     align-items: center;
 
-    /* 3. Sizing: Match the calendar width for a clean look */
-    width: 95% !important;
-    max-width: calc(78vh * (17 / 11)) !important; /* Matches current calendar width */
-    height: 40px !important;
 
     /* 4. Spacing: Push it away from the calendar and the page footer */
-    margin: 10px auto 40px auto !important;
+    margin: 10px auto 10px auto !important;
 
     /* 5. Aesthetics */
     background: #ffffff;

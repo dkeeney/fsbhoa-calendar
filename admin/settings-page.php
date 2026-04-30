@@ -553,6 +553,35 @@ function fsb_render_event_audit() {
 
     $today = date('Y-m-d');
     ?>
+    <style>
+        /* 1. Make all individual rows less high by overriding WP defaults */
+        .fsb-audit-table td {
+            padding: 5px 10px !important;
+            vertical-align: middle !important;
+            line-height: 1.3 !important;
+        }
+
+        /* 2. Half-height styling for Holes and Pivots */
+        tr.fsb-audit-child td {
+            padding-top: 0px !important;
+            padding-bottom: 0px !important;
+            line-height: 1 !important;  /* Squashes WP default text spacing */
+            height: 1px !important;     /* Hack: Forces cell to shrink-wrap text */
+            border-top: none !important;
+        }
+
+        /* slightly shrink the DB ID size on children so it doesn't crowd */
+        tr.fsb-audit-child td code {
+            margin-top: 0px !important;
+            margin-bottom: 0px !important;
+            line-height: 1 !important;
+        }
+        /* 3. Push master/single row content to the floor to meet the children */
+        tr.fsb-audit-master td {
+            padding-bottom: 2px !important;    /* Strip out the bottom breathing room */
+            vertical-align: bottom !important; /* Drop the text to the bottom edge */
+        }
+    </style>
     <div class="card" style="max-width: 100%; margin-top: 0; position: relative;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
             <h3 style="margin:0;">Database Audit Log</h3>
@@ -564,9 +593,9 @@ function fsb_render_event_audit() {
                 <tr>
                     <th style="width: 80px;">DB ID</th>
                     <th>Event Title</th>
-                    <th style="width: 130px;">Start Date</th>
+                    <th style="width: 130px;">Start Date/Time</th>
                     <th style="width: 90px;">Status</th>
-                    <th style="width: 180px;">Type / Recurrence</th>
+                    <th style="width: 300px;">Type / Recurrence</th>
                     <th style="width: 150px;">Owner</th>
                     <th style="width: 100px; text-align:center;">Actions</th>
                 </tr>
@@ -575,25 +604,65 @@ function fsb_render_event_audit() {
                 <?php foreach ($results as $e) : 
                     $is_child = !empty($e->parent_id);
                     $is_hole = ($e->status === 'cancelled');
-                    $row_style = $is_child ? 'background: #fdfdfd;' : 'background: #f0f6fb; font-weight: 600;';
+                    $row_class = $is_child ? 'fsb-audit-child' : 'fsb-audit-master';
+                    $row_style = $is_child ? 'background: #fcfcfc;' : 'background: #f0f6fb; font-weight: 600;';
                     if ($is_hole) $row_style .= ' opacity: 0.6;';
                     $target_date = date('Y-m-d', strtotime($e->start_datetime));
+                    $target_time = date('H:i', strtotime($e->start_datetime));
+                    $display_time = date('g:i A', strtotime($e->start_datetime));
+                    
+                    // --- THE ROUTING ENGINE ---
+                    // Default to assuming this row is the Master
+                    $js_master_id = $e->id;
+                    $js_pivot_id  = $e->id;
+                    $js_move_id   = 'null';
+
+                    if ($is_child) {
+                        $js_master_id = $e->parent_id; // Children always point up to the Master
+
+                        if ($is_hole) {
+                            $type_label = 'Exception (Hole)';
+                        } elseif (!empty($e->rrule)) {
+                            $type_label = 'Pivot';
+                            $js_pivot_id = $e->id; // This row IS the Pivot
+                        } else {
+                            $type_label = 'Move';
+                            // If the DB stored the pivot_id for this move, use it. Otherwise, fallback.
+                            $js_pivot_id = !empty($e->pivot_id) ? $e->pivot_id : 'null'; 
+                            $js_move_id = $e->id;  // This row IS the Move
+                        }
+                    } else {
+                        $type_label = !empty($e->rrule) ? '<strong>Master Series</strong>' : 'Single';
+                    }
                 ?>
-                    <tr style="<?php echo $row_style; ?>">
+                    <tr class="<?php echo $row_class; ?>" style="<?php echo $row_style; ?>">
                         <td><code>#<?php echo $e->id; ?></code></td>
                         <td><span style="<?php echo $is_child ? 'margin-left: 20px;' : ''; ?>"><?php echo esc_html($e->title); ?></span></td>
-                        <td><?php echo $target_date; ?></td>
+                        <td><?php echo $target_date; ?> <span style="font-size: 10px; color: #666; font-weight: normal;"><?php echo $display_time; ?></span>
+                        </td>
                         <td><span class="status-tag <?php echo $e->status; ?>" style="text-transform: uppercase; font-size: 8px; font-weight: bold; border: 1px solid; padding: 2px 4px; border-radius: 3px;"><?php echo esc_html($e->status); ?></span></td>
                         <td>
-                            <div style="font-size: 11px;"><?php echo $e->rrule ? '<strong>Master Series</strong>' : ($is_child ? ($is_hole ? 'Exception (Hole)' : 'Pivot/Move') : 'Single'); ?></div>
-                            <?php if ($e->rrule || ($is_child && !$is_hole)) : ?>
-                                <div style="font-size: 10px; color: #2271b1; margin-top: 4px; word-break: break-all;"><code><?php echo esc_html(str_replace('RRULE:', '', $e->rrule)); ?></code></div>
+                            <div style="font-size: 11px;"><?php echo $type_label; ?></div>
+                            <?php if (!empty($e->rrule)) : ?>
+                                <div style="font-size: 10px; color: #2271b1; margin-top: 0px; margin-bottom: 0px; word-break: break-all; line-height: 1;">
+                                    <code><?php echo esc_html(str_replace('RRULE:', '', (string)$e->rrule)); ?></code>
+                                </div>
                             <?php endif; ?>
                         </td>
                         <td style="font-size: 11px;"><?php echo esc_html($e->owner_email); ?></td>
                         <td style="text-align:center; font-size: 1.2rem;">
                             <?php if (!$is_hole): ?>
-                                <span title="Edit" style="color:#f57c00; cursor:pointer; margin-right:12px;" onclick="handleEditClick(<?php echo $e->id; ?>, '<?php echo $target_date; ?>', <?php echo $e->id; ?>, null)">✎</span>
+                                <span title="Edit" 
+                                     style="color:#f57c00; cursor:pointer; margin-right:12px;" 
+                                     onclick="handleEditClick(
+                                         <?php echo $e->id; ?>, 
+                                         '<?php echo $target_date; ?>', 
+                                         '<?php echo $target_time; ?>',
+                                         <?php echo $js_pivot_id; ?>, 
+                                         <?php echo $js_move_id; ?>,
+                                         true
+                                     )">✎
+                                </span>
                             <?php endif; ?>
                             <span title="Delete" style="color:#d32f2f; cursor:pointer;" onclick="handleAuditDelete(<?php echo $e->id; ?>)">&times;</span>
                         </td>

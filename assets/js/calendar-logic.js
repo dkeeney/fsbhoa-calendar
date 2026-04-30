@@ -776,7 +776,7 @@ function renderIcons(icons, dateStr) {
                 ${canEdit ? `
                     <span class="edit-pencil-mini"
                           style="pointer-events: auto;"
-                          onclick="event.stopPropagation(); handleEditClick(${e.id}, '${dateStr}', ${e.pivot_id || 'null'}, ${e.move_id || 'null'})">
+                          onclick="event.stopPropagation(); handleEditClick(${e.id}, '${dateStr}', '${e.start_time}', ${e.pivot_id || 'null'}, ${e.move_id || 'null'})">
                         ✎
                     </span>` : ''}
             </div>`;
@@ -983,7 +983,7 @@ function activateEventDetailClick(e, instanceId) {
 
 
 
-function openEditModal(selectedDate, eventId = null, pivot_id = null, move_id = null, fetchedData = null) {
+function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = null, move_id = null, fetchedData = null, isAuditLog = false) {
     const modal = document.getElementById('fsb-edit-modal');
     const container = document.getElementById('edit-form-container');
 
@@ -1104,7 +1104,7 @@ function openEditModal(selectedDate, eventId = null, pivot_id = null, move_id = 
             <div class="time-row" style="display:flex; gap:10px;">
                 <div style="flex:1">
                     <label>Start Time</label>
-                    <input type="time" name="start_time" value="${eventData.start_time || '09:00'}">
+                    <input type="time" name="start_time" value="${selectedTime || '09:00'}">
                 </div>
                 <div style="flex:1">
                     <label>End Time</label>
@@ -1242,7 +1242,7 @@ function openEditModal(selectedDate, eventId = null, pivot_id = null, move_id = 
             <div class="form-actions" style="margin-top:25px; display:flex; gap:10px; flex-wrap:wrap;">
                 <button type="button" class="fsb-save-btn" onclick="saveEventChanges()" style="background:#0288d1; color:#fff; padding:10px 20px; border:none; border-radius:4px; cursor:pointer;">Save</button>
 
-                ${eventId ? `
+                ${(eventId && !isAuditLog) ? `
                     <button type="button" onclick="handleCancelBtn(${JSON.stringify(eventData).replace(/"/g, '&quot;')}, '${selectedDate}')" style="background:#ef5350; color:#fff; padding:10px; border:none; border-radius:4px; cursor:pointer;">Cancel Event</button>
                     <button type="button" onclick="handleRescheduleBtn()" style="background:#ffa726; color:#fff; padding:10px; border:none; border-radius:4px; cursor:pointer;">Reschedule</button>
                 ` : ''}
@@ -1375,6 +1375,8 @@ async function handleRescheduleBtn() {
     const pivotId = form.querySelector('input[name="pivot_id"]').value;
     const moveId = form.querySelector('input[name="move_id"]').value;
     const eventDate = form.querySelector('input[name="date"]').value;
+    const originalStartTimeInput = form.querySelector('input[name="start_time"]');
+    const originalTime = originalStartTimeInput ? originalStartTimeInput.value : '09:00';
 
     console.log(`RESCHEDULE TRIGGER: Harvested Pivot: ${pivotId}, Move: ${moveId}`);
 
@@ -1390,13 +1392,13 @@ async function handleRescheduleBtn() {
         const result = await response.json();
 
         if (result.success) {
-            openRescheduleDialog(result.data, eventDate, pivotId, moveId);
+            openRescheduleDialog(result.data, eventDate, pivotId, moveId, originalTime);
         }
     }
 }
 
-function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = null) {
-    const modal = document.getElementById('fsb-reschedule-modal'); // You'll need to add this ID to your PHP/HTML
+function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = null, originalTime = '09:00') {
+    const modal = document.getElementById('fsb-reschedule-modal');
     const container = document.getElementById('reschedule-form-container');
 
     console.log(`Reschedule Dialog OPEN: Receiving Pivot: ${pivotId}, Move: ${moveId}`);
@@ -1404,7 +1406,9 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
     container.innerHTML = `
         <div style="padding: 15px;">
             <h3 style="margin-top:0;">Reschedule single instance: ${eventData.title}</h3>
-            <p style="font-size: 0.9rem; color: #666;">Original: ${clickedDate} @ ${eventData.start_fmt}</p>
+            <p style="font-size: 0.9rem; color: #666;">Original: ${clickedDate} @ ${formatTimeAMPM(originalTime)}
+
+            ${eventData.start_fmt}</p>
 
             <div class="form-group">
                 <label>New Date</label>
@@ -1413,7 +1417,7 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
 
             <div class="form-group" style="margin-top:10px;">
                 <label>New Start Time</label>
-                <input type="time" id="res_time" value="${eventData.start_time}" style="width:100%;">
+                <input type="time" id="res_time" value="${originalTime}" style="width:100%;">
             </div>
 
             <p style="font-size: 0.75rem; color: #ed6c02; margin-top:15px; font-style:italic;">
@@ -1426,6 +1430,16 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
         </div>
     `;
     modal.classList.add('is-visible');
+}
+
+// Helper to convert 24h DB time (14:30) to 12h display time (2:30 PM)
+function formatTimeAMPM(time24) {
+    if (!time24) return '12:00 AM';
+    let [hours, minutes] = time24.split(':');
+    hours = parseInt(hours, 10);
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12; // Converts '0' to '12'
+    return `${hours}:${minutes} ${ampm}`;
 }
 
 async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false) {
@@ -1466,6 +1480,14 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
 
     const result = await response.json();
     if (result.success) {
+
+        // Close the Reschedule Modal
+        const resModal = document.getElementById('fsb-reschedule-modal');
+        if (resModal) {
+            resModal.classList.remove('is-visible');
+            document.body.classList.remove('modal-open');
+        }
+
         // Refresh to show the new "Bake"
         loadData();
     } else {
@@ -1638,7 +1660,7 @@ function openDayModal(dateStr) {
                         ${canEdit ? `
                             <span title="Edit Event"
                                   style="color:#f57c00; cursor:pointer;"
-                                  onclick="event.stopPropagation(); handleEditClick(${e.id}, '${dateStr}', '${e.pivot_id}', '${e.move_id}')">
+                                  onclick="event.stopPropagation(); handleEditClick(${e.id}, '${dateStr}', '${e.start_time}', ${e.pivot_id}, ${e.move_id || 'null'})">
                                 ✎
                             </span>
                         ` : ''}
@@ -1677,7 +1699,7 @@ function handleAddEventFromModal(dateStr) {
 
 
 // Helper to bridge the Modal to the Edit Form
-async function handleEditClick(id, dateStr, pivot_id, move_id = null) {
+async function handleEditClick(id, dateStr, timeStr, pivot_id, move_id = null, isAuditLog = false) {
     //console.log("Pencil clicked. Closing Day Modal and fetching ID:", id," (Move: ", move_id, " Pivot: ", pivot_id," )");
     const dayModal = document.getElementById('fsb-day-modal');
     if (dayModal) {
@@ -1689,8 +1711,18 @@ async function handleEditClick(id, dateStr, pivot_id, move_id = null) {
         const result = await response.json();
 
         if (result.success) {
+            // now get the current rrule.
+            if (pivot_id && pivot_id !== 'null' && pivot_id != id) {
+                const pivotResponse = await fetch(`${fsb_config.ajax_url}?action=fsb_get_event_details&event_id=${pivot_id}&nonce=${fsb_config.nonce}`);
+                const pivotResult = await pivotResponse.json();
+
+                if (pivotResult.success && pivotResult.data.rrule) {
+                    // Override the master's original rrule with the pivot's active rrule
+                    result.data.rrule = pivotResult.data.rrule;
+                }
+            }
             // 2. Pass the freshly fetched data to the modal builder
-            openEditModal(dateStr, id, pivot_id, move_id, result.data);
+            openEditModal(dateStr, timeStr, id, pivot_id, move_id, result.data, isAuditLog);
         } else {
             alert("Could not load event details: " + result.data);
         }
@@ -1754,6 +1786,15 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
         const result = await response.json();
         if (result.success) {
             if (silent) return true;
+
+            // ---------------------------------------------------------
+            // Admin Check for the Audit Log
+            // If we are in the WP Admin backend, reload to refresh the PHP table
+            // ---------------------------------------------------------
+            if (window.config && window.config.isAdmin) {
+                window.location.reload();
+                return true;
+            }
 
             //  Close all possible modals after a successful action
             const allModals = document.querySelectorAll('.fsb-modal, .fsb-full-modal');
@@ -1826,7 +1867,7 @@ function renderEvents(events) {
                     ${combinedTitle}
                 </span>
                 ${canEdit ? `
-                    <span class="edit-pencil" onclick="event.stopPropagation(); handleEditClick(${e.id}, '${e.date}', '${e.pivot_id}', '${moveId}')">✎</span>` : ''}
+                    <span class="edit-pencil" onclick="event.stopPropagation(); handleEditClick(${e.id}, '${e.date}', '${e.start_time}', ${e.pivot_id || e.id}, ${moveId || 'null'})">✎</span>` : ''}
             </div>
         `;
     }).join('');
