@@ -203,9 +203,9 @@
     cursor: pointer;
 }
 /* Base style for Normal Days */
-.calendar-day:not(.split-cell) {
-    container-type: size;
-}
+/*.calendar-day:not(.split-cell) .event-item {
+    background: var(--event-bg) !important;
+} */
 /* Normal Day Events (The Standard Pill) */
 .calendar-day:not(.split-cell):not(.fsb-ghost-shard) .event-item {
     display: inline-block !important;
@@ -215,9 +215,9 @@
     color: #000 !important;
     margin-bottom: 1px;
     border-radius: 4px !important;
-    font-size: clamp(7px, 9cqh, 11px) !important;
+    font-size: clamp(7px, 0.6vw, 11px) !important;
     line-height: 0.95 !important;
-    padding: 0.5cqh 2px !important;
+    padding: 1px 2px !important;
     white-space: nowrap !important;
     overflow: hidden !important;
     text-overflow: ellipsis !important;

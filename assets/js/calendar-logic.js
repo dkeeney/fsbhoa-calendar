@@ -1596,7 +1596,7 @@ function openDayModal(dateStr) {
 
     const dateObj = new Date(dateStr + 'T00:00:00');
     const title = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-    const dayIcons = eventsForDay; // or filter if needed
+    const dayIcons = events;
 
     // heading
     let html = `

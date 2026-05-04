@@ -103,7 +103,7 @@ class Compiler {
         $dir = dirname($output_path);
         if (!file_exists($dir)) wp_mkdir_p($dir);
 
-        return file_put_contents($output_path, json_encode($final_output), LOCK_EX);
+        return file_put_contents($output_path, json_encode($final_output, JSON_PRETTY_PRINT), LOCK_EX);
     }
 
     // build a map of a parent and associated holes, moves, and pivots in time order.
@@ -129,8 +129,8 @@ class Compiler {
         $end_dt   = new \DateTime($event->end_datetime);
 
         // Get the range boundaries from the bake() scope or re-calculate
-        $past_months   = get_option('fs_cal_past_months', 1);
-        $future_months = get_option('fs_cal_future_months', 12);
+        $past_months   = get_option('fsb_cal_past_months', 1);
+        $future_months = get_option('fsb_cal_future_months', 12);
         $range_start   = new \DateTime(date('Y-m-01', strtotime("-{$past_months} months")));
         $range_end     = new \DateTime(date('Y-m-t',  strtotime("+{$future_months} months")));
 
@@ -149,7 +149,6 @@ class Compiler {
     // Bake a master's linage
     // Note, only called if the master's rrule is not empty.
     public function compile_event_lineage($master, $lineage_map, $range_start, $range_end) {
-        error_log("FSBHOA DEBUG: Master ID {$master->id} DB Start: " . $master->start_datetime . " range " . $range_start . " to " . $range_end);
         $instances = [];
         $range_start_dt = new \DateTime($range_start . ' 00:00:00');
         $range_end_dt   = new \DateTime($range_end . ' 23:59:59');
@@ -157,13 +156,12 @@ class Compiler {
         // 1. Initial State (The "Era" Metadata)
         $master_id = $master->id;
         $anchor = new \DateTime($master->start_datetime);
-        if ($anchor < $range_start_dt) $anchor = $range_start_dt;
         $end = new \DateTime($master->end_datetime);
         $duration = $end->getTimestamp() - $anchor->getTimestamp();
-        $meta      = null;  // tracks alternate source of data if not null.
+        $pivot_id = $master->id; 
 
         $rrule = $this->newRRule($master->rrule, $anchor);
-        $results = $rrule->getOccurrencesAfter($anchor, true, 1);
+        $results = $rrule->getOccurrencesAfter($range_start_dt, true, 1);
         $cursor = !empty($results) ? $results[0] : null;
 
         $queue = $lineage_map[$master_id] ?? [];
@@ -177,15 +175,12 @@ class Compiler {
 
                 // CASE: PIVOT (New Era begins)
                 if (!empty($exception->rrule)) {
-                    $anchor = clone $exception->start_dt;
-                    if ($anchor < $range_start_dt) $anchor = $range_start_dt;
+                    $pivot_start = new \DateTime($exception->start_datetime);
+                    $pivot_end   = new \DateTime($exception->end_datetime);
+                    $duration = $pivot_end->getTimestamp() - $pivot_start->getTimestamp();
+                    $anchor = clone $pivot_start;
                     $rrule = $this->newRRule($exception->rrule, $anchor);
-
-                    $end = new \DateTime($exception->end_datetime);
-                    $duration = $end->getTimestamp() - $anchor->getTimestamp();
-                
-                    // Update the stateful metadata source for all future ticks
-                    $meta = $exception; 
+                    $pivot_id = $exception->id;
 
                     // Jump the cursor to the first valid date of this new rule
                     $results = $rrule->getOccurrencesAfter($anchor, true, 1);
@@ -203,14 +198,13 @@ class Compiler {
                 // CASE: MOVE (Single instance rescheduling)
                 $exception_start = new \DateTime($exception->start_datetime);
                 $exception_end   = new \DateTime($exception->end_datetime);
-                if ($exception_start >= $range_start) {
-                    // Pass the MOVE exception as the meda, but still keep original $meta
+                if ($exception_start >= $range_start_dt) {
                     $instances[] = $this->format_instance(
                         $master, 
                         $exception_start, 
                         $exception_end, 
-                        $meta,
-                        $exception,
+                        $pivot_id,
+                        $exception->id,
                     );
                 }
                 continue;
@@ -224,9 +218,9 @@ class Compiler {
                 // Here, format_instance uses the metadata from the Master or the last Pivot
                 $instances[] = $this->format_instance(
                     $master, 
-                    $cursor, 
-                    $instance_end,
-                    $meta,
+                    $cursor,        // start date/time
+                    $instance_end,  // end date/time
+                    $pivot_id,
                     null);
             }
             $results = $rrule->getOccurrencesAfter($cursor, false, 1);
@@ -272,7 +266,7 @@ class Compiler {
     // It is either a Pivot (Active + RRule) or a Move (Active + No RRule). If this 
     // exists, it "talks over" the Master for title.
     //
-    private function format_instance($master, $start_dt, $end_dt, $pivot = null, $move = null) {
+    private function format_instance($master, $start_dt, $end_dt, $pivot_id = null, $move_id = null) {
 
         if (!($start_dt instanceof \DateTime) || !($end_dt instanceof \DateTime)) {
             error_log("FSBHOA COMPILE: format_instance() received invalid object.");
@@ -282,7 +276,7 @@ class Compiler {
 
         $instance = [
             'id'           => $master->id,
-            'pivot_id'     => ($pivot) ? $pivot->id : $master->id,
+            'pivot_id'     => $pivot_id,
             'title'        => $title,
             'location'     => $master->location_name ?? 'Lodge',
             'location_id'  => $master->location_id,
@@ -316,8 +310,8 @@ class Compiler {
         if (!empty($master->setup_notes)) {
             $instance['setup_notes'] = $master->setup_notes;
         }
-        if ($move) {
-            $instance['move_id'] = $move->id;
+        if ($move_id) {
+            $instance['move_id'] = $move_id;
         }
         if (empty($master->rrule)) {
             $instance['single'] = true;
