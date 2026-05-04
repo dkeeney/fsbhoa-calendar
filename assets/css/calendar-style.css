@@ -332,6 +332,34 @@ body.admin-bar #agenda-sticky-header {
     z-index: 9999;
 }
 
+/* -- Day Modal -- */
+/* 1. Shrink the flyer thumbnail and its container */
+#fsb-modal-content .thumb {
+    width: 50px !important; 
+    height: 50px !important;
+    margin-right: 10px !important;
+    flex-shrink: 0;
+}
+/* 2. Remove or reduce the padding between the event rows */
+.modal-event-list .modal-event-card {
+    padding: 4px 0 !important; /* Tight vertical padding */
+    margin: 0 !important;
+    border-bottom: 1px solid #eee;
+}
+#fsb-modal-content .thumb img {
+    height: 100% !important;
+    object-fit: cover;
+}
+/* 3. Tighten the text spacing inside the cards */
+.modal-event-card div div {
+    line-height: 1.1 !important;
+}
+
+/* 4. Reduce font size slightly for the meta info (location/time) */
+.modal-event-card div div[style*="color:#666"] {
+    font-size: 0.8rem !important;
+    margin-top: 2px;
+}
 
 
 /* Force all modals to be hidden on page load */
