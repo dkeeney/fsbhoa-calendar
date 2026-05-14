@@ -2,10 +2,12 @@
 namespace FSBHOA\Cal;
 
 class Repository {
-    private $table_name;
+    private $prefix;
 
-    public function __construct() {
+    public function __construct($prefix = null) {
         global $wpdb;
+        // If no prefix is passed, use the standard WP one (Production mode)
+        $this->prefix = ($prefix) ? $prefix : $wpdb->prefix;
     }
 
     /**
@@ -15,9 +17,9 @@ class Repository {
     public function create_table() {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
-        $events_table = $wpdb->prefix . 'fsbhoa_events';
-        $loc_table = $wpdb->prefix . 'fsbhoa_locations';
-        $cat_table = $wpdb->prefix . 'fsbhoa_categories';
+        $events_table = $this->prefix . 'fsbhoa_events';
+        $loc_table = $this->prefix . 'fsbhoa_locations';
+        $cat_table = $this->prefix . 'fsbhoa_categories';
 
 
         $sql = "CREATE TABLE {$events_table} (
@@ -82,12 +84,12 @@ class Repository {
      */
     public function save($data) {
         global $wpdb;
-        $event_table = $wpdb->prefix . 'fsbhoa_events';
+        $event_table = $this->prefix . 'fsbhoa_events';
 
         // get a static whitelist of valid column names.
         static $columns = null;
         if ($columns === null) {
-            $table = $wpdb->prefix . 'fsbhoa_events';
+            $table = $this->prefix . 'fsbhoa_events';
             // This query returns just the names of the columns
             $columns = $wpdb->get_col("DESCRIBE $table");
         }
@@ -123,9 +125,9 @@ class Repository {
      */
     public function get($id) {
         global $wpdb;
-        $event_table = $wpdb->prefix . 'fsbhoa_events';
-        $cat_table = $wpdb->prefix . 'fsbhoa_categories';
-        $loc_table = $wpdb->prefix . 'fsbhoa_locations';
+        $event_table = $this->prefix . 'fsbhoa_events';
+        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $loc_table = $this->prefix . 'fsbhoa_locations';
 
         return $wpdb->get_row(
             $wpdb->prepare("
@@ -140,9 +142,9 @@ class Repository {
 
     public function get_all_active() {
         global $wpdb;
-        $event_table = $wpdb->prefix . 'fsbhoa_events';
-        $cat_table = $wpdb->prefix . 'fsbhoa_categories';
-        $loc_table = $wpdb->prefix . 'fsbhoa_locations';
+        $event_table = $this->prefix . 'fsbhoa_events';
+        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $loc_table = $this->prefix . 'fsbhoa_locations';
 
         $results = $wpdb->get_results("
             SELECT e.*, c.name as cat_name, c.color_hex, l.name as location_name
@@ -159,6 +161,97 @@ class Repository {
         return $results;
     }
 
+    public function get_locations() {
+        global $wpdb;
+        $locations = $wpdb->get_results("SELECT id, name FROM {$this->prefix}fsbhoa_locations");
+        return $locations;
+    }
+    public function get_categories() {
+        global $wpdb;
+        $categories = $wpdb->get_results("SELECT id, name FROM {$this->prefix}fsbhoa_categories");
+        return $categories;
+    }
+
+
+    public function cancel_series($master_id) {
+        global $wpdb;
+        $wpdb->update(
+                    $this->prefix . 'fsbhoa_events',
+                    ['status' => 'cancelled'],
+                    ['id' => $master_id]
+                );
+    }
+
+    public function delete_series($master_id) {
+        global $wpdb;
+        $wpdb->delete($this->prefix . 'fsbhoa_events', ['id' => $master_id]);
+        $wpdb->delete($this->prefix . 'fsbhoa_events', ['parent_id' => $master_id]);
+    }
+
+
+
+    public function restore_hole($master_id, $target_date) {
+        global $wpdb;
+        // $target_date is the date of the cell clicked.
+        // We look for the first record >= that date that is 'cancelled'.
+        $hole_to_remove = $wpdb->get_var($wpdb->prepare(
+             "SELECT id FROM {$this->prefix}fsbhoa_events
+                    WHERE parent_id = %d
+                    AND status = 'cancelled'
+                    AND start_datetime >= %s
+                    ORDER BY start_datetime ASC
+                    LIMIT 1",
+                   $master_id,
+                   $target_date . ' 00:00:00'
+        ));
+
+        if ($hole_to_remove) {
+            $wpdb->delete($this->prefix . 'fsbhoa_events', ['id' => $hole_to_remove]);
+            error_log("FSBHOA REPO: Undeleted instance. Removed hole ID: $hole_to_remove");
+        } else {
+             error_log("FSBHOA REPO: No future holes found to undelete for Master ID: $master_id");
+        }
+    }
+
+    /**
+     * Ends a series by adding an UNTIL clause to the RRule.
+     */
+    public function end_series($pivot_id, $until_date_str) {
+        global $wpdb;
+        $table = $this->prefix . 'fsbhoa_events';
+
+        $existing = $this->get($pivot_id);
+        if (!$existing || empty($existing->rrule)) return false;
+
+        // Clean and append UNTIL
+        $clean = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', trim(str_ireplace('RRULE:', '', $existing->rrule)));
+        $new_rrule = rtrim($clean, ';') . ";UNTIL=" . $until_date_str;
+
+        return $wpdb->update($table, ['rrule' => $new_rrule], ['id' => $pivot_id]);
+    }
+
+
+    public function resume_series($pivot_id, $target_date) {
+        global $wpdb;
+        // 1. Remove the UNTIL clause from the Pivot/Master
+        $existing_pivot = $this->get($pivot_id);
+        if ($existing_pivot && !empty($existing_pivot->rrule)) {
+            $master_id = $existing_pivot->id;
+
+            // Strip UNTIL and COUNT to make it infinite again
+            $new_rrule = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $existing_pivot->rrule);
+            $wpdb->update($this->prefix . 'fsbhoa_events',
+                ['rrule' => $new_rrule],
+                ['id' => $pivot_id]
+            );
+            error_log("FSBHOA REPO: Series resumed. RRule updated for ID: $pivot_id");
+        }
+
+        // 2. Clean up all future pivots, holes and moves for this lineage
+        $this->delete_downstream($master_id, $target_date, '00:00:00', $pivot_id);
+    }
+
+
     /**
      * Handles the complex logic of reschedualing an event instance.
      */
@@ -166,7 +259,7 @@ class Repository {
         error_log("FSBHOA move_event_instance master: $master_id, pivot: $pivot_id, move: $move_id");
 
         global $wpdb;
-        $event_table = $wpdb->prefix . 'fsbhoa_events';
+        $event_table = $this->prefix . 'fsbhoa_events';
     
         // Fetch the Master record, for all meta data
         $current = $this->get($master_id);
@@ -290,22 +383,113 @@ class Repository {
 
 
     /**
+     * Saves DNA fields: the rrule, start and end datetimes.
+     * 1) Find active rule. We look for pivot point or master closest
+     *    but <= to the pivot date.
+     * 2) If the DNA fields have not changed, return; nothing to do.
+     * 3) If the start_datetime is the same, save the DNA fields in-place
+     *    and delete all pivots, exceptions, and holes that follow.
+     * 4) else, create a new pivot record with the DNA fields.
+     * Note:  If the pivot date is in the past, move the pivot date to today.
+     */
+    public function maybe_pivot_series($pivot_id, $dna_data, $clicked_date) {
+        global $wpdb;
+        $active_rule = $this->get($pivot_id);
+        if (!$active_rule) {
+            error_log("FSBHOA PIVOT: Could not find Pivot record $pivot_id");
+            return; // Should not happen if Master exists
+        }
+        $master_id = !empty($active_rule->parent_id) ? $active_rule->parent_id : $active_rule->id;
+
+        $today_str = date('Y-m-d');
+
+        $pivot_date = $clicked_date;
+
+
+        // --- 3. DNA CHANGE DETECTION ---
+        $new_start_time = date('H:i', strtotime($dna_data['start_datetime']));
+        $new_end_time   = date('H:i', strtotime($dna_data['end_datetime']));
+        $old_start_time = date('H:i', strtotime($active_rule->start_datetime));
+        $old_end_time   = date('H:i', strtotime($active_rule->end_datetime));
+        $old_start_time_full = date('H:i:s', strtotime($active_rule->start_datetime));
+
+        $dna_changed = (
+            $active_rule->rrule !== $dna_data['rrule'] ||
+            $old_start_time !== $new_start_time ||
+            $old_end_time !== $new_end_time
+        );
+
+        if (!$dna_changed) {
+            // nothing to do.
+            error_log("FSBHOA PIVOT: No DNA change detected. Skipping.");
+            return;
+        }
+
+        error_log("FSBHOA PIVOT check: DNA changed id=$pivot_id");
+
+        // --- 4. DECIDE: UPDATE IN-PLACE OR INSERT NEW PIVOT ---
+        $rule_start_date = date('Y-m-d', strtotime($active_rule->start_datetime));
+
+        if ($rule_start_date === $pivot_date) {
+            // CASE: Update In-Place
+            // The user is editing a rule that starts exactly on the pivot date.
+            error_log("FSBHOA PIVOT: Updating existing record ID {$active_rule->id} in-place.");
+
+            // update pivot record (or master)
+            $this->save([
+                'id'             => $active_rule->id,
+                'rrule'          => $dna_data['rrule'],
+                'start_datetime' => "$pivot_date $new_start_time:00",
+                'end_datetime'   => "$pivot_date $new_end_time:00"
+            ]);
+
+            // Nuke all downstream children of the master for this era
+            $this->delete_downstream($master_id, $pivot_date, $old_start_time_full, $active_rule->id);
+        } else {
+            // CASE: Create New Pivot
+            // We are branching off from an older rule.
+            error_log("FSBHOA PIVOT: Creating new pivot era starting $pivot_date.");
+
+            // 1. Nuke downstream first to clear the path
+            $this->delete_downstream($master_id, $pivot_date, $old_start_time_full);
+
+            // 2. Insert the new Pivot
+            $this->save([
+                'parent_id'      => $master_id,
+                'title'          => $dna_data['title'] ?? '',
+                'rrule'          => $dna_data['rrule'],
+                'start_datetime' => "$pivot_date $new_start_time:00",
+                'end_datetime'   => "$pivot_date $new_end_time:00",
+                'status'         => 'active'
+            ]);
+        }
+    }
+
+    /**
      * Deletes all exceptions and pivots belonging to a master starting 
      * from a specific date.
      */
-    public function delete_downstream($master_id, $pivot_date, $time_slot) {
+    public function delete_downstream($master_id, $pivot_date, $time_slot, $exclude_id = null) {
         global $wpdb;
-        $table = $wpdb->prefix . 'fsbhoa_events';
+        $table = $this->prefix . 'fsbhoa_events';
 
-        return $wpdb->query($wpdb->prepare(
-            "DELETE FROM $table
-             WHERE parent_id = %d
-             AND DATE(start_datetime) > %s
-             AND TIME(start_datetime) = %s",
-            $master_id,
-            $pivot_date,
-            $time_slot
-        ));
+        // We use a complex WHERE clause to handle the "Same day later" and "Future days"
+        $sql = "DELETE FROM $table
+                WHERE parent_id = %d
+                AND (
+                    (DATE(start_datetime) = %s AND TIME(start_datetime) >= %s)
+                    OR
+                    (DATE(start_datetime) > %s)
+                )";
+
+        $params = [$master_id, $pivot_date, $time_slot, $pivot_date];
+
+        // CRITICAL: Ensure we don't delete the record we just created/modified
+        if ($exclude_id) {
+            $sql .= " AND id != %d";
+            $params[] = $exclude_id;
+        }
+        return $wpdb->query($wpdb->prepare($sql, ...$params));
     }
 
     /**
@@ -316,5 +500,21 @@ class Repository {
             'start' => substr($record->start_datetime, 11, 8), // "08:00:00"
             'end'   => substr($record->end_datetime, 11, 8)    // "09:00:00"
         ];
+    }
+
+
+    // We need to know if this user is a delegate on any event
+    // so we know to load the edit modules.
+    public function is_user_delegate($email) {
+        global $wpdb;
+        if (empty($email)) return false;
+
+        $table = $this->prefix . 'fsb_events';
+        $count = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table WHERE owner_email = %s",
+            $email
+        ));
+
+        return ($count > 0);
     }
 }

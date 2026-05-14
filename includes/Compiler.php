@@ -5,15 +5,33 @@ use RRule\RRule;
 use DateTime;
 
 class Compiler {
+    private $prefix;
+    private $json_path;
+    
+    public function __construct($prefix = null, $json_path = null) {
+        global $wpdb;
+        $this->prefix = $prefix ?: $wpdb->prefix;
+
+        // Use the passed path (Regression test mode) or the DB option (production mode)
+        if ($json_path) {
+            $this->json_path = $json_path;
+        } else {
+            // 2. Otherwise, check the DB option or use the WP default
+            $upload_dir = wp_upload_dir();
+            $default_path = $upload_dir['basedir'] . '/fsbhoa-calendar/calendar-events.json';
+
+            $this->json_path = get_option('fsb_cal_json_path', $default_path);
+        }
+    }
 
     /**
      * Main entry point: Orchestrates the bake process.
      */
     public function bake() {
         global $wpdb;
-        $table = $wpdb->prefix . 'fsbhoa_events';
-        $cat_table = $wpdb->prefix . 'fsbhoa_categories';
-        $loc_table = $wpdb->prefix . 'fsbhoa_locations';
+        $table = $this->prefix . 'fsbhoa_events';
+        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $loc_table = $this->prefix . 'fsbhoa_locations';
 
         // ---  Sync PHP with WordPress Timezone Settings ---
         $tz_string = get_option('timezone_string');
@@ -34,10 +52,9 @@ class Compiler {
         $range_end   = date('Y-m-t',  strtotime("+{$future_months} months"));
 
         $upload_dir   = wp_upload_dir();
-        $output_path  = get_option('fsb_cal_json_path', $upload_dir['basedir'] . '/fsbhoa-calendar/calendar-events.json');
 
         // 2. Fetch Category Icons
-        $cat_table = $wpdb->prefix . 'fsbhoa_categories';
+        $cat_table = $this->prefix . 'fsbhoa_categories';
         // We grab all categories. Even if svg_path is empty, we want the ID
         // so the JS doesn't crash looking for an undefined index.
         $categories = $wpdb->get_results("SELECT id, svg_path FROM $cat_table");
@@ -100,16 +117,16 @@ class Compiler {
             'events' => $final_manifest
         ];
 
-        $dir = dirname($output_path);
+        $dir = dirname($this->json_path);
         if (!file_exists($dir)) wp_mkdir_p($dir);
 
-        return file_put_contents($output_path, json_encode($final_output, JSON_PRETTY_PRINT), LOCK_EX);
+        return file_put_contents($this->json_path, json_encode($final_output, JSON_PRETTY_PRINT), LOCK_EX);
     }
 
     // build a map of a parent and associated holes, moves, and pivots in time order.
     private function build_lineage_map() {
         global $wpdb;
-        $table = $wpdb->prefix . 'fsbhoa_events';
+        $table = $this->prefix . 'fsbhoa_events';
 
         // Fetch all exceptions (anything with a parent_id)
         $results = $wpdb->get_results("SELECT * FROM $table WHERE parent_id IS NOT NULL ORDER BY start_datetime ASC");

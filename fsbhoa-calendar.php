@@ -3,7 +3,7 @@
  * Plugin Name: FSBHOA Calendar
  * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.0.12
+ * Version:           1.0.13
  * Author:            David Keeney
  * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
  * Requires at least: 5.8
@@ -94,60 +94,117 @@ add_action('wp_enqueue_scripts', function() {
 
 function fsb_enqueue_calendar_scripts() {
     //error_log("FSB CALENDAR: fsb_enqueue_calender_scripts() called");
-    if (current_user_can('manage_options')) {
-        wp_enqueue_media();
-    }
+    $ver = '1.1';
+    $current_user = wp_get_current_user();
+    $user_email = $current_user->user_email;
+
 
     wp_enqueue_script(
         'fsb-cal-data',
         plugins_url('assets/js/calendar-data.js', __FILE__),
         array(),
-        '1.1',
+        $ver,
         true
     );
 
-    wp_enqueue_script(
-        'fsb-cal-print',
-        plugins_url('assets/js/calendar-print.js', __FILE__),
-        array('fsb-cal-data'),
-        '1.1',
-        true
-    );
 
+    // Load the View logic
     wp_enqueue_script(
-        'fsb-cal-logic',
-        plugins_url('assets/js/calendar-logic.js', __FILE__),
-        array('fsb-cal-data','fsb-cal-print'),
-        '1.1',
+        'fsb-cal-view', 
+        plugins_url('assets/js/calendar-view.js', __FILE__), 
+        array('fsb-cal-data'), 
+        $ver, 
         true
     );
+    // Note: calendar-print.js is not loaded until used.
+
+
+    $repo = new \FSBHOA\Cal\Repository();
+    $is_admin = current_user_can('manage_options');
+
+    // Quick check: Is this user an owner of ANY event?
+    $is_delegate = false;
+    if ( is_user_logged_in() && !$is_admin ) {
+        $is_delegate = $repo->is_user_delegate($user_email);
+    }
+
+
+    if ( $is_admin || $is_delegate) {
+        wp_enqueue_media();
+
+        // Load the Editor logic (For this pass, load for everyone to test the split)
+        wp_enqueue_script(
+            'fsb-cal-editor', 
+            plugins_url('assets/js/calendar-editor.js', __FILE__), 
+            array('fsb-cal-view'), 
+            $ver, 
+            true
+        );
+    }
 
 
     wp_enqueue_style('fsb-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
     wp_enqueue_style('fsb-agenda-style', plugins_url('assets/css/agenda-style.css', __FILE__));
     wp_enqueue_style('fsb-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
-    //
+    
     // Fetch data for the JS
-    global $wpdb;
-    $locations = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}fsbhoa_locations");
-    $categories = $wpdb->get_results("SELECT id, name FROM {$wpdb->prefix}fsbhoa_categories");
+    $locations = $repo->get_locations();
+    $categories = $repo->get_categories();
     $upload_dir = wp_upload_dir();
 
     // 3. Localize ONE TIME with all data
-    wp_localize_script('fsb-cal-logic', 'fsb_config', array(
+    wp_localize_script('fsb-cal-view', 'fsb_config', array(
         'ajax_url'      => admin_url('admin-ajax.php'),
         'nonce'         => wp_create_nonce('fsb_cal_nonce'),
+        'print_js_url'  => plugins_url('assets/js/calendar-print.js', __FILE__),
         'bg_base_url'   => $upload_dir['baseurl'] . '/fsbhoa-calendar/backgrounds/',
         'past_limit'    => (int)get_option('fsb_cal_past_months', 1),
         'future_limit'  => (int)get_option('fsb_cal_future_months', 12),
         'locations'     => $locations,
         'categories'    => $categories,
         'time_position' => get_option('fsb_time_position', 'prepend'),
+        'is_admin'      => $is_admin,
+        'user_email'    => $user_email,
         'version'       => time()
     ));
 
 
 }
+
+
+add_action('wp_ajax_fsb_run_regression_step', function() {
+    check_ajax_referer('fsb_reg_nonce', 'nonce');
+    $step = sanitize_text_field($_GET['step']);
+    $runner = new \FSBHOA\Cal\TestRunner();
+
+    switch($step) {
+        case 'init':
+            $runner->bootstrap();
+            wp_send_json_success([
+                'message' => 'Sandbox Ready.',
+                'scenarios' => ['boomerang', 'pivot_cleanup', 'leapfrog']
+            ]);
+            break;
+
+        case 'run_scenario':
+            $slug = sanitize_text_field($_GET['slug']);
+            $method = "test_" . $slug;
+            ob_start();
+            $result = $runner->$method();
+            ob_end_clean();
+            if($result === true) wp_send_json_success(['message' => 'Passed']);
+            else wp_send_json_error($result);
+            break;
+
+        case 'cleanup':
+            $runner->cleanup();
+            wp_send_json_success();
+            break;
+    }
+});
+
+
+
 
 add_shortcode('fsbhoa_calendar', function() {
 
@@ -331,7 +388,6 @@ function fsb_handle_get_event_details() {
 
 // We hook into 'save_post_fsbhoa_event' or a custom action
 add_action('fsbhoa_event_updated', function($event_id) {
-    $repo = new Repository();
     $compiler = new Compiler();
     
     // 1. Get all active events for the next 12 months
@@ -356,6 +412,8 @@ function fsb_handle_save_event() {
     $master_id   = isset($_POST['event_id']) ? intval($_POST['event_id']) : null;
     $pivot_id   = isset($_POST['pivot_id']) ? intval($_POST['pivot_id']) : $master_id;
     $move_id   = isset($_POST['move_id']) ? intval($_POST['move_id']) : null;
+    $repo = new \FSBHOA\Cal\Repository();
+    $compiler = new \FSBHOA\Cal\Compiler();
 
     error_log("FSBHOA AJAX TRIGGERED: Mode=" . $edit_mode . 
               " ID=$master_id move_id=$move_id pivot_id=$pivot_id");
@@ -370,15 +428,12 @@ function fsb_handle_save_event() {
         wp_send_json_error('You do not have permission to edit events.');
     }
 
-    global $wpdb;
-    $repo = new \FSBHOA\Cal\Repository();
-    $compiler = new \FSBHOA\Cal\Compiler();
 
 
 
     // 2. Collect and Sanitize Data
     $title      = sanitize_text_field($_POST['title'] ?? '');
-    $event_date = sanitize_text_field($_POST['date']);  // date clicked on
+    $event_date = sanitize_text_field($_POST['date'] ?? '');  // date clicked on
     //
     // 1. Fetch the existing master record to see its original "Anchor Date"
     $existing_event = $master_id ? $repo->get($master_id) : null;
@@ -415,60 +470,24 @@ function fsb_handle_save_event() {
 
             case 'master_cancel':
                 // Kill the entire series or the one-shot
-                $wpdb->update(
-                    $wpdb->prefix . 'fsbhoa_events',
-                    ['status' => 'cancelled'],
-                    ['id' => $master_id]
-                );
+                $repo->cancel_series($master_id);
                 break;
 
             case 'instance_restore':
                // $target_date is the date of the cell clicked.
                // We look for the first record >= that date that is 'cancelled'.
-               $hole_to_remove = $wpdb->get_var($wpdb->prepare(
-                   "SELECT id FROM {$wpdb->prefix}fsbhoa_events
-                    WHERE parent_id = %d
-                    AND status = 'cancelled'
-                    AND start_datetime >= %s
-                    ORDER BY start_datetime ASC
-                    LIMIT 1",
-                   $master_id,
-                   $target_date . ' 00:00:00'
-               ));
-
-               if ($hole_to_remove) {
-                   $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['id' => $hole_to_remove]);
-                   error_log("FSBHOA REPO: Undeleted instance. Removed hole ID: $hole_to_remove");
-               } else {
-                   error_log("FSBHOA REPO: No future holes found to undelete for Master ID: $master_id");
-               }
+               repo->restore_hole($master_id, $target_date);
                break;
 
             case 'series_end':
                 // Stop the series before this date
-                $existing_pivot = $repo->get($pivot_id);
-                if ($existing_pivot && !empty($existing_pivot->rrule)) {
-                    // REMOVE THE 'Z': Use local time to match your DTSTART format
-                    $until_date = date('Ymd\T235959', strtotime($event_date . ' -1 day'));
-
-                    $clean = str_ireplace('RRULE:', '', trim($existing_pivot->rrule));
-                    $clean = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $clean);
-                    $clean = rtrim($clean, ';');
-
-                    $new_rrule = $clean . ";UNTIL=$until_date";
-
-                    $wpdb->update($wpdb->prefix . 'fsbhoa_events',
-                        ['rrule' => $new_rrule],
-                        ['id' => $pivot_id]
-                    );
-                    error_log("FSBHOA REPO: Series ended (Local Time): $new_rrule");
-                }
+                $until_date = date('Ymd\T235959', strtotime($event_date . ' -1 day'));
+                $repo->end_series($pivot_id, $until_date);
                 break;
 
             case 'master_delete':
-                // The Nuclear Option
-                $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['id' => $master_id]);
-                $wpdb->delete($wpdb->prefix . 'fsbhoa_events', ['parent_id' => $master_id]);
+                // Delete the master and all children.
+                $repo->delete_series($master_id);
                 break;
 
             case 'instance_move':
@@ -508,29 +527,7 @@ function fsb_handle_save_event() {
 
 
             case 'series_resume':
-                // 1. Remove the UNTIL clause from the Pivot/Master
-                $existing_pivot = $repo->get($pivot_id);
-                if ($existing_pivot && !empty($existing_pivot->rrule)) {
-                    // Strip UNTIL and COUNT to make it infinite again
-                    $new_rrule = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $existing_pivot->rrule);
-                    $wpdb->update($wpdb->prefix . 'fsbhoa_events',
-                        ['rrule' => $new_rrule],
-                        ['id' => $pivot_id]
-                    );
-                    error_log("FSBHOA REPO: Series resumed. RRule updated for ID: $pivot_id");
-                }
-
-                // 2. Clean up all future holes/cancellations for this lineage
-                // We target anything >= today's date that is marked 'cancelled'
-                $wpdb->query($wpdb->prepare(
-                    "DELETE FROM {$wpdb->prefix}fsbhoa_events
-                     WHERE parent_id = %d
-                     AND status = 'cancelled'
-                     AND start_datetime >= %s",
-                    $master_id,
-                    $target_date . ' 00:00:00'
-                ));
-                error_log("FSBHOA REPO: Future holes cleared for master: $master_id starting $target_date");
+                resume_series($pivot_id, $target_date);
                 break;
 
 
@@ -593,7 +590,7 @@ function fsb_handle_save_event() {
                     $data['rrule']          = $new_rrule;
                     $data['start_datetime'] = $new_start_datetime;
                     $data['end_datetime']   = $new_end_datetime;
-                    fsb_maybe_pivot_series($repo, $pivot_id, $data, $target_date);
+                    $repo->maybe_pivot_series($pivot_id, $data, $target_date);
                 }
                 break;
         }
@@ -664,84 +661,3 @@ function fsb_serve_calendar_json() {
 }
 
 
-/**
- * Saves DNA fields: the rrule, start and end datetimes.  
- * 1) Find active rule. We look for pivot point or master closest 
- *    but <= to the pivot date. 
- * 2) If the DNA fields have not changed, return; nothing to do.
- * 3) If the start_datetime is the same, save the DNA fields in-place
- *    and delete all pivots, exceptions, and holes that follow.
- * 4) else, create a new pivot record with the DNA fields.
- * Note:  If the pivot date is in the past, move the pivot date to today.
- */
-function fsb_maybe_pivot_series($repo, $pivot_id, $dna_data, $clicked_date) {
-    $active_rule = $repo->get($pivot_id);
-    if (!$active_rule) {
-        error_log("FSBHOA PIVOT: Could not find Pivot record $pivot_id");
-        return; // Should not happen if Master exists
-    }
-    $master_id = !empty($active_rule->parent_id) ? $active_rule->parent_id : $active_rule->id;
-
-    $today_str = date('Y-m-d');
-
-    $pivot_date = $clicked_date;
-
-
-    // --- 3. DNA CHANGE DETECTION ---
-    $new_start_time = date('H:i', strtotime($dna_data['start_datetime']));
-    $new_end_time   = date('H:i', strtotime($dna_data['end_datetime']));
-    $old_start_time = date('H:i', strtotime($active_rule->start_datetime));
-    $old_end_time   = date('H:i', strtotime($active_rule->end_datetime));
-    $old_start_time_full = date('H:i:s', strtotime($active_rule->start_datetime));
-
-    $dna_changed = (
-        $active_rule->rrule !== $dna_data['rrule'] || 
-        $old_start_time !== $new_start_time || 
-        $old_end_time !== $new_end_time
-    );
-
-    if (!$dna_changed) {
-        // nothing to do.
-        error_log("FSBHOA PIVOT: No DNA change detected. Skipping.");
-        return;
-    }
-    
-    error_log("FSBHOA PIVOT check: DNA changed id=$pivot_id");
-
-    // --- 4. DECIDE: UPDATE IN-PLACE OR INSERT NEW PIVOT ---
-    $rule_start_date = date('Y-m-d', strtotime($active_rule->start_datetime));
-
-    if ($rule_start_date === $pivot_date) {
-        // CASE: Update In-Place
-        // The user is editing a rule that starts exactly on the pivot date.
-        error_log("FSBHOA PIVOT: Updating existing record ID {$active_rule->id} in-place.");
-
-        // update pivot record (or master)
-        $repo->save([
-            'id'             => $active_rule->id,
-            'rrule'          => $dna_data['rrule'],
-            'start_datetime' => "$pivot_date $new_start_time:00",
-            'end_datetime'   => "$pivot_date $new_end_time:00"
-        ]);
-
-        // Nuke all downstream children of the master for this era
-        $repo->delete_downstream($master_id, $pivot_date, $old_start_time_full);
-    } else {
-        // CASE: Create New Pivot
-        // We are branching off from an older rule.
-        error_log("FSBHOA PIVOT: Creating new pivot era starting $pivot_date.");
-
-        // 1. Nuke downstream first to clear the path
-        $repo->delete_downstream($master_id, $pivot_date, $old_start_time_full);
-
-        // 2. Insert the new Pivot
-        $repo->save([
-            'parent_id'      => $master_id,
-            'title'          => $dna_data['title'] ?? '',
-            'rrule'          => $dna_data['rrule'],
-            'start_datetime' => "$pivot_date $new_start_time:00",
-            'end_datetime'   => "$pivot_date $new_end_time:00",
-            'status'         => 'active'
-        ]);
-    }
-}
