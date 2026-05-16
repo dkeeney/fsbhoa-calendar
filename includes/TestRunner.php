@@ -4,11 +4,51 @@ namespace FSBHOA\Cal;
 class TestRunner {
     private $prefix;
     private $original_prefix;
+    private $json_path;
 
     public function __construct($test_prefix = 'wp_test_fsb_') {
         global $wpdb;
         $this->original_prefix = $wpdb->prefix;
         $this->prefix = $test_prefix;
+        $this->json_path = sys_get_temp_dir() . '/fsb_test_compiler_output.json';
+    }
+
+    /**
+     * Runs the compiler and returns the 'events' array from the generated JSON.
+     */
+    private function run_compiler_and_get_events() {
+        $compiler = new Compiler($this->prefix, $this->json_path);
+        $compiler->bake();
+
+        if (!file_exists($this->json_path)) {
+            return [];
+        }
+
+        $json_content = file_get_contents($this->json_path);
+        $data = json_decode($json_content, true);
+        return $data['events'] ?? [];
+    }
+
+    /**
+     * A simple assertion helper to keep test code clean.
+     */
+    private function assert($condition, $message) {
+        if (!$condition) {
+            return $message;
+        }
+        return true;
+    }
+
+    /**
+     * Finds the first event in a compiled array that matches a given date.
+     */
+    private function find_event_by_date($events, $date) {
+        foreach ($events as $event) {
+            if ($event['date'] === $date) {
+                return $event;
+            }
+        }
+        return null;
     }
 
     /**
@@ -135,11 +175,199 @@ class TestRunner {
     }
 
 
+    // --- COMPILER TESTS ---
+    // The following tests validate the output of Compiler.php based on seeded DB states.
+
+    /**
+     * Tests a simple weekly series with no exceptions.
+     */
+    public function test_compiler_simple_series() {
+        $repo = new Repository($this->prefix);
+        $master_id = $repo->save([
+            'title' => 'Simple Series',
+            'start_datetime' => '2026-06-01 09:00:00', // A Monday
+            'end_datetime' => '2026-06-01 10:00:00',
+            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
+            'status' => 'active'
+        ]);
+
+        $events = $this->run_compiler_and_get_events();
+        
+        // June 2026 has 5 Mondays.
+        $result = $this->assert(count($events) === 5, "Expected 5 events for June 2026, found " . count($events));
+        if ($result !== true) return $result;
+        
+        $first_event = $this->find_event_by_date($events, '2026-06-01');
+        $result = $this->assert($first_event !== null, "Did not find event on 2026-06-01");
+        if ($result !== true) return $result;
+
+        $result = $this->assert($first_event['id'] === $master_id, "Event has wrong master ID");
+        if ($result !== true) return $result;
+        
+        $result = $this->assert($first_event['pivot_id'] === $master_id, "Event has wrong pivot_id");
+        if ($result !== true) return $result;
+
+        $result = $this->assert($first_event['start_time'] === '09:00', "Event has wrong start_time");
+        if ($result !== true) return $result;
+
+        return true;
+    }
+
+    /**
+     * Tests that a 'cancelled' child record creates a hole in the series.
+     */
+    public function test_compiler_series_with_hole() {
+        $repo = new Repository($this->prefix);
+        $master_id = $repo->save([
+            'title' => 'Series with Hole',
+            'start_datetime' => '2026-06-01 09:00:00', // A Monday
+            'end_datetime' => '2026-06-01 10:00:00',
+            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
+            'status' => 'active'
+        ]);
+        // Add a "hole" for the second Monday
+        $repo->save([
+            'parent_id' => $master_id,
+            'start_datetime' => '2026-06-08 09:00:00',
+            'end_datetime' => '2026-06-08 10:00:00',
+            'status' => 'cancelled'
+        ]);
+        
+        $events = $this->run_compiler_and_get_events();
+
+        $result = $this->assert(count($events) === 4, "Expected 4 events, found " . count($events));
+        if ($result !== true) return $result;
+
+        $missing_event = $this->find_event_by_date($events, '2026-06-08');
+        $result = $this->assert($missing_event === null, "Found a cancelled event on 2026-06-08 that should be a hole.");
+        if ($result !== true) return $result;
+
+        return true;
+    }
+
+    /**
+     * Tests that an 'active' child record out of sequence is treated as a move.
+     */
+    public function test_compiler_series_with_move() {
+        $repo = new Repository($this->prefix);
+        $master_id = $repo->save([
+            'title' => 'Series with Move',
+            'start_datetime' => '2026-06-01 09:00:00', // A Monday
+            'end_datetime' => '2026-06-01 10:00:00',
+            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
+            'status' => 'active'
+        ]);
+        // Move the second instance from Mon Jun 8 to Tue Jun 9
+        $repo->save([
+            'parent_id' => $master_id,
+            'start_datetime' => '2026-06-08 09:00:00', // The original spot is cancelled
+            'end_datetime' => '2026-06-08 10:00:00',
+            'status' => 'cancelled'
+        ]);
+        $move_id = $repo->save([
+            'parent_id' => $master_id,
+            'start_datetime' => '2026-06-09 11:00:00', // The new spot
+            'end_datetime' => '2026-06-09 12:00:00',
+            'status' => 'active'
+        ]);
+
+        $events = $this->run_compiler_and_get_events();
+        
+        $result = $this->assert(count($events) === 5, "Expected 5 total events, found " . count($events));
+        if ($result !== true) return $result;
+
+        $result = $this->assert($this->find_event_by_date($events, '2026-06-08') === null, "Found event on original move date.");
+        if ($result !== true) return $result;
+
+        $moved_event = $this->find_event_by_date($events, '2026-06-09');
+        $result = $this->assert($moved_event !== null, "Did not find moved event on 2026-06-09.");
+        if ($result !== true) return $result;
+        
+        $result = $this->assert($moved_event['move_id'] == $move_id, "Moved event missing correct move_id.");
+        if ($result !== true) return $result;
+        
+        $result = $this->assert($moved_event['start_time'] === '11:00', "Moved event has incorrect start time.");
+        if ($result !== true) return $result;
+
+        return true;
+    }
+
+    /**
+     * Tests a pivot, where the RRule changes mid-series.
+     */
+    public function test_compiler_series_with_pivot() {
+        $repo = new Repository($this->prefix);
+        $master_id = $repo->save([
+            'title' => 'Pivoting Series',
+            'start_datetime' => '2026-06-01 09:00:00', // Era A: Mon @ 9am
+            'end_datetime' => '2026-06-01 10:00:00',
+            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
+            'status' => 'active'
+        ]);
+        $pivot_id = $repo->save([
+            'parent_id' => $master_id,
+            'start_datetime' => '2026-06-15 11:00:00', // Era B: Starts Jun 15, now Wed @ 11am
+            'end_datetime' => '2026-06-15 12:00:00',
+            'rrule' => 'FREQ=WEEKLY;BYDAY=WE',
+            'status' => 'active'
+        ]);
+
+        $events = $this->run_compiler_and_get_events();
+        
+        $era_a_event = $this->find_event_by_date($events, '2026-06-08'); // Second Monday
+        $result = $this->assert($era_a_event['pivot_id'] == $master_id && $era_a_event['start_time'] == '09:00', "Era A event is incorrect.");
+        if ($result !== true) return $result;
+
+        $era_b_event = $this->find_event_by_date($events, '2026-06-17'); // First Wednesday after pivot
+        $result = $this->assert($era_b_event !== null, "Did not find Era B event on Wednesday 2026-06-17");
+        if ($result !== true) return $result;
+
+        $result = $this->assert($era_b_event['pivot_id'] == $pivot_id, "Era B event has wrong pivot_id");
+        if ($result !== true) return $result;
+        
+        $result = $this->assert($era_b_event['start_time'] == '11:00', "Era B event has wrong start time");
+        if ($result !== true) return $result;
+
+        return true;
+    }
+
+    /**
+     * Verifies that a single (non-recurring) event is formatted correctly.
+     */
+    public function test_compiler_single_event_formatting() {
+        $repo = new Repository($this->prefix);
+        $repo->save([
+            'title' => 'Single Event',
+            'start_datetime' => '2026-07-04 12:00:00',
+            'end_datetime' => '2026-07-04 13:00:00',
+            'status' => 'active',
+            'flyer_url' => 'http://example.com/flyer.pdf'
+        ]);
+
+        $events = $this->run_compiler_and_get_events();
+
+        $result = $this->assert(count($events) === 1, "Expected 1 event, found " . count($events));
+        if ($result !== true) return $result;
+        
+        $event = $events[0];
+        $result = $this->assert(isset($event['single']) && $event['single'] === true, "Single event missing 'single: true' flag.");
+        if ($result !== true) return $result;
+
+        $result = $this->assert($event['flyer_url'] === 'http://example.com/flyer.pdf', "Flyer URL mismatch.");
+        if ($result !== true) return $result;
+        
+        return true;
+    }
+
     public function cleanup() {
         global $wpdb;
         $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_events");
         $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_categories");
         $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_locations");
+
+        if (file_exists($this->json_path)) {
+            unlink($this->json_path);
+        }
     }
 }
 
