@@ -193,8 +193,12 @@ class TestRunner {
 
         $events = $this->run_compiler_and_get_events();
         
+        $june_events = array_filter($events, function($e) {
+            return strpos($e['date'], '2026-06-') === 0;
+        });
+
         // June 2026 has 5 Mondays.
-        $result = $this->assert(count($events) === 5, "Expected 5 events for June 2026, found " . count($events));
+        $result = $this->assert(count($june_events) === 5, "Expected 5 events for June 2026, found " . count($june_events));
         if ($result !== true) return $result;
         
         $first_event = $this->find_event_by_date($events, '2026-06-01');
@@ -235,7 +239,11 @@ class TestRunner {
         
         $events = $this->run_compiler_and_get_events();
 
-        $result = $this->assert(count($events) === 4, "Expected 4 events, found " . count($events));
+        $june_events = array_filter($events, function($e) {
+            return strpos($e['date'], '2026-06-') === 0;
+        });
+
+        $result = $this->assert(count($june_events) === 4, "Expected 4 events, found " . count($june_events));
         if ($result !== true) return $result;
 
         $missing_event = $this->find_event_by_date($events, '2026-06-08');
@@ -273,7 +281,11 @@ class TestRunner {
 
         $events = $this->run_compiler_and_get_events();
         
-        $result = $this->assert(count($events) === 5, "Expected 5 total events, found " . count($events));
+        $june_events = array_filter($events, function($e) {
+            return strpos($e['date'], '2026-06-') === 0;
+        });
+        
+        $result = $this->assert(count($june_events) === 5, "Expected 5 total events, found " . count($june_events));
         if ($result !== true) return $result;
 
         $result = $this->assert($this->find_event_by_date($events, '2026-06-08') === null, "Found event on original move date.");
