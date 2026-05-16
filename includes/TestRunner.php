@@ -34,6 +34,9 @@ class TestRunner {
 
     /**
      * Logic for Scenario: The Boomerang Move
+     *   reschedule an instance of a repeating sequence.
+     *   reschedule it back to the original date/time.
+     *   It should revert to the original sequence with no holes or move records.
      */
     public function test_boomerang() {
         global $wpdb;
@@ -62,6 +65,9 @@ class TestRunner {
         return true;
     }
 
+    /* When a pivot occurs at an instance, all downstream exceptions (holes and moves) 
+     * are removed.
+     */
     public function test_pivot_cleanup() {
         global $wpdb;
         $repo = new Repository($this->prefix);
