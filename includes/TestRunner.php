@@ -359,6 +359,91 @@ class TestRunner {
         return true;
     }
 
+    /**
+     * Tests a "Triple-Exception": moving an already-moved instance.
+     */
+    public function test_compiler_triple_exception() {
+        global $wpdb;
+        $repo = new Repository($this->prefix);
+
+        // 1. A weekly series on Mondays at 9am
+        $master_id = $repo->save([
+            'title' => 'Triple-X Yoga',
+            'start_datetime' => '2026-06-01 09:00:00', // A Monday
+            'end_datetime' => '2026-06-01 10:00:00',
+            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
+            'status' => 'active'
+        ]);
+
+        // 2. First move: Mon, Jun 8 @ 9am  ->  Tue, Jun 9 @ 11am
+        $repo->move_event_instance(
+            $master_id,
+            $master_id, // pivot_id is the master
+            null,        // no existing move_id
+            '2026-06-08',
+            '2026-06-09',
+            '11:00',
+            '12:00'
+        );
+
+        // Find the ID of the newly created 'move' record
+        $first_move_id = $wpdb->get_var($wpdb->prepare(
+            "SELECT id FROM {$this->prefix}fsbhoa_events WHERE parent_id = %d AND status = 'active' AND DATE(start_datetime) = %s",
+            $master_id,
+            '2026-06-09'
+        ));
+        if (!$first_move_id) return "Failed to create the first move record.";
+
+        // 3. Second move (The Triple-Exception): Tue, Jun 9 @ 11am  ->  Wed, Jun 10 @ 1pm
+        $repo->move_event_instance(
+            $master_id,
+            $master_id,
+            $first_move_id, // We are moving the record we just created
+            '2026-06-09',    // The date we are moving FROM
+            '2026-06-10',    // The date we are moving TO
+            '13:00',
+            '14:00'
+        );
+
+        // 4. Run compiler and verify
+        $events = $this->run_compiler_and_get_events();
+
+        // Check total count for June. Still 5 Mondays worth of events.
+        $june_events = array_filter($events, function($e) {
+            return strpos($e['date'], '2026-06-') === 0;
+        });
+        $result = $this->assert(count($june_events) === 5, "Expected 5 total events in June, found " . count($june_events));
+        if ($result !== true) return $result;
+
+        // Verify holes
+        $result = $this->assert($this->find_event_by_date($events, '2026-06-08') === null, "Found event on original date (should be a hole).");
+        if ($result !== true) return $result;
+        
+        $result = $this->assert($this->find_event_by_date($events, '2026-06-09') === null, "Found event on intermediate move date (should be gone).");
+        if ($result !== true) return $result;
+
+        // Verify final location
+        $final_event = $this->find_event_by_date($events, '2026-06-10');
+        $result = $this->assert($final_event !== null, "Did not find event on final move date 2026-06-10.");
+        if ($result !== true) return $result;
+
+        // Verify final event's data integrity
+        $result = $this->assert($final_event['start_time'] === '13:00', "Final event has wrong start time.");
+        if ($result !== true) return $result;
+
+        $result = $this->assert($final_event['id'] == $master_id, "Final event has wrong master ID.");
+        if ($result !== true) return $result;
+
+        $result = $this->assert($final_event['pivot_id'] == $master_id, "Final event has wrong pivot_id.");
+        if ($result !== true) return $result;
+        
+        // The key assertion: the move_id must match the record that was updated.
+        $result = $this->assert(isset($final_event['move_id']) && $final_event['move_id'] == $first_move_id, "Final event has incorrect move_id. Expected {$first_move_id}, got " . ($final_event['move_id'] ?? 'null'));
+        if ($result !== true) return $result;
+
+        return true;
+    }
+
     public function cleanup() {
         global $wpdb;
         $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_events");
