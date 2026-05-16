@@ -509,7 +509,7 @@ class Repository {
         global $wpdb;
         if (empty($email)) return false;
 
-        $table = $this->prefix . 'fsb_events';
+        $table = $this->prefix . 'fsbhoa_events';
         $count = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM $table WHERE owner_email = %s",
             $email

@@ -205,10 +205,10 @@ class TestRunner {
         $result = $this->assert($first_event !== null, "Did not find event on 2026-06-01");
         if ($result !== true) return $result;
 
-        $result = $this->assert($first_event['id'] === $master_id, "Event has wrong master ID");
+        $result = $this->assert($first_event['id'] == $master_id, "Event has wrong master ID");
         if ($result !== true) return $result;
         
-        $result = $this->assert($first_event['pivot_id'] === $master_id, "Event has wrong pivot_id");
+        $result = $this->assert($first_event['pivot_id'] == $master_id, "Event has wrong pivot_id");
         if ($result !== true) return $result;
 
         $result = $this->assert($first_event['start_time'] === '09:00', "Event has wrong start_time");

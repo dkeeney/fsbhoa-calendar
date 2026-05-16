@@ -742,7 +742,8 @@ function fsb_render_regression_test() {
         <h3>Automated Logic Regression</h3>
         <p class="description">
             This will create a temporary database sandbox, seed 12+ complex event scenarios 
-            (Pivots, Boomerangs, Triple-Exceptions), and verify the Compiler's output. 
+            (Pivots, reschedules, cancels, Triple-Exceptions), and verify the 
+            Compiler's output. 
             <strong>Production data will not be touched.</strong>
         </p>
 

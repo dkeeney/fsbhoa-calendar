@@ -5,6 +5,7 @@
  * Description:       The complete website calendar talored for an HOA.
  * Version:           1.0.13
  * Author:            David Keeney
+ * AI Tool:           Gemini Pro 2.5 and 3.1
  * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
  * Requires at least: 5.8
  * Requires PHP:      7.4
@@ -180,9 +181,20 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
     switch($step) {
         case 'init':
             $runner->bootstrap();
+
+            // Dynamically find all functions starting with 'test_'
+            $methods = get_class_methods($runner);
+            $scenarios = [];
+            foreach ($methods as $method) {
+                if (strpos($method, 'test_') === 0) {
+                    // Strip off the 'test_' prefix so the slug matches the JS logic
+                    $scenarios[] = substr($method, 5);
+                }
+            }
+
             wp_send_json_success([
                 'message' => 'Sandbox Ready.',
-                'scenarios' => ['boomerang', 'pivot_cleanup', 'leapfrog']
+                'scenarios' => $scenarios
             ]);
             break;
 
@@ -190,6 +202,8 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
             $slug = sanitize_text_field($_GET['slug']);
             $method = "test_" . $slug;
             ob_start();
+            // Wipe the database clean before running this specific test
+            $runner->bootstrap();
             $result = $runner->$method();
             ob_end_clean();
             if($result === true) wp_send_json_success(['message' => 'Passed']);
@@ -206,6 +220,7 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
 
 
 
+// the shortcode for the monthly calendar.
 add_shortcode('fsbhoa_calendar', function() {
 
 
@@ -423,7 +438,14 @@ function fsb_handle_save_event() {
     check_ajax_referer('fsb_cal_nonce', 'nonce');
     error_log("PHP DEBUG: Nonce Check Passed");
 
-    if (!current_user_can('edit_posts')) {
+
+    // Quick check: Is this admin or user an owner of ANY event?
+    $is_admin = current_user_can('manage_options');
+    $is_delegate = false;
+    if ( is_user_logged_in() && !$is_admin ) {
+        $is_delegate = $repo->is_user_delegate($user_email);
+    }
+    if (!is_admin && !is_delegate) {
         error_log("PHP DEBUG: Permission Denied for user");
         wp_send_json_error('You do not have permission to edit events.');
     }

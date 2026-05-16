@@ -1,5 +1,8 @@
 const { test, expect } = require('@playwright/test');
 
+// This test is just to see if playwright can access the calendar screen.
+// We may not need this as we fill out the test of the tests.
+
 test('Verify Calendar Title', async ({ page }) => {
   // Go to your testbed URL
   await page.goto('/calendar/');

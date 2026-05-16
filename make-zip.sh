@@ -16,9 +16,15 @@ zip -r9 "$ZIP_FILE" . \
     -x "make-zip.sh" \
     -x "venv/*" \
     -x "*.zip" \
+    -x "node_modules/*" \
+    -x ".aider*" \
+    -x "package.json" \
+    -x "package-lock.json" \
+    -x "playwright.config.js" \
+    -x "tests/*.spec.js" \
     -x ".DS_Store"
 
 echo "--------------------------------------"
 echo "Done! Created: $ZIP_FILE"
-echo "You can now download this to your PC and upload it to fsbhoa.com."
-echo "On PC, cmd window:  scp pi@192.168.1.190:/home/pi/fsbhoa-calendar/fsbhoa-calendar.zip C:\\Users\\dkeen\\Downloads\\ "
+echo "You can now download this to your PC and upload it to your website."
+echo "On PC, cmd window:  scp pi@testbed.fsbhoa.com:/home/pi/fsbhoa-calendar/fsbhoa-calendar.zip C:\\Users\\dkeen\\Downloads\\ "

@@ -6,6 +6,9 @@
 .idea/
 vendor/
 
+# AI context
+.aider*
+
 calendar-events.json
 *.bak
 
