@@ -1,27 +1,56 @@
 const { test, expect } = require('@playwright/test');
 
-const CALENDAR_URL = 'http://192.168.1.190/calendar/';
+const CALENDAR_URL = 'https://testbed.fsbhoa.com/calendar/';
 
 test.describe('FSBHOA Calendar UI', () => {
 
   test.beforeEach(async ({ page }) => {
-    // Navigate to the calendar page before each test
+    // 1. Go to the standard WordPress login page
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, 'webdriver', {
+        get: () => undefined,
+      });
+    });
+    await page.setViewportSize({ width: 1280, height: 720 });
+    
+    await page.goto('https://testbed.fsbhoa.com/wp-login.php');
+
+    // 2. Fill in the credentials
+    // IMPORTANT: Replace these with your actual testbed login info!
+    await page.locator('#user_login').fill('admin');
+    await page.waitForTimeout(500); // Wait half a second
+    await page.locator('#user_pass').fill('bakersfield123');
+    await page.waitForTimeout(500); // Wait half a second
+    
+    // 3. Click the login button
+    await page.locator('#wp-submit').click();
+    
+
+    // Wait for WordPress to process the login and set the cookies
+    // (We wait for the network to settle down before moving on)
+    await page.waitForLoadState('networkidle');
+
+    // 4. Now navigate to the calendar page
     await page.goto(CALENDAR_URL);
+
     // Wait for the main app container to be visible to ensure the page is ready
     await expect(page.locator('#fsb-calendar-app')).toBeVisible();
   });
 
   test('should load the calendar and navigate months', async ({ page }) => {
-    const monthDisplay = page.locator('#currentMonthDisplay');
-    const initialMonthText = await monthDisplay.textContent();
+    // Grab the very first day cell on the grid
+    const firstDayCell = page.locator('.calendar-day:not(.empty)').first();
+    const initialDate = await firstDayCell.getAttribute('data-date');
 
     // Navigate to the next month
     await page.locator('#nextMonth').click();
-    await expect(monthDisplay).not.toHaveText(initialMonthText);
 
-    // Navigate back to the previous (initial) month
+    // The data-date attribute of the first cell should now be different
+    await expect(firstDayCell).not.toHaveAttribute('data-date', initialDate);
+
+    // Navigate back
     await page.locator('#prevMonth').click();
-    await expect(monthDisplay).toHaveText(initialMonthText);
+    await expect(firstDayCell).toHaveAttribute('data-date', initialDate);
   });
 
   test('should open the day modal when a day cell is clicked', async ({ page }) => {
@@ -29,7 +58,7 @@ test.describe('FSBHOA Calendar UI', () => {
     await expect(dayModal).not.toHaveClass(/is-visible/);
 
     // Click the first non-empty calendar day
-    await page.locator('.calendar-day:not(.empty)').first().click();
+    await page.locator('.calendar-day .day-number').first().click();
 
     // Assert that the modal is now visible
     await expect(dayModal).toHaveClass(/is-visible/);

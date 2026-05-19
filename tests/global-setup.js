@@ -39,6 +39,14 @@ module.exports = async (config) => {
         throw new Error("Login failed: wordpress_logged_in cookie never appeared.");
     }
 
+    // Inject the Sandbox Cookie
+    await page.context().addCookies([{
+        name: 'fsb_test_mode',
+        value: '1',
+        domain: 'testbed.fsbhoa.com', // MUST match your testing domain
+        path: '/'
+    }]);
+
     // 5. Save the authenticated state (cookies and localStorage)
     await page.context().storageState({ path: storageState });
     console.log('Login successful. storageState.json created.');

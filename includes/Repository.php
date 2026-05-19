@@ -77,6 +77,32 @@ class Repository {
         dbDelta($sql_loc);
         dbDelta( $sql );
     }
+
+
+    /**
+     * Ensures the test tables exist by cloning the schema of the live tables.
+     */
+    private function prepare_test_tables() {
+        global $wpdb;
+
+        // Safety check: Only run this if we are using a test prefix
+        if ($this->prefix === $wpdb->prefix || empty($this->prefix)) {
+            return;
+        }
+
+        $live_events = $wpdb->prefix . 'fsbhoa_events';
+        $live_cats   = $wpdb->prefix . 'fsbhoa_categories';
+        $live_locs   = $wpdb->prefix . 'fsbhoa_locations';
+
+        $test_events = $this->prefix . 'fsbhoa_events';
+        $test_cats   = $this->prefix . 'fsbhoa_categories';
+        $test_locs   = $this->prefix . 'fsbhoa_locations';
+
+        // Clone the table structures
+        $wpdb->query("CREATE TABLE IF NOT EXISTS $test_events LIKE $live_events");
+        $wpdb->query("CREATE TABLE IF NOT EXISTS $test_cats LIKE $live_cats");
+        $wpdb->query("CREATE TABLE IF NOT EXISTS $test_locs LIKE $live_locs");
+    }
     
     /**
      * Saves an event to the custom table.
@@ -140,6 +166,26 @@ class Repository {
         );
     }
 
+    /**
+     * Fetches a master record and all of its child exceptions (pivots,holes,moves).
+     */
+    public function get_event_family($master_id) {
+        global $wpdb;
+        $table = $this->prefix . 'fsbhoa_events';
+
+        $master = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $master_id));
+
+        $children = $wpdb->get_results($wpdb->prepare(
+            "SELECT * FROM $table WHERE parent_id = %d ORDER BY start_datetime ASC",
+            $master_id
+        ));
+
+        return [
+            'master' => $master,
+            'children' => $children
+        ];
+    }
+
     public function get_all_active() {
         global $wpdb;
         $event_table = $this->prefix . 'fsbhoa_events';
@@ -156,7 +202,7 @@ class Repository {
 
         // DEBUG: If you see nothing on the grid, uncomment the next line once,
         // run your "Empty Title Bake", and check your /var/www/html/wp-content/debug.log
-        error_log("Bake found " . count($results) . " events.");
+        error_log("All records, found  " . count($results) . " events.");
 
         return $results;
     }
@@ -517,4 +563,114 @@ class Repository {
 
         return ($count > 0);
     }
+
+    /**
+     * Loads a JSON fixture into the database.
+     * CRITICAL: Strictly checks the prefix to prevent live database corruption.
+     */
+    public function load_fixture($fixture_data) {
+        global $wpdb;
+
+        // --- THE KILL SWITCH ---
+        if ($this->prefix === $wpdb->prefix || empty($this->prefix)) {
+            error_log("CRITICAL: Repository->load_fixture aborted. Prefix matches live database!");
+            wp_die("CRITICAL SAFETY ABORT: Refusing to truncate live database tables.", '', 500);
+        }
+        // CREATE THE TABLES FIRST!
+        $this->prepare_test_tables();
+
+        $event_table = $this->prefix . 'fsbhoa_events';
+        $cat_table   = $this->prefix . 'fsbhoa_categories';
+        $loc_table   = $this->prefix . 'fsbhoa_locations';
+
+        // 1. Wipe the test slate cleanly
+        $wpdb->query("TRUNCATE TABLE $event_table");
+        $wpdb->query("TRUNCATE TABLE $cat_table");
+        $wpdb->query("TRUNCATE TABLE $loc_table");
+
+        $id_map = []; // Maps JSON _refs to real MySQL IDs
+
+        // 2. Insert Locations
+        if (!empty($fixture_data['locations'])) {
+            foreach ($fixture_data['locations'] as $loc) {
+                $wpdb->insert($loc_table, [
+                    'name' => sanitize_text_field($loc['name']),
+                    'description' => sanitize_text_field($loc['description'] ?? '')
+                ]);
+                if (isset($loc['_ref'])) $id_map[$loc['_ref']] = $wpdb->insert_id;
+            }
+        }
+
+        // 3. Insert Categories
+        if (!empty($fixture_data['categories'])) {
+            foreach ($fixture_data['categories'] as $cat) {
+                $wpdb->insert($cat_table, [
+                    'name' => sanitize_text_field($cat['name']),
+                    'color_hex' => sanitize_hex_color($cat['color_hex'] ?? '#3498db'),
+                    'svg_path' => wp_kses_post($cat['svg_path'] ?? '')
+                ]);
+                if (isset($cat['_ref'])) $id_map[$cat['_ref']] = $wpdb->insert_id;
+            }
+        }
+
+        // 4. Insert Events
+        if (!empty($fixture_data['events'])) {
+            foreach ($fixture_data['events'] as $evt) {
+                // Translate relative English dates into MySQL dates (e.g. "tomorrow" -> "2026-05-19")
+                $real_date = date('Y-m-d', strtotime($evt['start_date']));
+
+                $data = [
+                    'title' => sanitize_text_field($evt['title']),
+                    'start_datetime' => "$real_date {$evt['start_time']}",
+                    'end_datetime' => "$real_date {$evt['end_time']}",
+                    'status' => sanitize_text_field($evt['status'] ?? 'active'),
+                    'rrule' => sanitize_text_field($evt['rrule'] ?? null),
+                    'flyer_url' => esc_url_raw($evt['flyer_url'] ?? '')
+                    'content'        => wp_kses_post($evt['content'] ?? ''),
+                    'is_ticketed'    => isset($evt['is_ticketed']) ? intval($evt['is_ticketed']) : 0,
+                    'visibility'     => sanitize_text_field($evt['visibility'] ?? 'public'),
+                    'cost'           => sanitize_text_field($evt['cost'] ?? ''),
+                    'owner_email'    => sanitize_email($evt['owner_email'] ?? ''),
+                    'setup_notes'    => sanitize_textarea_field($evt['setup_notes'] ?? '')
+                ];
+
+                // Resolve Foreign Keys using our internal ID map
+                if (isset($evt['location_ref']) && isset($id_map[$evt['location_ref']])) {
+                    $data['location_id'] = $id_map[$evt['location_ref']];
+                }
+                if (isset($evt['category_ref']) && isset($id_map[$evt['category_ref']])) {
+                    $data['category_id'] = $id_map[$evt['category_ref']];
+                }
+                if (isset($evt['parent_ref']) && isset($id_map[$evt['parent_ref']])) {
+                    $data['parent_id'] = $id_map[$evt['parent_ref']];
+                }
+
+                $new_id = $this->save($data); // Use the native save method!
+                if (isset($evt['_ref'])) $id_map[$evt['_ref']] = $new_id;
+            }
+        }
+
+        return $id_map;
+    }
+
+    /**
+     * Empties the test tables. Called by TestRunner->cleanup().
+     */
+    public function cleanup_test_tables() {
+        global $wpdb;
+
+        // --- THE KILL SWITCH ---
+        if ($this->prefix === $wpdb->prefix || empty($this->prefix)) {
+            error_log("CRITICAL: Repository->cleanup_test_tables aborted.");
+            wp_die("CRITICAL SAFETY ABORT: Refusing to truncate live database tables.", '', 500);
+        }
+        // ENSURE THEY EXIST BEFORE TRUNCATING
+        $this->prepare_test_tables();
+
+        $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_events");
+        $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_categories");
+        $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_locations");
+    }
+
+
 }

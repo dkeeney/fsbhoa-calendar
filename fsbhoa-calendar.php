@@ -23,6 +23,29 @@ use FSBHOA\Cal\Compiler;
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/admin/settings-page.php';
 
+
+// --- SANDBOX BRIDGE HELPERS ---
+function fsb_get_repo() {
+    global $wpdb;
+    // If the Playwright cookie is present, use the test prefix!
+    if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
+        return new \FSBHOA\Cal\Repository($wpdb->prefix . 'test_');
+    }
+    return new \FSBHOA\Cal\Repository();
+}
+
+function fsb_get_compiler() {
+    global $wpdb;
+    // If the Playwright cookie is present, use test prefix AND test JSON path!
+    if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
+        $upload_dir = wp_upload_dir();
+        $test_json_path = $upload_dir['basedir'] . '/fsbhoa-calendar/test_calendar-events.json';
+        return new \FSBHOA\Cal\Compiler($wpdb->prefix . 'test_', $test_json_path);
+    }
+    return new \FSBHOA\Cal\Compiler();
+}
+// ------------------------------
+
 // 1. Activation
 register_activation_hook( __FILE__, function() {
     $repo = new Repository();
@@ -120,7 +143,7 @@ function fsb_enqueue_calendar_scripts() {
     // Note: calendar-print.js is not loaded until used.
 
 
-    $repo = new \FSBHOA\Cal\Repository();
+    $repo = fsb_get_repo();
     $is_admin = current_user_can('manage_options');
 
     // Quick check: Is this user an owner of ANY event?
@@ -180,35 +203,43 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
 
     switch($step) {
         case 'init':
-            $runner->bootstrap();
-
-            // Dynamically find all functions starting with 'test_'
-            $methods = get_class_methods($runner);
-            $scenarios = [];
-            foreach ($methods as $method) {
-                if (strpos($method, 'test_') === 0) {
-                    // Strip off the 'test_' prefix so the slug matches the JS logic
-                    $scenarios[] = substr($method, 5);
-                }
-            }
-
+            // Tell the JS console which tests exist
+            $scenarios = $runner->get_test_scenarios();
             wp_send_json_success([
                 'message' => 'Sandbox Ready.',
-                'scenarios' => $scenarios
+                'scenarios' => $scenarios,
+                'prefix' => $runner->get_prefix(),
+                'json_url' => $runner->get_json_url()
             ]);
             break;
 
         case 'run_scenario':
             $slug = sanitize_text_field($_GET['slug']);
-            $method = "test_" . $slug;
-            ob_start();
-            // Wipe the database clean before running this specific test
-            $runner->bootstrap();
-            $result = $runner->$method();
-            ob_end_clean();
-            if($result === true) wp_send_json_success(['message' => 'Passed']);
-            else wp_send_json_error($result);
+            // The TestRunner will load the fixture, run the test, and return pass/fail
+            $result = $runner->run_test_scenario($slug);
+
+            if ($result['success']) {
+                wp_send_json_success(['message' => $result['message']]);
+            } else {
+                wp_send_json_error($result['message']);
+            }
             break;
+
+        case 'load_fixture':
+            // Read raw JSON from the POST body
+            $json_payload = file_get_contents('php://input');
+            $fixture_data = json_decode($json_payload, true);
+            
+            if (!$fixture_data) wp_send_json_error('Invalid JSON payload');
+            
+            $mapped_ids = $runner->load_fixture($fixture_data);
+            
+            wp_send_json_success([
+                'message' => 'Fixture loaded successfully.',
+                'ids' => $mapped_ids
+            ]);
+            break;
+
 
         case 'cleanup':
             $runner->cleanup();
@@ -367,7 +398,7 @@ add_shortcode('fsbhoa_agenda', function() {
 add_action('admin_init', function() {
     // Check if we just came back from saving our specific settings group
     if (isset($_GET['page']) && $_GET['page'] === 'fsb-cal-settings' && isset($_GET['settings-updated'])) {
-        $compiler = new \FSBHOA\Cal\Compiler();
+        $compiler = fsb_get_compiler();
         $compiler->bake();
     }
 });
@@ -386,7 +417,7 @@ function fsb_handle_get_event_details() {
     $event_id = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
     if (!$event_id) wp_send_json_error('Invalid ID');
 
-    $repo = new \FSBHOA\Cal\Repository();
+    $repo = fsb_get_repo();
     $event = $repo->get($event_id); // This uses your JOINed get() method
 
     if ($event) {
@@ -403,7 +434,7 @@ function fsb_handle_get_event_details() {
 
 // We hook into 'save_post_fsbhoa_event' or a custom action
 add_action('fsbhoa_event_updated', function($event_id) {
-    $compiler = new Compiler();
+    $compiler = fsb_get_compiler();
     
     // 1. Get all active events for the next 12 months
     // 2. Compile them to the flat array
@@ -427,8 +458,8 @@ function fsb_handle_save_event() {
     $master_id   = isset($_POST['event_id']) ? intval($_POST['event_id']) : null;
     $pivot_id   = isset($_POST['pivot_id']) ? intval($_POST['pivot_id']) : $master_id;
     $move_id   = isset($_POST['move_id']) ? intval($_POST['move_id']) : null;
-    $repo = new \FSBHOA\Cal\Repository();
-    $compiler = new \FSBHOA\Cal\Compiler();
+    $repo = fsb_get_repo();
+    $compiler = fsb_get_compiler();
 
     error_log("FSBHOA AJAX TRIGGERED: Mode=" . $edit_mode . 
               " ID=$master_id move_id=$move_id pivot_id=$pivot_id");
@@ -445,7 +476,7 @@ function fsb_handle_save_event() {
     if ( is_user_logged_in() && !$is_admin ) {
         $is_delegate = $repo->is_user_delegate($user_email);
     }
-    if (!is_admin && !is_delegate) {
+    if (!$is_admin && !$is_delegate) {
         error_log("PHP DEBUG: Permission Denied for user");
         wp_send_json_error('You do not have permission to edit events.');
     }
@@ -659,13 +690,16 @@ add_action('wp_ajax_fsb_get_calendar_json', 'fsb_serve_calendar_json');
 add_action('wp_ajax_nopriv_fsb_get_calendar_json', 'fsb_serve_calendar_json');
 
 function fsb_serve_calendar_json() {
-    // 1. Get the physical path from your options
-    $path = get_option('fsb_cal_json_path');
-
-    // 2. Safety: If DB is empty, use the default
-    if (empty($path)) {
-        $upload_dir = wp_upload_dir();
-        $path = $upload_dir['basedir'] . '/fsbhoa-calendar/calendar-events.json';
+    $upload_dir = wp_upload_dir();
+    // 1. Check for Sandbox Bridge
+    if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
+        $path = $upload_dir['basedir'] . '/fsbhoa-calendar/test_calendar-events.json';
+    } else {
+        // Normal live operation
+        $path = get_option('fsb_cal_json_path');
+        if (empty($path)) {
+            $path = $upload_dir['basedir'] . '/fsbhoa-calendar/calendar-events.json';
+        }
     }
 
     // 3. Check if the file actually exists on the Pi

@@ -582,12 +582,30 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
 
     console.log(`Reschedule Dialog OPEN: Receiving Pivot: ${pivotId}, Move: ${moveId}`);
 
+    const isRecurring = !!eventData.rrule;
+    const titleText = isRecurring ? `Reschedule Series Event: ${eventData.title}` : `Reschedule single instance: ${eventData.title}`;
+    const scopeOptionsHtml = isRecurring ? `
+        <div style="margin-top:15px; font-size: 0.9rem; padding:10px; background:#fff3e0; border:1px solid #ffe0b2; border-radius:4px;">
+            <strong>Apply Move To:</strong><br>
+            <label style="display:block; cursor:pointer; margin-top:5px;">
+                <input type="radio" name="res_scope" id="scope_instance" value="instance" checked>
+                Only this specific instance (${clickedDate})
+            </label>
+            <label style="display:block; cursor:pointer; margin-top:5px;">
+                <input type="radio" name="res_scope" id="scope_remaining" value="remaining">
+                This and all future instances in the series
+            </label>
+        </div>
+    ` : `
+        <p style="font-size: 0.75rem; color: #ed6c02; margin-top:15px; font-style:italic;">
+            * This move only affects this specific event.
+        </p>
+    `;
+
     container.innerHTML = `
         <div style="padding: 15px;">
-            <h3 style="margin-top:0;">Reschedule single instance: ${eventData.title}</h3>
-            <p style="font-size: 0.9rem; color: #666;">Original: ${clickedDate} @ ${formatTimeAMPM(originalTime)}
-
-            ${eventData.start_fmt}</p>
+            <h3 style="margin-top:0;">${titleText}</h3>
+            <p style="font-size: 0.9rem; color: #666;">Original: ${clickedDate} @ ${formatTimeAMPM(originalTime)}</p>
 
             <div class="form-group">
                 <label>New Date</label>
@@ -599,12 +617,15 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
                 <input type="time" id="res_time" value="${originalTime}" style="width:100%;">
             </div>
 
-            <p style="font-size: 0.75rem; color: #ed6c02; margin-top:15px; font-style:italic;">
-                * This move only affects this specific event. To change the whole series, modify recurring rules.
-            </p>
+            ${scopeOptionsHtml}
 
             <div style="margin-top:20px; display:flex; gap:10px;">
-                <button type="button" class="fsb-save-btn" onclick="submitReschedule(${eventData.id}, '${clickedDate}', ${pivotId || 'null'}, ${moveId || 'null'})">Confirm Move</button>
+                <button type="button" class="fsb-save-btn" onclick="
+                    const newDate = document.getElementById('res_date').value;
+                    const newTime = document.getElementById('res_time').value;
+                    const isShift = document.getElementById('scope_remaining') ? document.getElementById('scope_remaining').checked : false;
+                    submitReschedule(${eventData.id}, '${clickedDate}', ${pivotId || 'null'}, ${moveId || 'null'}, newDate, isShift, newTime);
+                ">Confirm Move</button>
             </div>
         </div>
     `;
@@ -621,12 +642,15 @@ function formatTimeAMPM(time24) {
     return `${hours}:${minutes} ${ampm}`;
 }
 
-async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false) {
+async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false, newTime = null) {
     // Determine the new time.
     // For a drag-drop, we usually keep the original start time.
     let startTime = "09:00"; // Absolute fallback
 
-    if (draggedData && draggedData.id == id) {
+    if (newTime) {
+        // Priority 1: Time passed explicitly from the Reschedule Modal
+        startTime = newTime;
+    } else if (draggedData && draggedData.id == id) {
         // Use the time grabbed during dragstart
         startTime = draggedData.originalStartTime;
     } else {

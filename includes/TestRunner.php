@@ -2,22 +2,112 @@
 namespace FSBHOA\Cal;
 
 class TestRunner {
-    private $prefix;
-    private $original_prefix;
+    private $test_prefix;
     private $json_path;
+    private $json_url;
+    private $repo;
 
     public function __construct($test_prefix = 'wp_test_fsb_') {
         global $wpdb;
-        $this->original_prefix = $wpdb->prefix;
-        $this->prefix = $test_prefix;
-        $this->json_path = sys_get_temp_dir() . '/fsb_test_compiler_output.json';
+        $this->test_prefix = $wpdb->prefix . 'test_';
+        // Set the test JSON path to the uploads folder for easy debugging
+        $upload_dir = wp_upload_dir();
+        $this->json_path = $upload_dir['basedir'] . '/fsbhoa-calendar/test_calendar-events.json';
+        // The HTTP URL for Playwright/Frontend to fetch the file.
+        $this->json_url = $upload_dir['baseurl'] . '/fsbhoa-calendar/test_calendar-events.json';
+        $this->repo = new Repository($this->test_prefix);
     }
 
+    public function get_prefix() {
+        return $this->test_prefix;
+    }
+    public function get_json_url() {
+        return $this->json_url;
+    }
+
+    /**
+     * Finds all methods starting with 'test_' to feed to the Admin Dashboard
+     * This is for the backend tests.
+     */
+    public function get_test_scenarios() {
+        $methods = get_class_methods($this);
+        $scenarios = [];
+        foreach ($methods as $method) {
+            if (strpos($method, 'test_') === 0) {
+                $scenarios[] = substr($method, 5);
+            }
+        }
+        return $scenarios;
+    }
+
+    /**
+     * Executes a single backend test suite from the Admin Dashboard.
+     */
+    public function run_test_scenario($slug) {
+        $method = "test_" . $slug;
+        if (!method_exists($this, $method)) {
+            return ['success' => false, 'message' => "Test method not found."];
+        }
+
+        try {
+            //  Act & Assert: Run the specific test
+            $this->$method();
+
+            return ['success' => true, 'message' => "Passed"];
+        } catch (\Exception $e) {
+            // If any assertion fails, it throws an Exception caught here
+            return ['success' => false, 'message' => $e->getMessage()];
+        }
+    }
+
+    public function load_fixture($fixture_data) {
+        // 1. Delegate the database work to the Repository
+        $id_map = $this->repo->load_fixture($fixture_data);
+
+        // 2. Bake the JSON file for the frontend to consume
+        $compiler = new \FSBHOA\Cal\Compiler($this->test_prefix, $this->json_path);
+        $compiler->bake();
+
+        return $id_map;
+    }
+
+    public function cleanup() {
+        // 1. Delegate database wiping to the Repository
+        $this->repo->cleanup_test_tables();
+
+        // Clean up the physical test JSON file
+        if (file_exists($this->json_path)) {
+            unlink($this->json_path);
+        }
+
+        return true;
+    }
+
+    public function get_db_state($master_id) {
+        $family = $this->repo->get_event_family($master_id);
+
+        return [
+            'master' => $family['master'],
+            'children' => $family['children'],
+            'total_children' => count($family['children']),
+            'child_dates' => array_map(function($child) {
+                return [
+                    'id' => $child->id,
+                    'date' => date('Y-m-d', strtotime($child->start_datetime)),
+                    'status' => $child->status
+                ];
+            }, $family['children'])
+        ];
+    }
+
+    // =========================================================================
+    // PRIVATE HELPERS
+    // =========================================================================
     /**
      * Runs the compiler and returns the 'events' array from the generated JSON.
      */
     private function run_compiler_and_get_events() {
-        $compiler = new Compiler($this->prefix, $this->json_path);
+        $compiler = new Compiler($this->test_prefix, $this->json_path);
         $compiler->bake();
 
         if (!file_exists($this->json_path)) {
@@ -32,9 +122,9 @@ class TestRunner {
     /**
      * A simple assertion helper to keep test code clean.
      */
-    private function assert($condition, $message) {
+    private function assert($condition, $fail_message) {
         if (!$condition) {
-            return $message;
+            throw new \Exception($fail_message);
         }
         return true;
     }
@@ -52,126 +142,112 @@ class TestRunner {
     }
 
     /**
-     * Clones the table structure for the sandbox
+     * Helper to find a specific child record (like a move or a hole) by its date
+     * Uses pure Repository methods instead of raw SQL!
      */
-    public function bootstrap() {
-        global $wpdb;
-        $tables = ['fsbhoa_events', 'fsbhoa_categories', 'fsbhoa_locations'];
-        
-        foreach ($tables as $t) {
-            $old = $this->original_prefix . $t;
-            $new = $this->prefix . $t;
-            $wpdb->query("DROP TABLE IF EXISTS $new");
-            $wpdb->query("CREATE TABLE $new LIKE $old");
+    private function get_child_id_by_date($master_id, $date_str) {
+        $family = $this->repo->get_event_family($master_id);
+        foreach ($family['children'] as $child) {
+            if (strpos($child->start_datetime, $date_str) === 0) {
+                return $child->id;
+            }
         }
-        
-        // Seed default location/category for testing
-        $wpdb->insert($this->prefix . 'fsbhoa_locations', ['id' => 1, 'name' => 'Test Lodge']);
-        $wpdb->insert($this->prefix . 'fsbhoa_categories', ['id' => 1, 'name' => 'General', 'color_hex' => '#3498db']);
-        
-        return $this->prefix;
+        return null;
     }
+
+    // =========================================================================
+    // THE BACKEND TESTS
+    // =========================================================================
 
     /**
      * Logic for Scenario: The Boomerang Move
-     *   reschedule an instance of a repeating sequence.
-     *   reschedule it back to the original date/time.
-     *   It should revert to the original sequence with no holes or move records.
+     * Tests moving an instance away and back to its natural slot.
+     * Verifies that temporary holes and move records are perfectly cleaned up.
      */
     public function test_boomerang() {
-        global $wpdb;
-        // 1. Create a Master One-Shot
-        $repo = new Repository($this->prefix);
-        $id = $repo->save([
-            'title' => 'Boomerang Test',
-            'start_datetime' => '2026-06-01 10:00:00',
-            'end_datetime' => '2026-06-01 11:00:00',
-            'status' => 'active'
+        $ids = $this->load_fixture([
+            'events' => [
+                ['_ref' => 'master', 'title' => 'Yoga', 'start_date' => '2026-06-01', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=MO'],
+                ['_ref' => 'pivot', 'parent_ref' => 'master', 'title' => 'Yoga', 'start_date' => '2026-06-17', 'start_time' => '10:00:00', 'end_time' => '11:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=WE']
+            ]
         ]);
+        $master_id = $ids['master'];
+        $pivot_id = $ids['pivot'];
 
-        // 2. Move it
-        $repo->move_event_instance($id, $id, null, '2026-06-01', '2026-06-02', '10:00', '11:00');
-        
-        // 3. Move it back to original slot
-        $repo->move_event_instance($id, $id, null, '2026-06-02', '2026-06-01', '10:00', '11:00');
+        // --- EDGE CASE 1: Boomerang a Natural Instance (Era A) ---
+        $this->repo->move_event_instance($master_id, $master_id, null, '2026-06-08', '2026-06-09', '09:00', '10:00');
+        $move_1_id = $this->get_child_id_by_date($master_id, '2026-06-09');
+        $this->repo->move_event_instance($master_id, $master_id, $move_1_id, '2026-06-09', '2026-06-08', '09:00', '10:00');
 
-        // 4. Verify Master is back to normal and no children exist
-        $master = $repo->get($id);
-        $children = $wpdb->get_var("SELECT COUNT(*) FROM {$this->prefix}fsbhoa_events WHERE parent_id = $id");
+        // --- EDGE CASE 2: Boomerang a Post-Pivot Natural Instance (Era B) ---
+        $this->repo->move_event_instance($master_id, $pivot_id, null, '2026-06-24', '2026-06-25', '10:00', '11:00');
+        $move_2_id = $this->get_child_id_by_date($master_id, '2026-06-25');
+        $this->repo->move_event_instance($master_id, $pivot_id, $move_2_id, '2026-06-25', '2026-06-24', '10:00', '11:00');
 
-        if ($master->start_datetime !== '2026-06-01 10:00:00') return "Master datetime desync";
-        if ($children > 0) return "Orphaned child records found";
-        
-        return true;
+        // --- EDGE CASE 3: Boomerang the Pivot Instance Itself ---
+        $this->repo->move_event_instance($master_id, $pivot_id, null, '2026-06-17', '2026-06-18', '10:00', '11:00');
+        $move_3_id = $this->get_child_id_by_date($master_id, '2026-06-18');
+        $this->repo->move_event_instance($master_id, $pivot_id, $move_3_id, '2026-06-18', '2026-06-17', '10:00', '11:00');
+
+        $state = $this->get_db_state($master_id);
+
+        $this->assert($state['total_children'] === 1, "Boomerang failed. Expected 1 child (the pivot), found " . $state['total_children']);
+        $this->assert($state['children'][0]->id == $pivot_id, "The remaining child is not the pivot!");
     }
+
+
 
     /* When a pivot occurs at an instance, all downstream exceptions (holes and moves) 
      * are removed.
      */
     public function test_pivot_cleanup() {
-        global $wpdb;
-        $repo = new Repository($this->prefix);
-
-        // 1. Seed a Weekly Series at 9 AM
-        $master_id = $repo->save([
-            'title' => 'Yoga Class',
-            'start_datetime' => '2026-06-01 09:00:00',
-            'end_datetime' => '2026-06-01 10:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-            'status' => 'active'
+        $ids = $this->load_fixture([
+            'events' => [
+                ['_ref' => 'master', 
+                  'title' => 'Yoga Class', 
+                  'start_date' => '2026-06-01', 
+                  'start_time' => '09:00:00', 
+                  'end_time' => '10:00:00', 
+                  'rrule' => 'FREQ=WEEKLY;BYDAY=MO'],
+                ['parent_ref' => 'master', 
+                  'title' => 'Yoga Hole', 
+                  'start_date' => '2026-06-08', 
+                  'start_time' => '09:00:00', 
+                  'end_time' => '10:00:00', 
+                  'status' => 'cancelled'],
+                ['parent_ref' => 'master', 
+                  'title' => 'Yoga Move', 
+                  'start_date' => '2026-06-08', 
+                  'start_time' => '11:00:00', 
+                  'end_time' => '12:00:00', 
+                  'status' => 'active'
+                ]
+            ]
         ]);
+        $master_id = $ids['master'];
 
-        // 2. Add an exception (a Move) for the second week
-        $repo->move_event_instance($master_id, $master_id, null, '2026-06-08', '2026-06-08', '11:00', '12:00');
-
-        // 3. Pivot the series to 10 AM starting June 1st (Update In-Place)
         $dna_data = [
-            'title' => 'Yoga Class',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-            'start_datetime' => '2026-06-01 10:00:00',
-            'end_datetime' => '2026-06-01 11:00:00'
+            'title' => 'Yoga Class', 'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
+            'start_datetime' => '2026-06-01 10:00:00', 'end_datetime' => '2026-06-01 11:00:00'
         ];
-        $repo->maybe_pivot_series($master_id, $dna_data, '2026-06-01');
+        $this->repo->maybe_pivot_series($master_id, $dna_data, '2026-06-01');
 
-        // 4. Verification: The move on June 8th (at 9am slot) should be gone
-        $exception_count = $wpdb->get_var("SELECT COUNT(*) FROM {$this->prefix}fsbhoa_events WHERE parent_id = $master_id");
-
-        if ($exception_count > 0) return "Failed to clean up downstream exceptions after pivot.";
-
-        return true;
+        $state = $this->get_db_state($master_id);
+        $this->assert($state['total_children'] === 0, "Failed to clean up downstream exceptions after pivot.");
     }
 
     public function test_leapfrog() {
-        $repo = new Repository($this->prefix);
-
-        // 1. Create Master (Era A: 8 AM)
-        $master_id = $repo->save([
-            'title' => 'Early Bird',
-            'start_datetime' => '2026-05-01 08:00:00',
-            'end_datetime' => '2026-05-01 09:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=FR',
-            'status' => 'active'
+        $ids = $this->load_fixture([
+            'events' => [
+                ['_ref' => 'era_a', 'title' => 'Early Bird', 'start_date' => '2026-05-01', 'start_time' => '08:00:00', 'end_time' => '09:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=FR'],
+                ['_ref' => 'era_b', 'parent_ref' => 'era_a', 'title' => 'Late Bird', 'start_date' => '2026-06-01', 'start_time' => '10:00:00', 'end_time' => '11:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=FR']
+            ]
         ]);
 
-        // 2. Create Pivot (Era B: 10 AM starting June 1)
-        $repo->save([
-            'parent_id' => $master_id,
-            'title' => 'Late Bird',
-            'start_datetime' => '2026-06-01 10:00:00',
-            'end_datetime' => '2026-06-01 11:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=FR',
-            'status' => 'active'
-        ]);
+        $this->repo->move_event_instance($ids['era_a'], $ids['era_a'], null, '2026-05-22', '2026-06-15', '08:00', '09:00');
 
-        // 3. Move an instance from May (Era A) into June (Era B calendar space)
-        // This is a 'Leapfrog' because the Move record start_date is > Pivot start_date
-        $repo->move_event_instance($master_id, $master_id, null, '2026-05-22', '2026-06-15', '08:00', '09:00');
-
-        // Validation: Verify the move exists and has the correct parent
-        $repo_move = $repo->get_all_active(); // Just a simple check to see if it's there
-        if (count($repo_move) < 3) return "Leapfrog move record not found or improperly linked.";
-
-        return true;
+        $state = $this->get_db_state($ids['era_a']);
+        $this->assert($state['total_children'] >= 2, "Leapfrog move record missing or improperly linked.");
     }
 
 
@@ -182,59 +258,29 @@ class TestRunner {
      * Tests a simple weekly series with no exceptions.
      */
     public function test_compiler_simple_series() {
-        $repo = new Repository($this->prefix);
-        $master_id = $repo->save([
-            'title' => 'Simple Series',
-            'start_datetime' => '2026-06-01 09:00:00', // A Monday
-            'end_datetime' => '2026-06-01 10:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-            'status' => 'active'
+        $ids = $this->load_fixture([
+            'events' => [['_ref' => 'master', 'title' => 'Simple Series', 'start_date' => '2026-06-01', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=MO']]
         ]);
 
         $events = $this->run_compiler_and_get_events();
-        
-        $june_events = array_filter($events, function($e) {
-            return strpos($e['date'], '2026-06-') === 0;
-        });
+        $june_events = array_filter($events, function($e) { return strpos($e['date'], '2026-06-') === 0; });
 
-        // June 2026 has 5 Mondays.
-        $result = $this->assert(count($june_events) === 5, "Expected 5 events for June 2026, found " . count($june_events));
-        if ($result !== true) return $result;
-        
-        $first_event = $this->find_event_by_date($events, '2026-06-01');
-        $result = $this->assert($first_event !== null, "Did not find event on 2026-06-01");
-        if ($result !== true) return $result;
+        $this->assert(count($june_events) === 5, "Expected 5 events for June 2026, found " . count($june_events));
 
-        $result = $this->assert($first_event['id'] == $master_id, "Event has wrong master ID");
-        if ($result !== true) return $result;
-        
-        $result = $this->assert($first_event['pivot_id'] == $master_id, "Event has wrong pivot_id");
-        if ($result !== true) return $result;
-
-        $result = $this->assert($first_event['start_time'] === '09:00', "Event has wrong start_time");
-        if ($result !== true) return $result;
-
-        return true;
+        $first = $this->find_event_by_date($events, '2026-06-01');
+        $this->assert($first !== null, "Did not find event on 2026-06-01");
+        $this->assert($first['id'] == $ids['master'], "Event has wrong master ID");
     }
 
     /**
      * Tests that a 'cancelled' child record creates a hole in the series.
      */
     public function test_compiler_series_with_hole() {
-        $repo = new Repository($this->prefix);
-        $master_id = $repo->save([
-            'title' => 'Series with Hole',
-            'start_datetime' => '2026-06-01 09:00:00', // A Monday
-            'end_datetime' => '2026-06-01 10:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-            'status' => 'active'
-        ]);
-        // Add a "hole" for the second Monday
-        $repo->save([
-            'parent_id' => $master_id,
-            'start_datetime' => '2026-06-08 09:00:00',
-            'end_datetime' => '2026-06-08 10:00:00',
-            'status' => 'cancelled'
+        $this->load_fixture([
+            'events' => [
+                ['_ref' => 'master', 'title' => 'Series', 'start_date' => '2026-06-01', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=MO'],
+                ['parent_ref' => 'master', 'title' => 'Hole', 'start_date' => '2026-06-08', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'status' => 'cancelled']
+            ]
         ]);
         
         $events = $this->run_compiler_and_get_events();
@@ -257,160 +303,103 @@ class TestRunner {
      * Tests that an 'active' child record out of sequence is treated as a move.
      */
     public function test_compiler_series_with_move() {
-        $repo = new Repository($this->prefix);
-        $master_id = $repo->save([
-            'title' => 'Series with Move',
-            'start_datetime' => '2026-06-01 09:00:00', // A Monday
-            'end_datetime' => '2026-06-01 10:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-            'status' => 'active'
-        ]);
-        // Move the second instance from Mon Jun 8 to Tue Jun 9
-        $repo->save([
-            'parent_id' => $master_id,
-            'start_datetime' => '2026-06-08 09:00:00', // The original spot is cancelled
-            'end_datetime' => '2026-06-08 10:00:00',
-            'status' => 'cancelled'
-        ]);
-        $move_id = $repo->save([
-            'parent_id' => $master_id,
-            'start_datetime' => '2026-06-09 11:00:00', // The new spot
-            'end_datetime' => '2026-06-09 12:00:00',
-            'status' => 'active'
+        // 1. Seed the DB using the Fixture Engine
+        $ids = $this->load_fixture([
+            'events' => [
+                // The Master Series (Mondays at 9am)
+                ['_ref' => 'master', 'title' => 'Series with Move', 'start_date' => '2026-06-01', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=MO'],
+                // The Hole (Cancel the second Monday)
+                ['parent_ref' => 'master', 'title' => 'Hole', 'start_date' => '2026-06-08', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'status' => 'cancelled'],
+                // The Move (Reschedule it to Tuesday at 11am)
+                ['_ref' => 'move_id', 'parent_ref' => 'master', 'title' => 'Move', 'start_date' => '2026-06-09', 'start_time' => '11:00:00', 'end_time' => '12:00:00', 'status' => 'active']
+            ]
         ]);
 
+        // 2. Compile and fetch
         $events = $this->run_compiler_and_get_events();
-        
+
         $june_events = array_filter($events, function($e) {
             return strpos($e['date'], '2026-06-') === 0;
         });
-        
-        $result = $this->assert(count($june_events) === 5, "Expected 5 total events, found " . count($june_events));
-        if ($result !== true) return $result;
 
-        $result = $this->assert($this->find_event_by_date($events, '2026-06-08') === null, "Found event on original move date.");
-        if ($result !== true) return $result;
+        // 3. Assertions
+        $this->assert(count($june_events) === 5, "Expected 5 total events, found " . count($june_events));
+
+        $this->assert($this->find_event_by_date($events, '2026-06-08') === null, "Found event on original move date (should be a hole).");
 
         $moved_event = $this->find_event_by_date($events, '2026-06-09');
-        $result = $this->assert($moved_event !== null, "Did not find moved event on 2026-06-09.");
-        if ($result !== true) return $result;
-        
-        $result = $this->assert($moved_event['move_id'] == $move_id, "Moved event missing correct move_id.");
-        if ($result !== true) return $result;
-        
-        $result = $this->assert($moved_event['start_time'] === '11:00', "Moved event has incorrect start time.");
-        if ($result !== true) return $result;
+        $this->assert($moved_event !== null, "Did not find moved event on 2026-06-09.");
 
-        return true;
+        $this->assert($moved_event['move_id'] == $ids['move_id'], "Moved event missing correct move_id. Expected " . $ids['move_id']);
+        $this->assert($moved_event['start_time'] === '11:00', "Moved event has incorrect start time.");
     }
 
     /**
      * Tests a pivot, where the RRule changes mid-series.
+     * Verifies that the Compiler correctly maps instances to their respective Eras.
      */
     public function test_compiler_series_with_pivot() {
-        $repo = new Repository($this->prefix);
-        $master_id = $repo->save([
-            'title' => 'Pivoting Series',
-            'start_datetime' => '2026-06-01 09:00:00', // Era A: Mon @ 9am
-            'end_datetime' => '2026-06-01 10:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-            'status' => 'active'
-        ]);
-        $pivot_id = $repo->save([
-            'parent_id' => $master_id,
-            'start_datetime' => '2026-06-15 11:00:00', // Era B: Starts Jun 15, now Wed @ 11am
-            'end_datetime' => '2026-06-15 12:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=WE',
-            'status' => 'active'
+        // 1. Seed the DB using the Fixture Engine
+        $ids = $this->load_fixture([
+            'events' => [
+                // Era A: Master Series (Mondays @ 9am)
+                ['_ref' => 'master', 'title' => 'Pivoting Series', 'start_date' => '2026-06-01', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=MO'],
+                // Era B: Pivot (Starts Jun 15, now Wed @ 11am)
+                ['_ref' => 'pivot', 'parent_ref' => 'master', 'title' => 'Pivoting Series', 'start_date' => '2026-06-15', 'start_time' => '11:00:00', 'end_time' => '12:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=WE']
+            ]
         ]);
 
+        // 2. Compile and fetch
         $events = $this->run_compiler_and_get_events();
-        
+
+        // --- Assertions for Era A ---
         $era_a_event = $this->find_event_by_date($events, '2026-06-08'); // Second Monday
-        $result = $this->assert($era_a_event['pivot_id'] == $master_id && $era_a_event['start_time'] == '09:00', "Era A event is incorrect.");
-        if ($result !== true) return $result;
+        $this->assert($era_a_event !== null, "Did not find Era A event on Monday 2026-06-08.");
+        $this->assert($era_a_event['pivot_id'] == $ids['master'], "Era A event has incorrect pivot_id. Expected " . $ids['master']);
+        $this->assert($era_a_event['start_time'] === '09:00', "Era A event has incorrect start time.");
 
+        // --- Assertions for Era B ---
         $era_b_event = $this->find_event_by_date($events, '2026-06-17'); // First Wednesday after pivot
-        $result = $this->assert($era_b_event !== null, "Did not find Era B event on Wednesday 2026-06-17");
-        if ($result !== true) return $result;
-
-        $result = $this->assert($era_b_event['pivot_id'] == $pivot_id, "Era B event has wrong pivot_id");
-        if ($result !== true) return $result;
-        
-        $result = $this->assert($era_b_event['start_time'] == '11:00', "Era B event has wrong start time");
-        if ($result !== true) return $result;
-
-        return true;
+        $this->assert($era_b_event !== null, "Did not find Era B event on Wednesday 2026-06-17.");
+        $this->assert($era_b_event['pivot_id'] == $ids['pivot'], "Era B event has wrong pivot_id. Expected " . $ids['pivot']);
+        $this->assert($era_b_event['start_time'] === '11:00', "Era B event has wrong start time.");
     }
 
-    /**
-     * Verifies that a single (non-recurring) event is formatted correctly.
-     */
-    public function test_compiler_single_event_formatting() {
-        $repo = new Repository($this->prefix);
-        $repo->save([
-            'title' => 'Single Event',
-            'start_datetime' => '2026-07-04 12:00:00',
-            'end_datetime' => '2026-07-04 13:00:00',
-            'status' => 'active',
-            'flyer_url' => 'http://example.com/flyer.pdf'
-        ]);
-
-        $events = $this->run_compiler_and_get_events();
-
-        $result = $this->assert(count($events) === 1, "Expected 1 event, found " . count($events));
-        if ($result !== true) return $result;
-        
-        $event = $events[0];
-        $result = $this->assert(isset($event['single']) && $event['single'] === true, "Single event missing 'single: true' flag.");
-        if ($result !== true) return $result;
-
-        $result = $this->assert($event['flyer_url'] === 'http://example.com/flyer.pdf', "Flyer URL mismatch.");
-        if ($result !== true) return $result;
-        
-        return true;
-    }
 
     /**
      * Tests a "Triple-Exception": moving an already-moved instance.
+     * Ensures that moving an existing exception updates the record rather than creating a duplicate.
      */
     public function test_compiler_triple_exception() {
-        global $wpdb;
-        $repo = new Repository($this->prefix);
-
-        // 1. A weekly series on Mondays at 9am
-        $master_id = $repo->save([
-            'title' => 'Triple-X Yoga',
-            'start_datetime' => '2026-06-01 09:00:00', // A Monday
-            'end_datetime' => '2026-06-01 10:00:00',
-            'rrule' => 'FREQ=WEEKLY;BYDAY=MO',
-            'status' => 'active'
+        // 1. Seed the DB using the Fixture Engine
+        $ids = $this->load_fixture([
+            'events' => [
+                // A weekly series on Mondays at 9am
+                ['_ref' => 'master', 'title' => 'Triple-X Yoga', 'start_date' => '2026-06-01', 'start_time' => '09:00:00', 'end_time' => '10:00:00', 'rrule' => 'FREQ=WEEKLY;BYDAY=MO']
+            ]
         ]);
+        $master_id = $ids['master'];
 
         // 2. First move: Mon, Jun 8 @ 9am  ->  Tue, Jun 9 @ 11am
-        $repo->move_event_instance(
+        $this->repo->move_event_instance(
             $master_id,
             $master_id, // pivot_id is the master
-            null,        // no existing move_id
+            null,       // no existing move_id
             '2026-06-08',
             '2026-06-09',
             '11:00',
             '12:00'
         );
 
-        // Find the ID of the newly created 'move' record
-        $first_move_id = $wpdb->get_var($wpdb->prepare(
-            "SELECT id FROM {$this->prefix}fsbhoa_events WHERE parent_id = %d AND status = 'active' AND DATE(start_datetime) = %s",
-            $master_id,
-            '2026-06-09'
-        ));
-        if (!$first_move_id) return "Failed to create the first move record.";
+        // Find the ID of the newly created 'move' record using our clean helper!
+        $first_move_id = $this->get_child_id_by_date($master_id, '2026-06-09');
+        $this->assert($first_move_id !== null, "Failed to create the first move record.");
 
         // 3. Second move (The Triple-Exception): Tue, Jun 9 @ 11am  ->  Wed, Jun 10 @ 1pm
-        $repo->move_event_instance(
+        $this->repo->move_event_instance(
             $master_id,
             $master_id,
-            $first_move_id, // We are moving the record we just created
+            $first_move_id,  // We are moving the record we just created
             '2026-06-09',    // The date we are moving FROM
             '2026-06-10',    // The date we are moving TO
             '13:00',
@@ -424,48 +413,59 @@ class TestRunner {
         $june_events = array_filter($events, function($e) {
             return strpos($e['date'], '2026-06-') === 0;
         });
-        $result = $this->assert(count($june_events) === 5, "Expected 5 total events in June, found " . count($june_events));
-        if ($result !== true) return $result;
+        $this->assert(count($june_events) === 5, "Expected 5 total events in June, found " . count($june_events));
 
-        // Verify holes
-        $result = $this->assert($this->find_event_by_date($events, '2026-06-08') === null, "Found event on original date (should be a hole).");
-        if ($result !== true) return $result;
-        
-        $result = $this->assert($this->find_event_by_date($events, '2026-06-09') === null, "Found event on intermediate move date (should be gone).");
-        if ($result !== true) return $result;
+        // Verify holes and cleaned-up intermediates
+        $this->assert($this->find_event_by_date($events, '2026-06-08') === null, "Found event on original date (should be a hole).");
+        $this->assert($this->find_event_by_date($events, '2026-06-09') === null, "Found event on intermediate move date (should be gone).");
 
         // Verify final location
         $final_event = $this->find_event_by_date($events, '2026-06-10');
-        $result = $this->assert($final_event !== null, "Did not find event on final move date 2026-06-10.");
-        if ($result !== true) return $result;
+        $this->assert($final_event !== null, "Did not find event on final move date 2026-06-10.");
 
         // Verify final event's data integrity
-        $result = $this->assert($final_event['start_time'] === '13:00', "Final event has wrong start time.");
-        if ($result !== true) return $result;
+        $this->assert($final_event['start_time'] === '13:00', "Final event has wrong start time.");
+        $this->assert($final_event['id'] == $master_id, "Final event has wrong master ID.");
+        $this->assert($final_event['pivot_id'] == $master_id, "Final event has wrong pivot_id.");
 
-        $result = $this->assert($final_event['id'] == $master_id, "Final event has wrong master ID.");
-        if ($result !== true) return $result;
-
-        $result = $this->assert($final_event['pivot_id'] == $master_id, "Final event has wrong pivot_id.");
-        if ($result !== true) return $result;
-        
-        // The key assertion: the move_id must match the record that was updated.
-        $result = $this->assert(isset($final_event['move_id']) && $final_event['move_id'] == $first_move_id, "Final event has incorrect move_id. Expected {$first_move_id}, got " . ($final_event['move_id'] ?? 'null'));
-        if ($result !== true) return $result;
-
-        return true;
+        // The key assertion: the move_id must match the original record that was updated.
+        $this->assert(isset($final_event['move_id']) && $final_event['move_id'] == $first_move_id, "Final event has incorrect move_id. Expected {$first_move_id}, got " . ($final_event['move_id'] ?? 'null'));
     }
 
-    public function cleanup() {
-        global $wpdb;
-        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_events");
-        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_categories");
-        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_locations");
 
-        if (file_exists($this->json_path)) {
-            unlink($this->json_path);
-        }
+    /**
+     * Verifies that a single (non-recurring) event is formatted correctly.
+     */
+    public function test_compiler_single_event_formatting() {
+        // 1. Seed the DB using the Fixture Engine
+        $this->load_fixture([
+            'events' => [
+                [
+                    '_ref' => 'single',
+                    'title' => 'Single Event',
+                    'start_date' => '2026-07-04',
+                    'start_time' => '12:00:00',
+                    'end_time' => '13:00:00',
+                    'status' => 'active',
+                    // Note: Ensure your Repository->load_fixture() method maps this!
+                    'flyer_url' => 'http://example.com/flyer.pdf'
+                ]
+            ]
+        ]);
+
+        // 2. Compile and fetch
+        $events = $this->run_compiler_and_get_events();
+
+        // 3. Assertions
+        $this->assert(count($events) === 1, "Expected 1 event, found " . count($events));
+
+        $event = $events[0];
+        $this->assert(isset($event['single']) && $event['single'] === true, "Single event missing 'single: true' flag.");
+        $this->assert(isset($event['flyer_url']) && $event['flyer_url'] === 'http://example.com/flyer.pdf', "Flyer URL mismatch.");
     }
+
+
+
 }
 
 
