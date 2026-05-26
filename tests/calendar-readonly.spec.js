@@ -1,41 +1,60 @@
 // tests/calendar-readonly.spec.js
 const { test, expect } = require('@playwright/test');
 
-// Explicitly define the base to avoid Playwright protocol crashes
-const APP_URL = 'https://testbed.fsbhoa.com/calendar';
+const APP_URL = 'https://testbed.fsbhoa.com'; // Removed /calendar so we can hit wp-admin
 
 test.describe('Read-Only Calendar UI and Navigation', () => {
 
     test.beforeAll(async ({ request }) => {
-        // =================================================================
-        // THE FIXTURE ENGINE HOOK
-        // We need to seed the database before the UI tests run so we 
-        // have actual events to click on for TEST 4.
-        // =================================================================
-        console.log('Seeding test database...');
-        
-        /* 
-         * QUESTION FOR YOU: Do you have an AJAX endpoint set up to trigger 
-         * TestRunner->load_fixture() from the outside? 
-         * If so, we trigger it here like this:
-         *
-         * await request.post('https://testbed.fsbhoa.com/wp-admin/admin-ajax.php', {
-         *     data: {
-         *         action: 'fsb_seed_test_data',
-         *         scenario: 'readonly_baseline' // Tells PHP what data to load
-         *     }
-         * });
-         */
+        console.log('Seeding test database via Sandbox Bridge...');
+
+        const fixtureData = {
+            locations: [{ _ref: "loc_1", name: "Main Lodge" }],
+            categories: [{ _ref: "cat_1", name: "Community", color_hex: "#0288d1" }],
+            events: [
+                {
+                    title: "Standard Detail Event",
+                    start_date: "2026-08-10",
+                    start_time: "10:00:00",
+                    end_time: "11:00:00",
+                    location_ref: "loc_1",
+                    category_ref: "cat_1"
+                },
+                {
+                    title: "Flyer Bypass Event",
+                    start_date: "2026-08-20",
+                    start_time: "14:00:00",
+                    end_time: "15:00:00",
+                    flyer_url: "https://example.com/test-flyer.pdf"
+                }
+            ]
+        };
+
+        // POST the fixture data to the AJAX endpoint
+        const response = await request.post(`${APP_URL}/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=load_fixture`, {
+            headers: {
+                'Cookie': 'fsb_test_mode=1' // CRITICAL: Tells PHP to use the Sandbox!
+            },
+            data: JSON.stringify(fixtureData)
+        });
+
+        const result = await response.json();
+        if (!result.success) {
+            console.error('Failed to load fixture:', result);
+        } else {
+            console.log('Fixture loaded successfully!');
+        }
     });
 
     test.beforeEach(async ({ page }) => {
-        // We use viewDate to force August 2026, which guarantees a 31-day month 
+        // We use viewDate to force August 2026, which guarantees a 31-day month
         // starting on a Saturday, forcing the 1st/8th to split.
-        await page.goto(`${APP_URL}?viewDate=2026-08-01`);
-        
+        await page.goto(`${APP_URL}/calendar?viewDate=2026-08-01`);
+
         // Wait for the grid rendering loop to finish injecting the DOM
         await page.waitForSelector('#calendar-grid .calendar-day');
     });
+
 
     test('TEST 1: Grid Rendering & Data Integrity', async ({ page }) => {
         const grid = page.locator('#calendar-grid');

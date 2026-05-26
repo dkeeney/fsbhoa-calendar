@@ -243,8 +243,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
             <input type="hidden" name="event_id" value="${eventId || ''}">
             <input type="hidden" name="pivot_id" value="${pivot_id || ''}">
             <input type="hidden" name="move_id" value="${move_id || ''}">
-            <input type="hidden" name="date" value="${selectedDate}">
-            <input type="hidden" id="edit_mode" name="edit_mode" value="single">
+            <input type="hidden" id="edit_mode" name="edit_mode" value="standard">
 
             <div class="form-group">
                 <label>Event Title</label>
@@ -897,7 +896,8 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
     try {
         const response = await fetch(fsb_config.ajax_url, {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'same-origin'
         });
         const result = await response.json();
         if (result.success) {
@@ -907,7 +907,7 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
             // Admin Check for the Audit Log
             // If we are in the WP Admin backend, reload to refresh the PHP table
             // ---------------------------------------------------------
-            if (window.config && window.config.isAdmin) {
+            if (window.config && window.config.isDashboard) {
                 window.location.reload();
                 return true;
             }

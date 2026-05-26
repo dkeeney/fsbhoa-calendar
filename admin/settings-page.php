@@ -694,6 +694,7 @@ function fsb_render_event_audit() {
         // 1. Initialize the global config if it's missing in Admin
         window.config = window.config || {
             isAdmin: true,
+            isDashboard: true,
             userEmail: '<?php echo wp_get_current_user()->user_email; ?>'
         };
 

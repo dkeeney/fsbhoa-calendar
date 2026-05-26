@@ -27,6 +27,9 @@ Setting up complex repeating calendar states manually is brittle. We use a custo
 * **Reference Mapping (`_ref`):** Records can be assigned a temporary `_ref` (e.g., `'_ref' => 'master'`). The engine tracks MySQL insert IDs and automatically maps them to foreign keys (`'parent_ref' => 'master'`), eliminating ID guessing.
 * **Schema Complete:** Automatically handles metadata fields like `color_hex`, `flyer_url`, `setup_notes`, and `visibility`.
 
+We can query the database to make sure that the fixture data is there (and later we can use this to confirm that edits worked). To do that, use the wp_ajax_fsb_run_regression_step API. "load_fixture" case populates the database and returns the ids. "get_db_state" case will get you the master and child records, given the master's id.
+
+We can confirm that the compiler is doing it right by checking the .json file which is loaded into the js.
 ---
 
 ## 4. System Overview & Architecture
@@ -36,6 +39,14 @@ The frontend controls a monthly calendar view displayed as a grid of day cells.
 *   **Grid Edge Cases (Split Cells):** To fit 30/31-day months into 5 rows, cascading dates split diagonally (top-right/bottom-left) on either the first Saturday or the last Sunday. 
 *   **Interaction Model (The Magnifier):** Moving the cursor over a day cell triggers a visual magnification. **Crucial for Playwright:** All structural interactions (accessing modals, dragging elements, clicking icons) *must* be executed on the `.magnified` DOM state of the active cell.
 
+Note that there are split days which must be tested.
+There are three conditions that can cause a split.
+1) Starts Friday and has 31 days (contains days 24/31)
+2) Starts Saturday and has 30 days (contains days 23/30
+3) Starts Saturday and has 31 days  (contains days 1/8)
+And we want it to be within our nav range. window.fsbMinTime to window.fsbMaxTime .
+
+So this can reduce down to a test that can evaluate the render of both upper and lower days for each of the three conditions.
 ---
 
 ## 5. End-to-End Test Suites (Playwright)
@@ -136,13 +147,37 @@ The frontend controls a monthly calendar view displayed as a grid of day cells.
 
 ### TEST 14: Edge Case - Form Validator (Happy Path)
 *   **Scenario:** Attempt to save with invalid form data.
-*   **Assertions:** Emptying the required *Title* text field and clicking *Save* aborts the operation, leaving the database untouched.
+*   **Assertions:** Emptying the required *Title* text field and clicking *Save* should cause the Bake to occur to refresh the .json file, leaving the database untouched.
 
 ### TEST 15: Edge Case - The Void Drop (Unhappy Path)
 *   **Scenario:** Misdirect a drag-and-drop pointer stream.
 *   **Assertions:** Dragging an event chip completely outside the grid matrix (e.g., page header) and releasing it triggers a graceful abort. The element snaps back to origin with no database mutations or JavaScript console faults.
 
-### TEST 16: Edge Case - The Time Traveler Lockdown (Unhappy Path)
-*   **Scenario:** Attempt modifications on historical entries.
-*   **Assertions:** Events residing in historical (grayed-out) cells are strictly locked down. Drag-and-drop operations must be blocked, and contextual action menus (like *Reschedule* or *Edit*) must be disabled or entirely suppressed in the DOM.
+### TEST 16: Time shifts 
+*   **Scenario:**- Change the time DNA for repeating event using the edit modal.
+*   **Assertions:** Click the edit icon an event instance and change the time.  This should change the time on all subsequent instances.  If this is the first instance the last pivot would be modified in-place. If not the first instnace, a new pivot would be generated.
 
+### TEST 17: Execute 'End Series' via Modal:
+*   **Action:**  Open a recurring event by clicking the pencil icon, click "Cancel Event", then click "End series starting today".
+*   **Assert:** The grid re-renders. Verify that the current instance remains, but the instance for the following week is completely removed from the DOM.
+
+### TEST 18: Execute 'Cancel Instance' & 'Restore Instance':
+*   **Action:** Simular setup to previous test, but click "Cancel ONLY this instance".
+*   **Assert:** The grid re-renders and the event chip is gone.
+
+*   **Action 2:** Click the + icon on that empty day, select "Restore next cancelled instance".
+*   **Assert 2:** The event chip immediately returns to the cell.
+
+### TEST 19: "In-Place" Pivot Override
+In previous tests we proved that maybe_pivot_series updates a Master record in-place if you edit the first instance. We should prove that it does the exact same thing if you edit the first instance of an active Pivot.
+*    **Action:** Seed a Master, then seed a Pivot branching off of it. Target the exact start_datetime of the Pivot.
+*   **Assert:** The database maintains exactly 1 child (the pivot is updated in-place), rather than spawning a 2nd child.
+
+---
+
+NOTE: to run tests so we can see the screen.
+On the PC's DOS box:  ssh -L 9323:127.0.0.1:9323 pi@testbed.fsbhoa.com
+Then in the plugin apps directory, type:
+   npx playwright show-report tests/playwright-report --host 127.0.0.1 --port 9323
+
+Then, use the PC's web browser to go to:  http://127.0.0.1:9323

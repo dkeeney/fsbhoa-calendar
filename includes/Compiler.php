@@ -117,8 +117,10 @@ class Compiler {
             'events' => $final_manifest
         ];
 
+        error_log("Baking saved to: " . $this->json_path);
         $dir = dirname($this->json_path);
         if (!file_exists($dir)) wp_mkdir_p($dir);
+
 
         return file_put_contents($this->json_path, json_encode($final_output, JSON_PRETTY_PRINT), LOCK_EX);
     }

@@ -99,6 +99,8 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.onclick = () => {
             let testDate = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth() - 1, 1).getTime();
             if (testDate >= window.fsbMinTime) {
+                // STRIP FLAG BEFORE RE-RENDER
+                document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
                 currentViewDate.setMonth(currentViewDate.getMonth() - 1);
                 render();
             } else {
@@ -112,6 +114,8 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.onclick = () => {
             let testDate = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth() + 1, 1).getTime();
             if (testDate <= window.fsbMaxTime) {
+                // STRIP FLAG BEFORE RE-RENDER
+                document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
                 currentViewDate.setMonth(currentViewDate.getMonth() + 1);
                 render();
             } else {
@@ -125,6 +129,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const todayBtns = document.querySelectorAll('#jumpToday, #jumpTodayAgenda');
     todayBtns.forEach(btn => {
         btn.onclick = () => {
+            // STRIP FLAG BEFORE RE-RENDER
+            document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
             currentViewDate = new Date();
             render();
         };
@@ -145,6 +151,8 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
     document.addEventListener('fullscreenchange', () => {
+        // STRIP FLAG BEFORE RE-RENDER
+        document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
         // Re-run render to snap the background and grid back into place
         render();
     });
@@ -158,6 +166,8 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('#viewToggle').forEach(t => {
                 t.checked = e.target.checked;
             });
+            // STRIP FLAG BEFORE RE-RENDER
+            document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
             render();
         };
     });
@@ -226,6 +236,8 @@ document.addEventListener('DOMContentLoaded', function() {
             if (newView !== currentView) {
                 currentView = newView;
                 document.querySelectorAll('.viewToggle').forEach(t => t.checked = (currentView === 'agenda'));
+                // STRIP FLAG BEFORE RE-RENDER
+                document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
                 render();
             }
         }
@@ -389,13 +401,19 @@ function render() {
         });
     }
 
+    //console.log(`[TRACE] render() invoked. window.innerWidth: ${window.innerWidth}, currentView: ${currentView}`);
+
+
     // 2. DATE GLOBALS (Needed for Navigation & Guardrails)
     const year = currentViewDate.getFullYear();
     const month = currentViewDate.getMonth();
     window.currentYear = year;
     window.currentMonth = month;
 
-    // 3. THE TOGGLE & RENDER LOGIC
+    // 3. NAV GUARDRAILS (Keeps users within your past/future limits)
+    updateNavGuardrails(year, month);
+    
+    // 4. THE TOGGLE & RENDER LOGIC
     if (currentView === 'month' && monthlyWrapper) {
         // Show Monthly, Kill Agenda
         monthlyWrapper.style.display = 'flex';
@@ -425,8 +443,6 @@ function render() {
 
     }
 
-    // 4. NAV GUARDRAILS (Keeps users within your past/future limits)
-    updateNavGuardrails(year, month);
 }
 
 
@@ -471,6 +487,12 @@ function renderMonthGrid(monthlyApp) {
 
     const isSatStart31 = (firstDay === 6 && daysInMonth === 31);
 
+    const appEl = document.getElementById('fsb-calendar-app');
+    if (appEl) {
+        appEl.setAttribute('data-view-year', year);
+        appEl.setAttribute('data-view-month', month + 1); // 1-indexed for simple validation
+    }
+
     grid.innerHTML = '';
 
     for (let i = 0; i < 35; i++) {
@@ -499,6 +521,11 @@ function renderMonthGrid(monthlyApp) {
             const isFriStart31 = (firstDay === 5 && daysInMonth === 31);
 
             if (i === 28 && ((isSatStart30 && dayNum === 23) || (isFriStart31 && dayNum === 24))) {
+                // Expose cell split flags and coordinates to Playwright
+                monthlyApp.setAttribute('data-has-split-cell', 'true');
+                monthlyApp.setAttribute('data-split-cell-index', i);
+                monthlyApp.setAttribute('data-split-cell-trigger-day', dayNum);
+
                 grid.innerHTML += renderSplitCell(year, month, dayNum, dayNum + 7, todayStr);
                 continue;
             }
@@ -514,13 +541,13 @@ function renderMonthGrid(monthlyApp) {
             const icons = dayEvents.filter(e => iconLibrary[e.category_id]);
 
             grid.innerHTML += `
-                <div class="calendar-day ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}" 
+                <div class="calendar-day day-content ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}" 
                         data-date="${dateStr}"
                         onclick="openDayModal('${dateStr}')">
                     <div class="day-top">
                         <div class="day-number">${dayNum}</div>
                         <div class="day-icons-corner">${renderIcons(icons, dateStr)}</div>
-                        <div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateStr}')">+</div>
+                        ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateStr}')">+</div>` : ''}
                     </div>
                     <div class="day-events">${renderEvents(bars)}</div>
                 </div>`;
@@ -528,6 +555,7 @@ function renderMonthGrid(monthlyApp) {
             grid.innerHTML += '<div class="calendar-day empty"></div>';
         }
     }
+    monthlyApp.setAttribute('data-render-complete', 'true');
 }
 
 
@@ -556,11 +584,13 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 
     return `
     <div class="calendar-day split-cell ${splitStateClass}"
-            data-date="${dateA}" data-date-top="${dateA}" data-date-bottom="${dateB}">
-
+            data-date="${dateA}"
+            data-date-top="${dateA}"
+            data-date-bottom="${dateB}">
         <div class="split-line-container">${activeSVG}</div>
 
-        <div class="split-half split-half-top ${isPastA ? 'past-day' : ''}"
+        <div class="split-half day-content split-half-top ${isPastA ? 'past-day' : ''}"
+             data-date="${dateA}"
              onclick="event.stopPropagation(); openDayModal('${dateA}')">
 
             <div class="events-layer layer-bg" aria-hidden="true">
@@ -579,11 +609,12 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
             <div class="day-top">
                 <div class="day-number">${topDay}</div>
                 <div class="day-icons-corner">${renderIcons(evtsA.filter(e => iconLibrary[e.category_id]), dateA)}</div>
-                <div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>
+                ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>` : ''}
             </div>
         </div>
 
-        <div class="split-half split-half-bottom ${isPastB ? 'past-day' : ''}"
+        <div class="split-half day-content split-half-bottom ${isPastB ? 'past-day' : ''}"
+             data-date="${dateB}"
              onclick="event.stopPropagation(); openDayModal('${dateB}')">
 
             <div class="events-layer layer-bg" aria-hidden="true">
@@ -600,7 +631,7 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
                 <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
             <div class="day-bottom">
-                <div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>
+                ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>` : ''}
                 <div class="day-icons-corner">${renderIcons(evtsB.filter(e => iconLibrary[e.category_id]), dateB)}</div>
                 <div class="day-number">${botDay}</div>
             </div>

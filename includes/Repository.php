@@ -142,7 +142,15 @@ class Repository {
             return $id;
         }
 
-        $wpdb->insert($event_table, $filtered_data);
+        $result = $wpdb->insert($event_table, $filtered_data);
+        if ($result === false) {
+            error_log("FSBHOA_CALENDAR FATAL: Database INSERT failed!");
+            error_log("Table: " . $event_table);
+            error_log("WPDB Error: " . $wpdb->last_error);
+            error_log("Attempted Data: " . print_r($filtered_data, true));
+            return false;
+        }
+
         return $wpdb->insert_id;
     }
 
@@ -336,6 +344,28 @@ class Repository {
             $target_start
         ));
 
+        // --- SCOPE: REMAINING INSTANCES (THE PIVOT) ---
+        if ($scope === 'remaining') {
+            error_log("FSBHOA REPO: Pivoting series from $original_date to $target_date");
+
+            // 1. Calculate the shifted RRule
+            $old_rrule = $pivot->rrule;
+            $new_rrule = $this->shift_rrule($old_rrule, $original_date, $target_date);
+
+            // 2. Prepare the DNA payload
+            $dna_data = [
+                'title'          => $current->title,
+                'rrule'          => $new_rrule,
+                'start_datetime' => "$original_date $target_start_time:00",
+                'end_datetime'   => "$original_date $target_end_time:00"
+            ];
+
+            // 3. Delegate to your existing pivot engine
+            // Pass $original_date (Monday) so it knows where to draw the deletion line!
+            $this->maybe_pivot_series($pivot_id, $dna_data, $original_date);
+
+            return true;
+        }
 
         // --- SCOPE: SINGLE INSTANCE ---
         if ($is_single) {
@@ -448,9 +478,14 @@ class Repository {
         $master_id = !empty($active_rule->parent_id) ? $active_rule->parent_id : $active_rule->id;
 
         $today_str = date('Y-m-d');
+        $pivot_date = date('Y-m-d', strtotime($clicked_date));
+        $first_instance_date = $this->get_first_instance_date($active_rule->start_datetime, $active_rule->rrule);
 
-        $pivot_date = $clicked_date;
-
+        error_log(" --- PIVOT DEBUG ---");
+        error_log(" Anchor Date:       " . $active_rule->start_datetime);
+        error_log(" TRUE 1st Instance: " . $first_instance_date);
+        error_log(" Clicked Date: " . $clicked_date);
+        error_log(" Comparing: [" . $first_instance_date . "] === [" . $pivot_date . "]");
 
         // --- 3. DNA CHANGE DETECTION ---
         $new_start_time = date('H:i', strtotime($dna_data['start_datetime']));
@@ -473,20 +508,16 @@ class Repository {
 
         error_log("FSBHOA PIVOT check: DNA changed id=$pivot_id");
 
-        // --- 4. DECIDE: UPDATE IN-PLACE OR INSERT NEW PIVOT ---
-        $rule_start_date = date('Y-m-d', strtotime($active_rule->start_datetime));
-
-        if ($rule_start_date === $pivot_date) {
-            // CASE: Update In-Place
-            // The user is editing a rule that starts exactly on the pivot date.
+        if ($first_instance_date === $pivot_date) {
+            // CASE: Update In-Place (editing the first instance)
             error_log("FSBHOA PIVOT: Updating existing record ID {$active_rule->id} in-place.");
 
             // update pivot record (or master)
             $this->save([
                 'id'             => $active_rule->id,
                 'rrule'          => $dna_data['rrule'],
-                'start_datetime' => "$pivot_date $new_start_time:00",
-                'end_datetime'   => "$pivot_date $new_end_time:00"
+                'start_datetime' => $dna_data['start_datetime'], // Use passed value natively
+                'end_datetime'   => $dna_data['end_datetime']
             ]);
 
             // Nuke all downstream children of the master for this era
@@ -504,8 +535,8 @@ class Repository {
                 'parent_id'      => $master_id,
                 'title'          => $dna_data['title'] ?? '',
                 'rrule'          => $dna_data['rrule'],
-                'start_datetime' => "$pivot_date $new_start_time:00",
-                'end_datetime'   => "$pivot_date $new_end_time:00",
+                'start_datetime' => $dna_data['start_datetime'], // Use passed value natively
+                'end_datetime'   => $dna_data['end_datetime'],
                 'status'         => 'active'
             ]);
         }
@@ -625,7 +656,7 @@ class Repository {
                     'end_datetime' => "$real_date {$evt['end_time']}",
                     'status' => sanitize_text_field($evt['status'] ?? 'active'),
                     'rrule' => sanitize_text_field($evt['rrule'] ?? null),
-                    'flyer_url' => esc_url_raw($evt['flyer_url'] ?? '')
+                    'flyer_url' => esc_url_raw($evt['flyer_url'] ?? ''),
                     'content'        => wp_kses_post($evt['content'] ?? ''),
                     'is_ticketed'    => isset($evt['is_ticketed']) ? intval($evt['is_ticketed']) : 0,
                     'visibility'     => sanitize_text_field($evt['visibility'] ?? 'public'),
@@ -672,5 +703,103 @@ class Repository {
         $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_locations");
     }
 
+    /**
+     * Intelligently shifts an RRule when a series is dragged to a new date.
+     * Preserves complex frequency prefixes like 2nd, 4th, or Last (-1).
+     */
+    private function shift_rrule($rrule, $original_date, $target_date) {
+        if (empty($rrule)) return '';
+
+        $orig_time = strtotime($original_date);
+        $target_time = strtotime($target_date);
+
+        // Extract day of week abbreviation (e.g. 'Monday' -> 'MO')
+        $orig_dow = strtoupper(substr(date('l', $orig_time), 0, 2));
+        $target_dow = strtoupper(substr(date('l', $target_time), 0, 2));
+        $target_day_num = date('j', $target_time);
+
+        // Parse the RRule string into an associative array
+        $parts = explode(';', $rrule);
+        $rule_data = [];
+        foreach ($parts as $part) {
+            if (strpos($part, '=') !== false) {
+                list($key, $val) = explode('=', $part);
+                $rule_data[$key] = $val;
+            }
+        }
+
+        // Shift Days of the Week (Handles 'MO', '2SA,4SA', '-1WE', etc.)
+        if (isset($rule_data['BYDAY'])) {
+            $days = explode(',', $rule_data['BYDAY']);
+            foreach ($days as $k => $day) {
+                // Regex matches an optional number/minus sign, followed by exactly 2 letters
+                preg_match('/^(-?\d+)?([A-Z]{2})$/', $day, $matches);
+                $prefix = $matches[1] ?? '';
+                $dow    = $matches[2] ?? '';
+
+                // Only shift the specific day that was dragged
+                if ($dow === $orig_dow) {
+                    $days[$k] = $prefix . $target_dow;
+                }
+            }
+            // array_unique prevents 'TU,TU' if they dragged 'MO,TU' onto a Tuesday
+            $rule_data['BYDAY'] = implode(',', array_unique($days));
+        }
+
+        // Shift absolute Month Dates (e.g. 15th of the month)
+        if (isset($rule_data['BYMONTHDAY'])) {
+            $rule_data['BYMONTHDAY'] = $target_day_num;
+        }
+
+        // Reassemble the RRule string
+        $new_parts = [];
+        foreach ($rule_data as $key => $val) {
+            $new_parts[] = "$key=$val";
+        }
+        return implode(';', $new_parts);
+    }
+
+
+
+    /**
+     * Calculates the true first occurrence of an event sequence.
+     * If the RRule starts on a Friday but specifies BYDAY=MO,
+     * this returns the date of that first Monday.
+     *
+     * @param string $start_datetime The anchor date/time from the database.
+     * @param string $rrule The RRule string.
+     * @return string YYYY-MM-DD of the true first occurrence.
+     */
+    public function get_first_instance_date($start_datetime, $rrule) {
+        $anchor = new \DateTime($start_datetime);
+        $first_date = $anchor->format('Y-m-d'); // Default to anchor
+
+        if (empty($rrule)) {
+            return $first_date;
+        }
+
+        $clean_rule = trim(str_ireplace('RRULE:', '', $rrule));
+        $parts = [];
+        foreach (explode(';', $clean_rule) as $pair) {
+            if (strpos($pair, '=') !== false) {
+                list($key, $value) = explode('=', $pair);
+                $parts[trim($key)] = trim($value);
+            }
+        }
+        $parts['DTSTART'] = $anchor;
+
+        try {
+            $rrule_obj = new \RRule\RRule($parts);
+            // Get the first occurrence inclusive of the anchor
+            $occurrences = $rrule_obj->getOccurrencesAfter($anchor, true, 1);
+            if (!empty($occurrences)) {
+                $first_date = $occurrences[0]->format('Y-m-d');
+            }
+        } catch (\Exception $e) {
+            error_log("FSBHOA RRULE HELPER ERROR: " . $e->getMessage());
+        }
+
+        return $first_date;
+    }
 
 }

@@ -1,6 +1,7 @@
 const { defineConfig, devices } = require('@playwright/test');
 const path = require('path');
 
+
 module.exports = defineConfig({
   testDir: '.',
   /* Run tests in files in parallel */
@@ -29,21 +30,13 @@ module.exports = defineConfig({
   /* Shared settings for all the projects below. */
   use: {
     /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: 'http://testbed.fsbhoa.com',
-    /*baseURL: 'https://192.168.42.62', */
-    /*baseURL: 'http://127.0.0.1', */
-    /*extraHTTPHeaders: {
-      'Host': 'testbed.fsbhoa.com',
-    }, */
+    baseURL: 'https://testbed.fsbhoa.com',
+    viewport: { width: 1280, height: 800 },
     storageState: path.join(__dirname, 'state/storageState.json'),
     ignoreHTTPSErrors: true,
-
-    /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: 'on',
-    
-    /* Since the Pi is headless, we must run headless, 
-       but we will view the "Trace" on Windows later. */
     headless: true,
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
   },
 
   /* Configure projects for major browsers */

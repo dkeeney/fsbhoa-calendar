@@ -3,7 +3,7 @@
  * Plugin Name: FSBHOA Calendar
  * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.0.13
+ * Version:           1.1.0
  * Author:            David Keeney
  * AI Tool:           Gemini Pro 2.5 and 3.1
  * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
@@ -105,13 +105,8 @@ add_action('admin_enqueue_scripts', function($hook) {
 });
 
 add_action('wp_enqueue_scripts', function() {
-    //error_log("FSB CALENDAR: wp_enqueue_scripts() running");
-
-    // Only load if the shortcode is present
-    if (!is_a(get_post(), 'WP_Post') || !has_shortcode(get_post()->post_content, 'fsbhoa_calendar')) {
-        return;
-    }
-    fsb_enqueue_calendar_scripts();
+    // Let the shortcode handle script loading directly on demand
+    // to protect page speed everywhere else across the site hierarchy.
 });
 
 
@@ -120,7 +115,7 @@ function fsb_enqueue_calendar_scripts() {
     //error_log("FSB CALENDAR: fsb_enqueue_calender_scripts() called");
     $ver = '1.1';
     $current_user = wp_get_current_user();
-    $user_email = $current_user->user_email;
+    $user_email = !empty($current_user->user_email) ? $current_user->user_email : '';
 
 
     wp_enqueue_script(
@@ -148,7 +143,7 @@ function fsb_enqueue_calendar_scripts() {
 
     // Quick check: Is this user an owner of ANY event?
     $is_delegate = false;
-    if ( is_user_logged_in() && !$is_admin ) {
+    if ( is_user_logged_in() && !$is_admin && !empty($user_email) ) {
         $is_delegate = $repo->is_user_delegate($user_email);
     }
 
@@ -197,7 +192,12 @@ function fsb_enqueue_calendar_scripts() {
 
 
 add_action('wp_ajax_fsb_run_regression_step', function() {
-    check_ajax_referer('fsb_reg_nonce', 'nonce');
+    $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? $_SERVER['HTTP_X_WP_NONCE'] : ($_REQUEST['nonce'] ?? '');
+    if ( ! wp_verify_nonce( $nonce, 'fsb_reg_nonce' ) && ! wp_verify_nonce( $nonce, 'fsb_cal_nonce' ) ) {
+        wp_send_json_error( 'Invalid Security Nonce' );
+        wp_die();
+    }
+
     $step = sanitize_text_field($_GET['step']);
     $runner = new \FSBHOA\Cal\TestRunner();
 
@@ -233,6 +233,9 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
             if (!$fixture_data) wp_send_json_error('Invalid JSON payload');
             
             $mapped_ids = $runner->load_fixture($fixture_data);
+
+            // BUST THE BROWSER CACHE: Playwright executes too fast for standard time()
+            update_option('fsb_cal_version', time() . rand(100, 999));
             
             wp_send_json_success([
                 'message' => 'Fixture loaded successfully.',
@@ -240,6 +243,63 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
             ]);
             break;
 
+        case 'get_db_state':
+            $master_id = intval($_GET['master_id'] ?? 0);
+            if (!$master_id) wp_send_json_error('Missing master_id');
+
+            $state = $runner->get_db_state($master_id);
+            wp_send_json_success(['db_state' => $state]);
+            break;
+
+        case 'get_nth_instance':
+            // Note: the pivot_id may actually be the master.
+            $pivot_id = intval($_GET['pivot_id'] ?? 0);
+            $n = intval($_GET['n'] ?? 0); // 0 = first instance
+
+            if (!$pivot_id) wp_send_json_error('Missing pivot_id');
+
+            // Grab the repo using your existing sandbox helper
+            $repo = fsb_get_repo();
+            $pivot = $repo->get($pivot_id);
+
+            if (!$pivot || empty($pivot->rrule)) {
+                wp_send_json_error('Event not found or not recurring');
+                break;
+            }
+
+            // Sync Timezone
+            $tz_string = get_option('timezone_string') ?: timezone_name_from_abbr('', get_option('gmt_offset') * 3600, false);
+            if ($tz_string) date_default_timezone_set($tz_string);
+
+            $anchor = new \DateTime($pivot->start_datetime);
+
+            // Clean the RRule string to parse into array
+            $clean_rule = trim(str_ireplace('RRULE:', '', $pivot->rrule));
+            $parts = [];
+            foreach (explode(';', $clean_rule) as $pair) {
+                if (strpos($pair, '=') !== false) {
+                    list($key, $value) = explode('=', $pair);
+                    $parts[trim($key)] = trim($value);
+                }
+            }
+            $parts['DTSTART'] = $anchor;
+
+            try {
+                // Pass array to ensure strict 1:1 mapping with the PHP compiler
+                $rrule = new \RRule\RRule($parts);
+
+                // Get occurrences inclusive of anchor, limit to N+1
+                $occurrences = $rrule->getOccurrencesAfter($anchor, true, $n + 1);
+
+                if (isset($occurrences[$n])) {
+                    wp_send_json_success(['date' => $occurrences[$n]->format('Y-m-d')]);
+                } else {
+                    wp_send_json_error('Instance out of bounds (past UNTIL date or invalid)');
+                }
+            } catch (\Exception $e) {
+                wp_send_json_error('RRule Parse Error: ' . $e->getMessage());
+            }
+            break;
 
         case 'cleanup':
             $runner->cleanup();
@@ -253,6 +313,8 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
 
 // the shortcode for the monthly calendar.
 add_shortcode('fsbhoa_calendar', function() {
+    // FORCE LOAD CALENDAR ASSETS STRICTLY WHEN THIS SHORTCODE IS PRESENT
+    fsb_enqueue_calendar_scripts();
 
 
     // Determine the JSON path 
@@ -339,6 +401,9 @@ add_shortcode('fsbhoa_calendar', function() {
 
 // Add the new Agenda-specific shortcode
 add_shortcode('fsbhoa_agenda', function() {
+    // FORCE LOAD CALENDAR ASSETS FOR AGENDA STREAM LAYOUTS
+    fsb_enqueue_calendar_scripts();
+    
     $json_url = admin_url('admin-ajax.php') . '?action=fsb_get_calendar_json';
     $json_url .= '&v=' . get_option('fsb_cal_version', time());
 
@@ -454,7 +519,7 @@ function fsb_handle_save_event() {
     $tz = get_option('timezone_string') ?: timezone_name_from_abbr('', get_option('gmt_offset') * 3600, false);
     if ($tz) date_default_timezone_set($tz);
 
-    $edit_mode  = sanitize_text_field($_POST['edit_mode'] ?? 'single');
+    $edit_mode  = sanitize_text_field($_POST['edit_mode'] ?? 'standard');
     $master_id   = isset($_POST['event_id']) ? intval($_POST['event_id']) : null;
     $pivot_id   = isset($_POST['pivot_id']) ? intval($_POST['pivot_id']) : $master_id;
     $move_id   = isset($_POST['move_id']) ? intval($_POST['move_id']) : null;
@@ -499,9 +564,9 @@ function fsb_handle_save_event() {
     // ONLY protect the master date if we are doing a standard 'single' edit.
     // If we are punching a hole (instance_cancel) or moving (instance_move),
     // we MUST use the new $event_date provided by the calendar cell.
-    if ($existing_event && empty($existing_event->parent_id) && $edit_mode === 'single') {
-        $target_date = date('Y-m-d', strtotime($existing_event->start_datetime));
-    }
+    //if ($existing_event && empty($existing_event->parent_id) && $edit_mode === 'standard') {
+    //    $target_date = date('Y-m-d', strtotime($existing_event->start_datetime));
+    //}
 
     try {
         switch ($edit_mode) {
@@ -529,7 +594,7 @@ function fsb_handle_save_event() {
             case 'instance_restore':
                // $target_date is the date of the cell clicked.
                // We look for the first record >= that date that is 'cancelled'.
-               repo->restore_hole($master_id, $target_date);
+               $repo->restore_hole($master_id, $target_date);
                break;
 
             case 'series_end':
