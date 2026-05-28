@@ -182,6 +182,8 @@ function fsb_enqueue_calendar_scripts() {
         'locations'     => $locations,
         'categories'    => $categories,
         'time_position' => get_option('fsb_time_position', 'prepend'),
+        'time_format'   => get_option('fsb_time_format', '12hr'),
+        'start_day'     => get_option('fsb_start_day', '0'),
         'is_admin'      => $is_admin,
         'user_email'    => $user_email,
         'version'       => time()
@@ -190,6 +192,28 @@ function fsb_enqueue_calendar_scripts() {
 
 }
 
+// --- THE SHADOW STATE: INTERCEPT OPTIONS FOR SANDBOX ---
+//  While running a regression test, use the options from the sandbox.
+add_action('init', 'fsb_apply_sandbox_options');
+function fsb_apply_sandbox_options() {
+    // Only intercept if the browser has the Playwright test cookie
+    if (isset($_COOKIE['fsb_test_mode'])) {
+        $sandbox_options = get_transient('fsb_sandbox_options') ?: [];
+
+        $allowed_overrides = ['fsb_start_day', 'fsb_time_format', 'fsb_time_position'];
+
+        foreach ($allowed_overrides as $opt) {
+            add_filter("pre_option_{$opt}", function($false) use ($opt, $sandbox_options) {
+                // If Playwright explicitly set a shadow option, return it!
+                if (isset($sandbox_options[$opt])) {
+                    return $sandbox_options[$opt];
+                }
+                // Otherwise, fall through to the real default database option
+                return $false;
+            });
+        }
+    }
+}
 
 add_action('wp_ajax_fsb_run_regression_step', function() {
     $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? $_SERVER['HTTP_X_WP_NONCE'] : ($_REQUEST['nonce'] ?? '');
@@ -211,6 +235,23 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
                 'prefix' => $runner->get_prefix(),
                 'json_url' => $runner->get_json_url()
             ]);
+            break;
+
+        case 'set_option':   // Sandbox the options for regression tests
+            $allowed_options = ['fsb_start_day', 'fsb_time_format', 'fsb_time_position'];
+            $opt_name = sanitize_text_field($_POST['opt_name'] ?? '');
+            $opt_val = sanitize_text_field($_POST['opt_val'] ?? '');
+
+            if (in_array($opt_name, $allowed_options)) {
+                // Write to a temporary transient, NOT the real wp_options table!
+                $sandbox_opts = get_transient('fsb_sandbox_options') ?: [];
+                $sandbox_opts[$opt_name] = $opt_val;
+                set_transient('fsb_sandbox_options', $sandbox_opts, HOUR_IN_SECONDS);
+
+                wp_send_json_success("Sandbox Shadow Option {$opt_name} set to {$opt_val}");
+            } else {
+                wp_send_json_error('Invalid option key for sandbox modification.');
+            }
             break;
 
         case 'run_scenario':
@@ -303,6 +344,9 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
 
         case 'cleanup':
             $runner->cleanup();
+
+            delete_transient('fsb_sandbox_options');
+
             wp_send_json_success();
             break;
     }
@@ -788,6 +832,7 @@ add_action('wp_ajax_nopriv_fsb_export_event', 'fsb_ajax_export_event');
 function fsb_ajax_export_event() {
     $event_id = intval($_GET['event_id'] ?? 0);
     if (!$event_id) wp_die('Invalid Event ID');
+    $site_domain = wp_parse_url(home_url(), PHP_URL_HOST);
 
     $repo = fsb_get_repo();
     $target_event = $repo->get($event_id);
@@ -829,7 +874,7 @@ function fsb_ajax_export_event() {
         $block = [];
         $block[] = "BEGIN:VEVENT";
         // Link all family members to the same core UID so the calendar knows they are related
-        $block[] = "UID:fsbhoa-family-{$ev->id}@fsbhoa.com";
+        $block[] = "UID:fsbhoa-family-{$ev->id}@{$site_domain}";
         $block[] = "DTSTAMP:{$now}";
         $block[] = "DTSTART:{$dtstart}";
         $block[] = "DTEND:{$dtend}";

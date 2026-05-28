@@ -631,9 +631,16 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
     modal.classList.add('is-visible');
 }
 
-// Helper to convert 24h DB time (14:30) to 12h display time (2:30 PM)
+// Helper to convert 24h DB time to the correct display format based on HOA settings
 function formatTimeAMPM(time24) {
-    if (!time24) return '12:00 AM';
+    if (!time24) return (window.fsb_config.time_format === '24hr') ? '00:00' : '12:00 AM';
+
+    // If the admin wants 24-hour time, just return the raw DB string!
+    if (window.fsb_config.time_format === '24hr') {
+        return time24;
+    }
+
+    // Otherwise, do the standard 12-hour math
     let [hours, minutes] = time24.split(':');
     hours = parseInt(hours, 10);
     const ampm = hours >= 12 ? 'PM' : 'AM';

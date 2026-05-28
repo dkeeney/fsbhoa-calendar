@@ -67,6 +67,7 @@ test.describe('Calendar Forms and Modals', () => {
         path: '/'
     }]);
 
+
     // NAVIGATE FIRST to load WordPress and grab the security Nonce!
     await page.goto('/calendar');
     await page.waitForFunction(() => typeof window.fsb_config !== 'undefined');
@@ -81,6 +82,10 @@ test.describe('Calendar Forms and Modals', () => {
             headers: { 'X-WP-Nonce': window.fsb_config.nonce }
         });
     });
+
+    // To confirm that the display format is decoupled from execution time.
+    //await setSandboxOption(page, 'fsb_time_format', '24hr');
+
 
     // Define DB state payload
     const fixtureData = {
@@ -423,6 +428,98 @@ test.describe('Calendar Forms and Modals', () => {
   });
 
   // =========================================================================
+  // TEST 2.4; Monday-Start, 31-Day Grid (Saturday 1st) - DOUBLE SPLIT
+  // =========================================================================
+  test('TEST 2.4; Grid Split day: Monday Start (Double Top Split)', async ({ page }) => {
+    console.log("\n========================================================");
+    console.log("TEST 2.4 -- Monday Start: Saturday 31-Day (Double Split)");
+    console.log("========================================================");
+    await setSandboxOption(page, 'fsb_start_day', '1');  // First Day of week: MONDAY
+    await page.goto('/calendar/');
+
+    let targets;
+    try {
+        targets = await calculateValidSplitHorizon(page, 1, 1); // Condition 1, Monday Start (1)
+    } catch (e) {
+        console.log("SKIPPED. " + e.message);
+        test.skip(true, 'No matching month condition in range.'); return;
+    }
+
+    await page.goto(`/calendar/?viewDate=${targets.viewMonthRoot}&pw_nocache=${Date.now()}`);
+    // Inject Monday setting and Re-render!
+    await page.evaluate(() => {
+        window.fsb_config.start_day = '1';
+        document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete');
+        window.render();
+    });
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    // A. Validate First Split (1 / 8) - Top Half
+    const parentCell1 = page.locator(`.calendar-day[data-date="${targets.topDay}"]`).first();
+    const topHalf1 = parentCell1.locator('.split-half-top').first();
+    await expect(topHalf1.locator('.day-number').first()).toHaveText(String(parseInt(targets.topDay.split('-')[2], 10)));
+
+    await topHalf1.hover({ position: { x: 10, y: 10 }, force: true });
+    await expect(topHalf1.locator('.add-event-plus').first()).toHaveCSS('visibility', 'visible');
+
+    // B. Validate Second Split (2 / 9) - Bottom Half
+    const parentCell2 = page.locator(`.calendar-day[data-date="${targets.topDay2}"]`).first();
+    const bottomHalf2 = parentCell2.locator('.split-half-bottom').first();
+    await expect(bottomHalf2.locator('.day-number').first()).toHaveText(String(parseInt(targets.bottomDay2.split('-')[2], 10)));
+
+    const box = await bottomHalf2.boundingBox();
+    await bottomHalf2.hover({ position: { x: box.width - 10, y: box.height - 10 }, force: true });
+    await expect(bottomHalf2.locator('.add-event-plus').first()).toHaveCSS('visibility', 'visible');
+  });
+
+  // =========================================================================
+  // TEST 2.5; Monday-Start, 30-Day Grid (Sunday 1st)
+  // =========================================================================
+  test('TEST 2.5; Grid Split day: Monday Start (Sunday 30-Day Split)', async ({ page }) => {
+    console.log("\n========================================================");
+    console.log("TEST 2.5 -- Monday Start: Sunday 30-Day Split");
+    console.log("========================================================");
+    await setSandboxOption(page, 'fsb_start_day', '1');  // First Day of week: MONDAY
+    await page.goto('/calendar/');
+    let targets;
+    try {
+        targets = await calculateValidSplitHorizon(page, 2, 1);
+    } catch (e) { test.skip(true, 'No matching month condition in range.'); return; }
+
+    await page.goto(`/calendar/?viewDate=${targets.viewMonthRoot}&pw_nocache=${Date.now()}`);
+    await page.evaluate(() => { window.fsb_config.start_day = '1'; document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete'); window.render(); });
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    const parentCell = page.locator(`.calendar-day[data-date="${targets.topDay}"]`).first();
+    const bottomHalf = parentCell.locator('.split-half-bottom').first();
+    await expect(bottomHalf.locator('.day-number').first()).toHaveText(String(parseInt(targets.bottomDay.split('-')[2], 10)));
+  });
+
+  // =========================================================================
+  // TEST 2.6; Monday-Start, 31-Day Grid (Sunday 1st)
+  // =========================================================================
+  test('TEST 2.6; Grid Split day: Monday Start (Sunday 31-Day Split)', async ({ page }) => {
+    console.log("\n========================================================");
+    console.log("TEST 2.6 -- Monday Start: Sunday 31-Day Split");
+    console.log("========================================================");
+    await setSandboxOption(page, 'fsb_start_day', '1');  // First Day of week: MONDAY
+    await page.goto('/calendar/');
+    let targets;
+    try {
+        targets = await calculateValidSplitHorizon(page, 3, 1);
+    } catch (e) { test.skip(true, 'No matching month condition in range.'); return; }
+
+    await page.goto(`/calendar/?viewDate=${targets.viewMonthRoot}&pw_nocache=${Date.now()}`);
+    await page.evaluate(() => { window.fsb_config.start_day = '1'; document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete'); window.render(); });
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    const parentCell = page.locator(`.calendar-day[data-date="${targets.topDay}"]`).first();
+    const topHalf = parentCell.locator('.split-half-top').first();
+    await expect(topHalf.locator('.day-number').first()).toHaveText(String(parseInt(targets.topDay.split('-')[2], 10)));
+  });
+
+
+  // =========================================================================
   // TEST 3: Day Modal Navigation & Split Cell Boundary Logic
   // =========================================================================
   test('TEST 3: Day Modal Navigation & Split Cell Boundary Logic', async ({ page }) => {
@@ -758,62 +855,74 @@ test.describe('Calendar Forms and Modals', () => {
     await page.goto(`/calendar/?viewDate=${NEXT_MONTH_URL_PARAM}&pw_nocache=${Date.now()}`);
     await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
 
-    // Capture the numeric master ID before we start modifying the grid
     const masterId = await page.evaluate(() => {
       const ev = window.allEvents.find(e => e.title === "Simple Series");
       return ev.id.toString().split('_')[0];
     });
 
-    // 1. Identify Source and Target
     const sourceCell = page.locator(`.calendar-day[data-date="${RECURRING_EVENT_DATE}"]`).first();
     const chip = sourceCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     await expect(chip).toBeVisible();
 
+    // ========================================================
+    // THE DIAGNOSTIC INTERROGATION
+    // ========================================================
+    const domStartTime = await chip.getAttribute('data-event-start-time');
+    console.log(`[DIAGNOSTIC] DOM Attribute 'data-event-start-time' reads: "${domStartTime}"`);
+
+    const memoryEvent = await page.evaluate((tgtDate) => {
+        return window.allEvents.find(e => e.title === "Simple Series" && e.date === tgtDate);
+    }, RECURRING_EVENT_DATE);
+
+    if (memoryEvent) {
+        console.log(`[DIAGNOSTIC] JSON Memory Event 'start_time' reads: "${memoryEvent.start_time}"`);
+        console.log(`[DIAGNOSTIC] JSON Memory Event 'start_fmt' reads: "${memoryEvent.start_fmt}"`);
+    } else {
+        console.log(`[DIAGNOSTIC] CRITICAL: Event not found in window.allEvents for date ${RECURRING_EVENT_DATE}`);
+    }
+    // ========================================================
+
     const targetCell = page.locator(`.calendar-day[data-date="${EMPTY_DAY_DATE}"]`).first();
 
-    // 2. Execute Native HTML5 Drag
+    // 1. Execute First Move
     await forceDrag(chip, targetCell, false);
 
-    // 3. VERIFY UI: The chip must exist in the new cell AND be removed from the old cell
     const movedChip = targetCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     await expect(movedChip).toBeVisible({ timeout: 10000 });
-
-    // Ensure the original source cell is now empty of this event
     await expect(sourceCell.locator('.event-item').filter({ hasText: 'Simple Series' })).toHaveCount(0);
 
-    // 4. VERIFY DB: The master should have exactly 2 child records (1 Hole, 1 Move)
+    // 2. Fetch DB State
     let dbState = await page.evaluate(async (mId) => {
-      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}&cb=${Date.now()}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
       return (await res.json()).data.db_state;
     }, masterId);
 
     expect(dbState.children.length).toBe(2);
 
-    // Isolate and verify the specific record types
-    // NOTE: Adjust 'status' or 'type' below to match your actual database column names for exceptions!
     const holeRecord = dbState.children.find(c => c.status === 'cancelled' || c.status === 'hole');
     const moveRecord = dbState.children.find(c => c.status === 'active' || c.status === 'move');
 
     expect(holeRecord).toBeDefined();
     expect(moveRecord).toBeDefined();
-    console.log(`[DB TRACE] Move successful. Found 1 Hole (${holeRecord.start_date}) and 1 Move (${moveRecord.start_date}).`);
+    console.log(`[DB TRACE] Move successful. Found 1 Hole (${holeRecord.start_datetime}) and 1 Move (${moveRecord.start_datetime}).`);
 
-    // 5. The Boomerang: Drag it back to its original origin
+    // 3. The Boomerang
     await forceDrag(movedChip, sourceCell, false);
 
-    // VERIFY UI: It returned home and vacated the target cell
     await expect(sourceCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first()).toBeVisible({ timeout: 10000 });
     await expect(targetCell.locator('.event-item').filter({ hasText: 'Simple Series' })).toHaveCount(0);
 
-    // 6. VERIFY DB: The boomerang should have deleted the exceptions, leaving 0 children
+    // 4. Fetch DB State
     dbState = await page.evaluate(async (mId) => {
-      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}&cb=${Date.now()}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
       return (await res.json()).data.db_state;
     }, masterId);
 
     expect(dbState.children.length).toBe(0);
     console.log(`[DB TRACE] Boomerang successful. Master restored. Child exceptions: ${dbState.children.length}`);
   });
+
+
 
 
 
@@ -1286,7 +1395,90 @@ test.describe('Calendar Forms and Modals', () => {
     console.log(`[DB TRACE] Pivot overridden in-place successfully. Expected 1 child, found 1.`);
   });
 
+
+
+  // =========================================================================
+  // TEST 20: 24-Hour Time Formatting
+  // =========================================================================
+  test('TEST 20: 24-Hour Time Formatting', async ({ page }) => {
+    console.log("\n========================================================");
+    console.log("TEST 20 -- 24 Hour Formatting");
+    console.log("========================================================");
+    await page.goto('/calendar/');
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    // 1. USE THE NEW HELPER: Set 24-hour mode
+    await setSandboxOption(page, 'fsb_time_format', '24hr');
+
+    // 2. Inject the dummy event and re-render
+    await page.evaluate(() => {
+        const year = window.currentYear;
+        const month = String(window.currentMonth + 1).padStart(2, '0');
+        const dynamicDate = `${year}-${month}-15`;
+
+        window.allEvents.push({
+            id: 9999, instance_id: 9999, date: dynamicDate,
+            title: 'Military Time Test', start_datetime: `${dynamicDate} 14:00:00`,
+            start_fmt: '14:00', end_fmt: '15:00', cat_color: '#3498db'
+        });
+        
+        document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete');
+        window.render();
+    });
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    const eventText = await page.evaluate(() => {
+        const ev = Array.from(document.querySelectorAll('.event-item')).find(el => el.textContent.includes('Military Time Test'));
+        return ev ? ev.textContent.trim() : null;
+    });
+
+    expect(eventText).toBeDefined();
+    expect(eventText).toContain('14:00'); // Should not be stripped to "14"
+  });
+
+
+  // =========================================================================
+  // TEST 21: First Day of Week Shift & Boundary Safety
+  // =========================================================================
+  test('TEST 21: First Day of Week Shift & Boundary Safety', async ({ page }) => {
+    console.log("\n========================================================");
+    console.log("TEST 21 -- Day Shift Safety");
+    console.log("========================================================");
+
+    const stdMonth = await findNonSplitMonth();
+    await page.goto(`/calendar/?viewDate=${stdMonth.viewMonthRoot}`);
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    // 1. Find position among ALL grid cells (including empty padding)
+    let firstCellIndex = await page.evaluate((tgt) => {
+        const cells = Array.from(document.querySelectorAll('#calendar-grid .calendar-day'));
+        return cells.findIndex(c => c.dataset.date === tgt);
+    }, stdMonth.firstDay);
+
+    // 2. Inject Monday Start setting
+    await setSandboxOption(page, 'fsb_start_day', '1');
+
+    await page.evaluate(() => {
+        document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete');
+        window.render();
+    });
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    // 3. Find position again to verify shift
+    let shiftedCellIndex = await page.evaluate((tgt) => {
+        const cells = Array.from(document.querySelectorAll('#calendar-grid .calendar-day'));
+        return cells.findIndex(c => c.dataset.date === tgt);
+    }, stdMonth.firstDay);
+
+    // If Sunday start was index 5, Monday start must shift to index 4.
+    const expectedShift = (firstCellIndex === 0) ? 6 : firstCellIndex - 1;
+    expect(shiftedCellIndex).toBe(expectedShift);
+  });
+
 });
+
+
+
 
 /********************************************
  *     Helper functions
@@ -1295,13 +1487,22 @@ test.describe('Calendar Forms and Modals', () => {
 /**
  * Dynamically computes the target test dates for split-grid variations
  * strictly bounded by the live compiler time window.
+ * supports both Sunday (0) and Monday (1) start settings.
+ * First day of week Sunday:
+ *   1st is Friday,   31 days -- Split 24/31 (lower left)
+ *   1st is Saturday, 30 days -- Split 23/30 (lower left)
+ *   1st is Saturday, 31 days -- Split 1/8 (upper right)
+ * First day of week Monday:
+ *   1st is Saturday, 31 days -- Split 1/8 AND Split 2/9 (upper right)
+ *   1st is Sunday,   30 days -- Split 1/8 (upper right)
+ *   1st is Sunday,   31 days -- Split 1/8 (upper right)
  * 
  * @param {Page} page - Playwright page context instance
  * @param {number} condition - 1, 2, or 3
+ * @param {number} startDaySetting - 0 for Sunday start, 1 for Monday start
  * @returns {Promise<{viewMonthRoot: string, topDay: string, bottomDay: string}>}
  */
-async function calculateValidSplitHorizon(page, condition) {
-    // Extract raw timestamp limits exactly as determined by WordPress options
+async function calculateValidSplitHorizon(page, condition, startDaySetting = 0) {
     const bounds = await page.evaluate(() => {
         return {
             min: window.fsbMinTime ? window.fsbMinTime : Date.now(),
@@ -1312,7 +1513,6 @@ async function calculateValidSplitHorizon(page, condition) {
     const minDate = new Date(bounds.min);
     const maxDate = new Date(bounds.max);
 
-    // Convert timestamps to comparable structural integers (e.g., 202604 for April 2026)
     const minMonthKey = (minDate.getFullYear() * 12) + minDate.getMonth();
     const maxMonthKey = (maxDate.getFullYear() * 12) + maxDate.getMonth();
 
@@ -1326,63 +1526,64 @@ async function calculateValidSplitHorizon(page, condition) {
         const startDayOfWeek = testDate.getDay(); // 0 = Sunday, 6 = Saturday
         const totalDays = new Date(y, m + 1, 0).getDate();
         const monthStr = String(m + 1).padStart(2, '0');
-        //console.log(`[MATRIX LOG] Checking ${y}-${m+1}: StartDay=${startDayOfWeek}, Days=${totalDays}`);
 
-        // Condition 1: Friday-start, 31 Days (Crunches 24 and 31)
-        if (condition === 1 && totalDays === 31 && startDayOfWeek === 5) {
-            return {
-                viewMonthRoot: `${y}-${monthStr}-01`,
-                topDay: `${y}-${monthStr}-24`,
-                bottomDay: `${y}-${monthStr}-31`
-            };
+        if (startDaySetting === 0) {
+            // SUNDAY START CONDITIONS
+            if (condition === 1 && totalDays === 31 && startDayOfWeek === 5) {
+                return { viewMonthRoot: `${y}-${monthStr}-01`, topDay: `${y}-${monthStr}-24`, bottomDay: `${y}-${monthStr}-31` };
+            }
+            if (condition === 2 && totalDays === 30 && startDayOfWeek === 6) {
+                return { viewMonthRoot: `${y}-${monthStr}-01`, topDay: `${y}-${monthStr}-23`, bottomDay: `${y}-${monthStr}-30` };
+            }
+            if (condition === 3 && totalDays === 31 && startDayOfWeek === 6) {
+                return { viewMonthRoot: `${y}-${monthStr}-01`, topDay: `${y}-${monthStr}-01`, bottomDay: `${y}-${monthStr}-08` };
+            }
+        } else if (startDaySetting === 1) {
+            // MONDAY START CONDITIONS
+            if (condition === 1 && totalDays === 31 && startDayOfWeek === 6) {
+                // This is the Double Split! (1/8 AND 2/9)
+                return {
+                    viewMonthRoot: `${y}-${monthStr}-01`,
+                    topDay: `${y}-${monthStr}-01`, bottomDay: `${y}-${monthStr}-08`,
+                    topDay2: `${y}-${monthStr}-02`, bottomDay2: `${y}-${monthStr}-09`
+                };
+            }
+            if (condition === 2 && totalDays === 30 && startDayOfWeek === 0) {
+                return { viewMonthRoot: `${y}-${monthStr}-01`, topDay: `${y}-${monthStr}-01`, bottomDay: `${y}-${monthStr}-08` };
+            }
+            if (condition === 3 && totalDays === 31 && startDayOfWeek === 0) {
+                return { viewMonthRoot: `${y}-${monthStr}-01`, topDay: `${y}-${monthStr}-01`, bottomDay: `${y}-${monthStr}-08` };
+            }
         }
-
-        // Condition 2: Saturday-start, 30 Days (Crunches 23 and 30)
-        if (condition === 2 && totalDays === 30 && startDayOfWeek === 6) {
-            return {
-                viewMonthRoot: `${y}-${monthStr}-01`,
-                topDay: `${y}-${monthStr}-23`,
-                bottomDay: `${y}-${monthStr}-30`
-            };
-        }
-
-        // Condition 3: Saturday-start, 31 Days (Crunches 1 and 8)
-        if (condition === 3 && totalDays === 31 && startDayOfWeek === 6) {
-            return {
-                viewMonthRoot: `${y}-${monthStr}-01`,
-                topDay: `${y}-${monthStr}-01`,
-                bottomDay: `${y}-${monthStr}-08`
-            };
-        }
-
         currentMonthKey++;
     }
-
     throw new Error(`Not Found, skipped`);
 }
 
 // =========================================================================
 // Helper: Find any month with NO splits, in the future (Standard Month)
-// @returns {Promise<{viewMonthRoot: string, firstDay: string, midDay: string}, lastDay: string>}
 // =========================================================================
 async function findNonSplitMonth() {
     const today = new Date();
     const startMonthKey = (today.getFullYear() * 12) + today.getMonth() + 1;
     let currentMonthKey = startMonthKey;
-    while (currentMonthKey < startMonthKey + 12) {
+    while (currentMonthKey < startMonthKey + 24) { // Look ahead 2 years to be safe
         const y = Math.floor(currentMonthKey / 12);
         const m = currentMonthKey % 12;
         const testDate = new Date(y, m, 1);
         const startDayOfWeek = testDate.getDay();
         const totalDays = new Date(y, m + 1, 0).getDate();
-        
-        // Check if it matches any split condition
-        const isCond1 = (startDayOfWeek === 5 && totalDays === 31);
-        const isCond2 = (startDayOfWeek === 6 && totalDays === 30);
-        const isCond3 = (startDayOfWeek === 6 && totalDays === 31);
-        
-        // If it triggers NONE of the splits, it's a perfect standard month!
-        if (!isCond1 && !isCond2 && !isCond3) {
+
+        // Check if it triggers ANY of the 6 possible split conditions
+        const isSun1 = (startDayOfWeek === 5 && totalDays === 31);
+        const isSun2 = (startDayOfWeek === 6 && totalDays === 30);
+        const isSun3 = (startDayOfWeek === 6 && totalDays === 31);
+        const isMon1 = (startDayOfWeek === 6 && totalDays === 31);
+        const isMon2 = (startDayOfWeek === 0 && totalDays === 30);
+        const isMon3 = (startDayOfWeek === 0 && totalDays === 31);
+
+        // If it triggers NONE of the splits, it's a perfect universal standard month!
+        if (!isSun1 && !isSun2 && !isSun3 && !isMon1 && !isMon2 && !isMon3) {
             const monthStr = String(m + 1).padStart(2, '0');
             return {
                 viewMonthRoot: `${y}-${monthStr}-01`,
@@ -1393,8 +1594,9 @@ async function findNonSplitMonth() {
         }
         currentMonthKey++;
     }
-    throw new Error("No standard month found within next 12 months.");
+    throw new Error("No standard month found within next 24 months.");
 }
+
 
 //  =========================================================================
 //  Helper: Create a non-repeating event on this day, at default time.
@@ -1527,4 +1729,33 @@ async function getNthInstanceDate(page, eventId, n) {
         return result.data.date;
     }, { eId: eventId, index: n });
 }
+
+
+/**
+ * Synchronizes a setting change across BOTH the backend Shadow State and the frontend config.
+ * * @param {Page} page - Playwright page context instance
+ * @param {string} optName - The WordPress option key (e.g., 'fsb_start_day')
+ * @param {string} optVal - The new value (e.g., '1')
+ */
+async function setSandboxOption(page, optName, optVal) {
+    await page.evaluate(async ({ name, val }) => {
+        // 1. Tell the PHP Backend to update the Shadow State
+        const fd = new FormData();
+        fd.append('action', 'fsb_run_regression_step');
+        fd.append('step', 'set_option');
+        fd.append('opt_name', name);
+        fd.append('opt_val', val);
+
+        await fetch(window.fsb_config.ajax_url, {
+            method: 'POST', body: fd, headers: { 'X-WP-Nonce': window.fsb_config.nonce }
+        });
+
+        // 2. Tell the JavaScript frontend to update its active configuration
+        // Maps 'fsb_start_day' -> 'start_day', 'fsb_time_format' -> 'time_format'
+        const jsConfigKey = name.replace('fsb_', '');
+        window.fsb_config[jsConfigKey] = val;
+
+    }, { name: optName, val: optVal });
+}
+
 

@@ -701,6 +701,7 @@ class Repository {
         $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_events");
         $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_categories");
         $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_locations");
+
     }
 
     /**

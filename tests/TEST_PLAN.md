@@ -170,8 +170,29 @@ So this can reduce down to a test that can evaluate the render of both upper and
 
 ### TEST 19: "In-Place" Pivot Override
 In previous tests we proved that maybe_pivot_series updates a Master record in-place if you edit the first instance. We should prove that it does the exact same thing if you edit the first instance of an active Pivot.
-*    **Action:** Seed a Master, then seed a Pivot branching off of it. Target the exact start_datetime of the Pivot.
+*   **Action:** Seed a Master, then seed a Pivot branching off of it. Target the exact start_datetime of the Pivot.
 *   **Assert:** The database maintains exactly 1 child (the pivot is updated in-place), rather than spawning a 2nd child.
+
+
+### TEST 20: 24-Hour Time Formatting
+Confirm that the time display on all screens can switch from 12 to 24 hr display.
+*   **Action:** In options settings, switch from the default 12 hr time display format to 24 hr format.
+*   **Assert:** Confirm that the time display on the following screens change to 24 hr time.
+    * On the Monthly Grid (confirm both time before and time after, the title.  Both with and without hover on normal, upper split and lower split cells.
+    * On the Edit Modal screen.
+    * On the Reschedule modal.
+    * On the Day Modal screen.
+    * On the Detail Modal screen.
+    * On the Agenda mode list.
+    * On the Event Audit Log.
+    * On the print preview screen.
+
+### TEST 21: First Day of Week
+Confirm that the first day of week changes from Sunday to Monday.
+*   **Action:** On the options setting, switch from the default Sunday as first day, to Monday.
+*   **Assert:** Confirm the first day of the week switches from Sunday to Monday on the monthly Grid.
+    * Note that day of week headings will not change because they are set by the user in Canva.
+    * Confirm that The correct days are now in the split cells.
 
 ---
 

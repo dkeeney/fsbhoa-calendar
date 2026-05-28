@@ -73,7 +73,7 @@ class TestRunner {
 
     public function cleanup() {
         // 1. Delegate database wiping to the Repository
-        $this->repo->cleanup_test_tables();
+        $this->repo->cleanup_test_tables($this->test_prefix);
 
         // Clean up the physical test JSON file
         if (file_exists($this->json_path)) {

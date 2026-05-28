@@ -476,87 +476,116 @@ function renderMonthGrid(monthlyApp) {
         String(now.getMonth() + 1).padStart(2, '0'),
         String(now.getDate()).padStart(2, '0')
     ].join('-');
-    //const todayStr = "2026-05-26"; // Pretend today is May 26th
-    //const todayStr = "2026-08-04"; // Pretend today is August 4th
 
-
-    //console.log("Today: ", todayStr);
-
-    let firstDay = new Date(year, month, 1).getDay();
+    const rawFirstDay = new Date(year, month, 1).getDay(); // 0-6 (Sun-Sat)
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startOffset = parseInt(window.fsb_config.start_day) || 0; // 0=Sun, 1=Mon
 
-    const isSatStart31 = (firstDay === 6 && daysInMonth === 31);
+    // 1. DETERMINE THE CALENDAR STATE
+    let mode = 'standard';
+    if (startOffset === 0) { // SUNDAY START
+        if (rawFirstDay === 5 && daysInMonth === 31) mode = 'bottom_left_single'; // Fri 31 -> 24/31
+        else if (rawFirstDay === 6 && daysInMonth === 30) mode = 'bottom_left_single'; // Sat 30 -> 23/30
+        else if (rawFirstDay === 6 && daysInMonth === 31) mode = 'top_right_single'; // Sat 31 -> 1/8
+    } else { // MONDAY START
+        if (rawFirstDay === 6 && daysInMonth === 31) mode = 'top_right_double'; // Sat 31 -> 1/8 & 2/9
+        else if (rawFirstDay === 0 && daysInMonth === 30) mode = 'top_right_single'; // Sun 30 -> 1/8
+        else if (rawFirstDay === 0 && daysInMonth === 31) mode = 'top_right_single'; // Sun 31 -> 1/8
+    }
 
+    // 2. BUILD THE BLUEPRINT (35 cells)
+    let cells = new Array(35).fill(null);
+    let offset = (rawFirstDay - startOffset + 7) % 7;
+
+    if (mode === 'bottom_left_single') {
+        let topDay = (daysInMonth === 31) ? 24 : 23;
+        cells[28] = { type: 'split', top: topDay, bot: daysInMonth };
+        for (let d = 1; d <= daysInMonth; d++) {
+            if (d === topDay || d === daysInMonth) continue;
+            cells[offset + d - 1] = { type: 'normal', day: d };
+        }
+    }
+    else if (mode === 'top_right_single') {
+        cells[6] = { type: 'split', top: 1, bot: 8 };
+        let d = 2;
+        for (let i = 0; i < 35; i++) {
+            if (i === 6) continue;
+            if (d === 8) d++;
+            if (d <= daysInMonth) {
+                cells[i] = { type: 'normal', day: d };
+                d++;
+            }
+        }
+    }
+    else if (mode === 'top_right_double') {
+        cells[5] = { type: 'split', top: 1, bot: 8 };
+        cells[6] = { type: 'split', top: 2, bot: 9 };
+        let d = 3;
+        for (let i = 0; i < 35; i++) {
+            if (i === 5 || i === 6) continue;
+            if (d === 8 || d === 9) d++;
+            if (d <= daysInMonth) {
+                cells[i] = { type: 'normal', day: d };
+                d++;
+            }
+        }
+    }
+    else { // STANDARD
+        for (let d = 1; d <= daysInMonth; d++) {
+            cells[offset + d - 1] = { type: 'normal', day: d };
+        }
+    }
+
+    // 3. RENDER THE BLUEPRINT
     const appEl = document.getElementById('fsb-calendar-app');
     if (appEl) {
         appEl.setAttribute('data-view-year', year);
-        appEl.setAttribute('data-view-month', month + 1); // 1-indexed for simple validation
+        appEl.setAttribute('data-view-month', month + 1);
+        if (mode !== 'standard') appEl.setAttribute('data-has-split-cell', 'true');
+        else appEl.removeAttribute('data-has-split-cell');
     }
 
     grid.innerHTML = '';
 
     for (let i = 0; i < 35; i++) {
-        let dayNum;
+        const cellData = cells[i];
 
-        // --- AUGUST 2026 (SATURDAY START 31 DAYS) ---
-        if (isSatStart31) {
-            if (i < 6) {
-                // Sunday (0) to Friday (5) are Aug 2 to Aug 7
-                dayNum = i + 2;
-            } else if (i === 6) {
-                // Saturday (6) is the 1 / 8 Split
-                grid.innerHTML += renderSplitCell(year, month, 1, 8, todayStr);
-                continue;
-            } else {
-                // From Index 7 (Sunday) onwards, we are at Aug 9, 10, etc.
-                // i=7 + 2 = 9. Perfect.
-                dayNum = i + 2;
-            }
-        } else {
-            // --- STANDARD MONTHS ---
-            dayNum = i - firstDay + 1;
-
-            // Handle standard Sunday splits (30-day Sat starts or 31-day Fri starts)
-            const isSatStart30 = (firstDay === 6 && daysInMonth === 30);
-            const isFriStart31 = (firstDay === 5 && daysInMonth === 31);
-
-            if (i === 28 && ((isSatStart30 && dayNum === 23) || (isFriStart31 && dayNum === 24))) {
-                // Expose cell split flags and coordinates to Playwright
-                monthlyApp.setAttribute('data-has-split-cell', 'true');
-                monthlyApp.setAttribute('data-split-cell-index', i);
-                monthlyApp.setAttribute('data-split-cell-trigger-day', dayNum);
-
-                grid.innerHTML += renderSplitCell(year, month, dayNum, dayNum + 7, todayStr);
-                continue;
-            }
-        }
-
-        // --- RENDER DAY ---
-        if (dayNum > 0 && dayNum <= daysInMonth) {
-            const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(dayNum).padStart(2,'0')}`;
-            const isPast = dateStr < todayStr;
-            const isToday = new Date().toDateString() === new Date(year, month, dayNum).toDateString();
-            const dayEvents = allEvents.filter(e => e.date === dateStr);
-            const bars = dayEvents.filter(e => !iconLibrary[e.category_id]);
-            const icons = dayEvents.filter(e => iconLibrary[e.category_id]);
-
-            grid.innerHTML += `
-                <div class="calendar-day day-content ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}" 
-                        data-date="${dateStr}"
-                        onclick="openDayModal('${dateStr}')">
-                    <div class="day-top">
-                        <div class="day-number">${dayNum}</div>
-                        <div class="day-icons-corner">${renderIcons(icons, dateStr)}</div>
-                        ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateStr}')">+</div>` : ''}
-                    </div>
-                    <div class="day-events">${renderEvents(bars)}</div>
-                </div>`;
-        } else {
+        if (!cellData) {
             grid.innerHTML += '<div class="calendar-day empty"></div>';
+            continue;
         }
+
+        if (cellData.type === 'split') {
+            monthlyApp.setAttribute('data-split-cell-index', i);
+            grid.innerHTML += renderSplitCell(year, month, cellData.top, cellData.bot, todayStr);
+            continue;
+        }
+
+        // Standard Normal Day
+        const d = cellData.day;
+        const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+        const isPast = dateStr < todayStr;
+        const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
+        const dayEvents = allEvents.filter(e => e.date === dateStr);
+        const bars = dayEvents.filter(e => !iconLibrary[e.category_id]);
+        const icons = dayEvents.filter(e => iconLibrary[e.category_id]);
+
+        grid.innerHTML += `
+            <div class="calendar-day day-content ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}"
+                    data-date="${dateStr}"
+                    onclick="openDayModal('${dateStr}')">
+                <div class="day-top">
+                    <div class="day-number">${d}</div>
+                    <div class="day-icons-corner">${renderIcons(icons, dateStr)}</div>
+                    ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateStr}')">+</div>` : ''}
+                </div>
+                <div class="day-events">${renderEvents(bars)}</div>
+            </div>`;
     }
+
     monthlyApp.setAttribute('data-render-complete', 'true');
 }
+
 
 
 
@@ -843,7 +872,7 @@ function renderFlyerThumb(eventObj) {
             thumbSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
         } catch (err) {
             // fallback favicon
-            thumbSrc = `https://www.google.com/s2/favicons?domain=fsbhoa.com&sz=128`;
+            thumbSrc = `https://www.google.com/s2/favicons?domain=${window.location.hostname}&sz=128`;
         }
     }
 
@@ -992,9 +1021,9 @@ function renderEvents(events) {
         const canEdit = config.isAdmin || (e.owner_email && e.owner_email === config.userEmail);
 
         // Smart Time Logic (e.g., "9a" or "9:30p")
-        let timeStr = '';
-        if (e.start_fmt) {
-            timeStr = e.start_fmt.toLowerCase().replace(':00', '').replace(' ', '');
+        let timeStr = e.start_fmt || '';
+        if (timeStr && window.fsb_config.time_format !== '24hr') {
+            timeStr = timeStr.toLowerCase().replace(':00', '').replace(' ', '');
         }
 
         let combinedTitle = '';

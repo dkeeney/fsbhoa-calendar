@@ -253,6 +253,12 @@ class Compiler {
     private function newRRule($rrule_str, $anchor) {
         // 1. Clean the string to get JUST the parts (FREQ=WEEKLY;BYDAY=MO...)
         $clean_rule = trim(str_ireplace('RRULE:', '', $rrule_str));
+        $start_day_setting = get_option('fsb_start_day', '0');
+        $wkst = ($start_day_setting === '1') ? 'WKST=MO' : 'WKST=SU';
+
+        if (strpos($clean_rule, 'WKST=') === false) {
+            $clean_rule .= ';' . $wkst;
+        }
     
         // 2. Parse the semicolon string into a PHP array
         $parts = [];
@@ -292,6 +298,8 @@ class Compiler {
             return [];
         }
         $title =  $master->title;
+        $time_format = get_option('fsb_time_format', '12hr');
+        $php_time_str = ($time_format === '24hr') ? 'H:i' : 'g:i A';
 
         $instance = [
             'id'           => $master->id,
@@ -303,10 +311,10 @@ class Compiler {
             'category_id'  => $master->category_id,
 
             'date'         => $start_dt->format('Y-m-d'),  //YYYY-MM-DD
-            'start_fmt'    => $start_dt->format('g:i A'),  // e.g. 1:30 PM
-            'end_fmt'      => $end_dt->format('g:i A'),    // e.g. 2:30 PM
-            'start_time'   => $start_dt->format('H:i'),    // e.g. 13:30
-            'end_time'     => $end_dt->format('H:i'),      // e.g. 14:30
+            'start_time'   => $start_dt->format('H:i'),    // Always 24hr for internal JS/Math
+            'end_time'     => $end_dt->format('H:i'),      // Always 24hr for internal JS/Math
+            'start_fmt'    => $start_dt->format($php_time_str),
+            'end_fmt'      => $end_dt->format($php_time_str),
             'sort_key'     => $start_dt->format('Y-m-d H:i:s'), // YYYY-MM-DD HH:MM:SS
 
             'status'       => $master->status ?? 'active',

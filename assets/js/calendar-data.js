@@ -1,90 +1,79 @@
 // calendar-data.js
 //
 function buildMonthLayout(year, month) {
-    const firstDay = new Date(year, month, 1).getDay();   // 0 = Sun
+    const rawFirstDay = new Date(year, month, 1).getDay(); // 0 = Sun
     const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const startOffset = parseInt(window.fsb_config.start_day) || 0; // 0=Sun, 1=Mon
 
-    const isSatStart31 = (firstDay === 6 && daysInMonth === 31);
-    const isSatStart30 = (firstDay === 6 && daysInMonth === 30);
-    const isFriStart31 = (firstDay === 5 && daysInMonth === 31);
+    let mode = 'standard';
+    if (startOffset === 0) { // SUNDAY START
+        if (rawFirstDay === 5 && daysInMonth === 31) mode = 'bottom_left_single';
+        else if (rawFirstDay === 6 && daysInMonth === 30) mode = 'bottom_left_single';
+        else if (rawFirstDay === 6 && daysInMonth === 31) mode = 'top_right_single';
+    } else { // MONDAY START
+        if (rawFirstDay === 6 && daysInMonth === 31) mode = 'top_right_double';
+        else if (rawFirstDay === 0 && daysInMonth === 30) mode = 'top_right_single';
+        else if (rawFirstDay === 0 && daysInMonth === 31) mode = 'top_right_single';
+    }
 
     let dayArray = new Array(32).fill(null);
     let cellArray = new Array(35).fill(null).map(() => ({ top: null, bottom: null }));
+    let offset = (rawFirstDay - startOffset + 7) % 7;
 
-
-    //
-    // CASE 1 — August 2026 (Saturday start, 31 days)
-    //          Split cell 6 (day 1 & 8)
-    //
-    if (isSatStart31) {
-        // Fill days 2–30 normally to cells 0-5.
-        for (let d = 2; d <= 7; d++) {
-            dayArray[d] = d - 2; 
-            cellArray[d - 2] = { top: d, bottom: null };
+    if (mode === 'bottom_left_single') {
+        let topDay = (daysInMonth === 31) ? 24 : 23;
+        cellArray[28] = { top: topDay, bottom: daysInMonth };
+        dayArray[topDay] = 28;
+        dayArray[daysInMonth] = 28;
+        for (let d = 1; d <= daysInMonth; d++) {
+            if (d === topDay || d === daysInMonth) continue;
+            cellArray[offset + d - 1] = { top: d, bottom: null };
+            dayArray[d] = offset + d - 1;
         }
-
-        // split: cell 6 → days 1 and 8
+    }
+    else if (mode === 'top_right_single') {
         cellArray[6] = { top: 1, bottom: 8 };
         dayArray[1] = 6;
         dayArray[8] = 6;
-
-        // Fills days 9-31 into cells 7 to 29.
-        for (let d = 9; d <= 31; d++) {
-            dayArray[d] = d - 2;
-            cellArray[d - 2] = { top: d, bottom: null };
-        }
-
-
-        return {
-            year,
-            month,
-            dayArray,
-            cellArray,
-            firstDay,
-            daysInMonth
-        };
-    }
-
-    //
-    // CASE 2 — Standard months
-    //
-    for (let i = 0; i < 35; i++) {
-        const dayNum = i - firstDay + 1;
-        if (dayNum >= 1 && dayNum <= daysInMonth) {
-            dayArray[dayNum] = i;   // day → cell index
-            cellArray[i] = { top: dayNum, bottom: null};
+        let d = 2;
+        for (let i = 0; i < 35; i++) {
+            if (i === 6) continue;
+            if (d === 8) d++;
+            if (d <= daysInMonth) {
+                cellArray[i] = { top: d, bottom: null };
+                dayArray[d] = i;
+                d++;
+            }
         }
     }
-
-    //
-    // Standard split-day logic
-    //
-    // Split always occurs at index 28
-    //
-    if (isSatStart30) {
-        // 30-day month starting on Saturday → split 23 / 30
-        cellArray[28] = { top: 23, bottom: 30};
-        dayArray[23] = 28;
-        dayArray[30] = 28;
+    else if (mode === 'top_right_double') {
+        cellArray[5] = { top: 1, bottom: 8 };
+        dayArray[1] = 5;
+        dayArray[8] = 5;
+        cellArray[6] = { top: 2, bottom: 9 };
+        dayArray[2] = 6;
+        dayArray[9] = 6;
+        let d = 3;
+        for (let i = 0; i < 35; i++) {
+            if (i === 5 || i === 6) continue;
+            if (d === 8 || d === 9) d++;
+            if (d <= daysInMonth) {
+                cellArray[i] = { top: d, bottom: null };
+                dayArray[d] = i;
+                d++;
+            }
+        }
+    }
+    else { // STANDARD
+        for (let d = 1; d <= daysInMonth; d++) {
+            cellArray[offset + d - 1] = { top: d, bottom: null };
+            dayArray[d] = offset + d - 1;
+        }
     }
 
-    if (isFriStart31) {
-        // 31-day month starting on Friday → split 24 / 31
-        cellArray[28] = { top: 24, bottom: 31};
-        dayArray[24] = 28;
-        dayArray[31] = 28;
-
-    }
-
-    return {
-        year,
-        month,
-        dayArray,
-        cellArray,
-        firstDay,
-        daysInMonth
-    };
+    return { year, month, dayArray, cellArray, firstDay: rawFirstDay, daysInMonth };
 }
+
 
 
 

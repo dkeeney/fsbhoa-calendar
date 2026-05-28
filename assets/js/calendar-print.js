@@ -383,10 +383,10 @@ function renderPrintEvents(eventLayout) {
 
 
 
-            // Smart Time Logic (e.g., "9a" or "9:30p")
-            let timeStr = '';
-            if (ev.start_fmt) {
-                timeStr = ev.start_fmt.toLowerCase().replace(':00', '').replace(' ', '');
+            // Smart Time Logic (e.g., "9a" or "9:30p" or "14:00")
+            let timeStr = ev.start_fmt || '';
+            if (timeStr && window.fsb_config.time_format !== '24hr') {
+                timeStr = timeStr.toLowerCase().replace(':00', '').replace(' ', '');
             }
 
             let combinedTitle = '';

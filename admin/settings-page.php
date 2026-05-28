@@ -17,6 +17,8 @@ add_action('admin_init', function() {
     register_setting('fsb_cal_settings_group', 'fsb_cal_past_months');
     register_setting('fsb_cal_settings_group', 'fsb_cal_future_months');
     register_setting('fsb_cal_settings_group', 'fsb_time_position');
+    register_setting('fsb_cal_settings_group', 'fsb_time_format');
+    register_setting('fsb_cal_settings_group', 'fsb_start_day');
     register_setting('fsb_cal_settings_group', 'fsb_cal_json_path');
 });
 
@@ -78,6 +80,8 @@ function fsb_render_settings_manager() {
     $past_val    = get_option('fsb_cal_past_months', 1);
     $future_val  = get_option('fsb_cal_future_months', 12);
     $time_pos    = get_option('fsb_time_position', 'prepend');
+    $time_format = get_option('fsb_time_format', '12hr');
+    $start_day   = get_option('fsb_start_day', '0');
     $json_path   = get_option('fsb_cal_json_path');
     ?>
     <div class="wrap">
@@ -108,6 +112,25 @@ function fsb_render_settings_manager() {
             <div style="background:#fff; padding:20px; border:1px solid #ccc; margin-top:20px; border-radius:4px;">
                 <h3>Display Preferences</h3>
                 <table class="form-table">
+                    <tr>
+                        <th scope="row">Calendar Start Day:</th>
+                        <td>
+                            <select name="fsb_start_day">
+                                <option value="0" <?php selected($start_day, '0'); ?>>Sunday</option>
+                                <option value="1" <?php selected($start_day, '1'); ?>>Monday</option>
+                            </select>
+                            <p class="description">The day the weekly grid begins on.</p>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Time Format:</th>
+                        <td>
+                            <select name="fsb_time_format">
+                                <option value="12hr" <?php selected($time_format, '12hr'); ?>>12-Hour (e.g. 1:00 PM)</option>
+                                <option value="24hr" <?php selected($time_format, '24hr'); ?>>24-Hour (e.g. 13:00)</option>
+                            </select>
+                        </td>
+                    </tr>
                     <tr>
                         <th scope="row">Time Placement:</th>
                         <td>
@@ -598,7 +621,6 @@ function fsb_render_event_audit() {
                     <th style="width: 130px;">Start Date/Time</th>
                     <th style="width: 90px;">Status</th>
                     <th style="width: 300px;">Type / Recurrence</th>
-                    <th style="width: 150px;">Owner</th>
                     <th style="width: 100px; text-align:center;">Actions</th>
                 </tr>
             </thead>
@@ -651,7 +673,6 @@ function fsb_render_event_audit() {
                                 </div>
                             <?php endif; ?>
                         </td>
-                        <td style="font-size: 11px;"><?php echo esc_html($e->owner_email); ?></td>
                         <td style="text-align:center; font-size: 1.2rem;">
                             <?php if (!$is_hole): ?>
                                 <span title="Edit" 
