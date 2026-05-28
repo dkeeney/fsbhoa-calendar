@@ -781,4 +781,112 @@ function fsb_serve_calendar_json() {
     exit;
 }
 
+// Allow both logged-in users and guests to export events
+add_action('wp_ajax_fsb_export_event', 'fsb_ajax_export_event');
+add_action('wp_ajax_nopriv_fsb_export_event', 'fsb_ajax_export_event');
+
+function fsb_ajax_export_event() {
+    $event_id = intval($_GET['event_id'] ?? 0);
+    if (!$event_id) wp_die('Invalid Event ID');
+
+    $repo = fsb_get_repo();
+    $target_event = $repo->get($event_id);
+    if (!$target_event) wp_die('Event not found');
+
+    // If they clicked a child pivot, we want to export the whole series starting from the Master
+    $family_root_id = !empty($target_event->parent_id) ? $target_event->parent_id : $target_event->id;
+    
+    // 1. Get the Master
+    $master_event = $repo->get($family_root_id);
+    
+    // 2. Get all children (Pivots and single-instance moves)
+    global $wpdb;
+    $table_name = $repo->get_table_name();
+    $family_members = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM $table_name WHERE parent_id = %d AND status = 'active' ORDER BY start_datetime ASC", 
+        $family_root_id
+    ));
+
+    // 3. Get all "Holes" (Cancellations) for this family tree
+    $exceptions = $wpdb->get_results($wpdb->prepare(
+        "SELECT * FROM $table_name WHERE (id = %d OR parent_id = %d) AND status = 'cancelled'", 
+        $family_root_id, $family_root_id
+    ));
+
+    $now = date('Ymd\THis');
+    $ics = [];
+    $ics[] = "BEGIN:VCALENDAR";
+    $ics[] = "VERSION:2.0";
+    $ics[] = "PRODID:-//FSBHOA//Calendar Engine//EN";
+    $ics[] = "CALSCALE:GREGORIAN";
+    $ics[] = "X-WR-CALNAME:" . escape_ics_text($master_event->title); // Names the subscription
+
+    // Helper function to generate a VEVENT block
+    $build_vevent = function($ev) use ($now, $exceptions) {
+        $dtstart = date('Ymd\THis', strtotime($ev->start_datetime));
+        $dtend   = date('Ymd\THis', strtotime($ev->end_datetime));
+        
+        $block = [];
+        $block[] = "BEGIN:VEVENT";
+        // Link all family members to the same core UID so the calendar knows they are related
+        $block[] = "UID:fsbhoa-family-{$ev->id}@fsbhoa.com";
+        $block[] = "DTSTAMP:{$now}";
+        $block[] = "DTSTART:{$dtstart}";
+        $block[] = "DTEND:{$dtend}";
+        $block[] = "SUMMARY:" . escape_ics_text($ev->title);
+        
+        if (!empty($ev->location)) {
+            $block[] = "LOCATION:" . escape_ics_text($ev->location);
+        }
+        if (!empty($ev->description)) {
+            $block[] = "DESCRIPTION:" . escape_ics_text(wp_strip_all_tags($ev->description));
+        }
+
+        // Add the RRule
+        if (!empty($ev->rrule)) {
+            $clean_rule = trim(str_ireplace('RRULE:', '', $ev->rrule));
+            $block[] = "RRULE:{$clean_rule}";
+        }
+
+        // Add EXDATEs (Holes) that belong to this specific era
+        foreach ($exceptions as $ex) {
+            $ex_target = !empty($ex->parent_id) ? $ex->parent_id : $ex->id;
+            if ($ex_target == $ev->id) {
+                // EXDATE format: YYYYMMDDTHHMMSS
+                $ex_date = date('Ymd\THis', strtotime($ex->start_datetime));
+                $block[] = "EXDATE:{$ex_date}";
+            }
+        }
+
+        $block[] = "END:VEVENT";
+        return $block;
+    };
+
+    // --- RENDER THE FAMILY TREE ---
+    
+    // Output the Master
+    $ics = array_merge($ics, $build_vevent($master_event));
+
+    // Output all Child Pivots
+    if (!empty($family_members)) {
+        foreach ($family_members as $child) {
+            $ics = array_merge($ics, $build_vevent($child));
+        }
+    }
+
+    $ics[] = "END:VCALENDAR";
+
+    header('Content-Type: text/calendar; charset=utf-8');
+    header('Content-Disposition: attachment; filename="fsbhoa-events.ics"');
+    
+    // iCalendar spec requires CRLF line endings
+    echo implode("\r\n", $ics);
+    exit;
+}
+
+function escape_ics_text($string) {
+    $string = str_replace(array('\\', ',', ';', "\n"), array('\\\\', '\,', '\;', '\\n'), $string);
+    return $string;
+}
+
 

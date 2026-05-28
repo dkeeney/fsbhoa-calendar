@@ -22,5 +22,5 @@ node_modules/
 tests/state/
 tests/test-results/
 tests/playwright-report/
-*.zip
+fsbhoa-calendar.zip
 

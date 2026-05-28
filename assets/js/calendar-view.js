@@ -746,6 +746,7 @@ function renderAgendaView(agendaApp) {
         });
 
         const isToday = (e.date === todayStr);
+        const webcal = getWebcalBtn(e.pivot_id || e.id)
 
         // DAY HEADER BLOCK
         if (e.date !== lastDate) {
@@ -778,7 +779,9 @@ function renderAgendaView(agendaApp) {
                             ${e.title}
                         </div>
                         <div class="agenda-time">⏰ ${e.start_fmt} - ${e.end_fmt}</div>
-                        <div class="agenda-location">📍 ${e.location || 'Lodge'}</div>
+                        <div class="agenda-location">
+                            📍 ${e.location || 'Lodge'}  &nbsp; ${webcal}
+                        </div>
                     </div>
                     <div class="agenda-chevron-icon">❯</div>
                 </div>`;
@@ -920,6 +923,7 @@ function openDayModal(dateStr) {
             // who can edit?  The admin or the delegate.
             const canEdit = config.isAdmin || 
                 (e.owner_email && e.owner_email.toLowerCase() === config.userEmail.toLowerCase());
+            const webcal = getWebcalBtn(e.id);
 
             html += `
                 <li class="modal-event-card"
@@ -937,6 +941,7 @@ function openDayModal(dateStr) {
                             <div style="color:#666; font-size:0.9rem;">
                                 📍 ${e.location || 'Lodge'} | ⏰ ${e.start_fmt} - ${e.end_fmt}
                             </div>
+                               <p style="margin:5px 0;"><strong> ${webcal}</strong></p>
                         </div>
                     </div>
 
@@ -1099,6 +1104,8 @@ function showEventDetail(ev) {
     const ticketHtml = (isTicketed) ?
         `<div style="margin: 20px 0;"><p>Ticketed Event.  Get tickets at front desk.</p> ${costHtml} </div>`: '';
 
+    const webcal = getWebcalBtn(ev.pivot_id || ev.id);
+
     activeContent.innerHTML = `
         <div class="template-content" style="text-align:left; color:#333;">
             <h1 style="color:#000; font-size:1.8rem; margin-bottom:5px; border-bottom:2px solid ${ev.cat_color || '#ccc'}; padding-bottom:10px;">
@@ -1109,6 +1116,7 @@ function showEventDetail(ev) {
                 <p style="margin:5px 0;"><strong>📅 Date:</strong> ${fullDate}</p>
                 <p style="margin:5px 0;"><strong>📍 Where:</strong> ${ev.location || 'Lodge'}</p>
                 <p style="margin:5px 0;"><strong>⏰ When:</strong> ${ev.start_fmt} - ${ev.end_fmt}</p>
+                <p style="margin:5px 0;"><strong> ${webcal}</strong></p>
                 ${flyerHtml}
             </div>
 
@@ -1180,5 +1188,19 @@ function updateFlyerHint() {
     }
 }
 
+
+/**
+ * Generates an icon with webcal:// URL for subscribing to an event
+ */
+function getWebcalBtn(eventId) {
+    // Swap http/https for webcal protocol
+    const baseUrl = window.fsb_config.ajax_url.replace(/^https?:\/\//i, 'webcal://');
+    const exportUrl = `${baseUrl}?action=fsb_export_event&event_id=${eventId}`;
+
+    // ADDED onclick="event.stopPropagation()" so it doesn't trigger the row click!
+    const exportBtn = `<a href="${exportUrl}" class="fsb-export-btn" title="Subscribe to Calendar" onclick="event.stopPropagation()">📅 Add to your Calendar</a>`;
+
+    return exportBtn;
+}
 
 

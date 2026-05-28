@@ -21,7 +21,7 @@ zip -r9 "$ZIP_FILE" . \
     -x "package.json" \
     -x "package-lock.json" \
     -x "playwright.config.js" \
-    -x "tests/*.spec.js" \
+    -x "tests/*" \
     -x ".DS_Store"
 
 echo "--------------------------------------"
