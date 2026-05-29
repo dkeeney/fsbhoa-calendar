@@ -205,24 +205,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const printBtn = document.getElementById('printCal');
     printBtn.onclick = function() {
+
+        if (!fsb_config.is_pro) {
+            alert("🖨️ 11x17 Newsletter Export is a Premium feature.\n\nUpgrade to FSBHOA Calendar Pro to instantly generate, tabloid-ready PDFs of your monthly calendar for your community newsletter!");
+            return;
+        }
         // Check if the script is already loaded
         if (typeof openPrintPreview === 'function') {
-            runPrint();
+            initPrintModule(window.currentYear, window.currentMonth, allEvents, window.currentBackgroundUrl);
         } else {
-            // Only load the print logic when clicked.
-            // Inject the script tag dynamically
-            const script = document.createElement('script');
-            script.src = fsb_config.print_js_url + '?v=' + fsb_config.version;
-            script.onload = () => runPrint();
-            document.head.appendChild(script);
-        }
-        function runPrint() {
-            openPrintPreview(
-                window.currentYear,
-                window.currentMonth,
-                allEvents,
-                window.currentBackgroundUrl
-            );
+                const printScript = document.createElement('script');
+                printScript.src = fsb_config.print_js_url + '?v=' + fsb_config.version;
+                printScript.onerror = () => alert("Error loading Pro Print Engine.");
+                printScript.onload = () => {
+                    initPrintModule(window.currentYear, window.currentMonth, allEvents, window.currentBackgroundUrl);
+                };
+                document.head.appendChild(printScript);
         }
     };
 

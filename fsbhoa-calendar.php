@@ -118,25 +118,13 @@ function fsb_enqueue_calendar_scripts() {
     $user_email = !empty($current_user->user_email) ? $current_user->user_email : '';
 
 
-    wp_enqueue_script(
-        'fsb-cal-data',
-        plugins_url('assets/js/calendar-data.js', __FILE__),
-        array(),
-        $ver,
-        true
-    );
-
-
     // Load the View logic
     wp_enqueue_script(
         'fsb-cal-view', 
         plugins_url('assets/js/calendar-view.js', __FILE__), 
-        array('fsb-cal-data'), 
         $ver, 
         true
     );
-    // Note: calendar-print.js is not loaded until used.
-
 
     $repo = fsb_get_repo();
     $is_admin = current_user_can('manage_options');
@@ -175,7 +163,6 @@ function fsb_enqueue_calendar_scripts() {
     wp_localize_script('fsb-cal-view', 'fsb_config', array(
         'ajax_url'      => admin_url('admin-ajax.php'),
         'nonce'         => wp_create_nonce('fsb_cal_nonce'),
-        'print_js_url'  => plugins_url('assets/js/calendar-print.js', __FILE__),
         'bg_base_url'   => $upload_dir['baseurl'] . '/fsbhoa-calendar/backgrounds/',
         'past_limit'    => (int)get_option('fsb_cal_past_months', 1),
         'future_limit'  => (int)get_option('fsb_cal_future_months', 12),
@@ -186,7 +173,10 @@ function fsb_enqueue_calendar_scripts() {
         'start_day'     => get_option('fsb_start_day', '0'),
         'is_admin'      => $is_admin,
         'user_email'    => $user_email,
-        'version'       => time()
+        'version'       => time(),
+        'is_pro'        => apply_filters('fsb_is_pro_active', false),
+        'print_js_url'  => apply_filters('fsb_pro_print_js_url', ''),
+        'print_data_url' => apply_filters('fsb_pro_print_data_url', '')
     ));
 
 
