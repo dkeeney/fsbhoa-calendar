@@ -126,13 +126,24 @@ function fsb_enqueue_calendar_scripts() {
         true
     );
 
-    $repo = fsb_get_repo();
+    // 1. ALWAYS register the script so WordPress knows it exists and what its dependencies are
+    wp_register_script(
+        'fsb-cal-editor',
+        plugins_url('assets/js/calendar-editor.js', __FILE__),
+        array('fsb-cal-view'),
+        $ver,
+        true
+    );
+
+
     $is_admin = current_user_can('manage_options');
 
     // Quick check: Is this user an owner of ANY event?
+    $repo = fsb_get_repo();
     $is_delegate = false;
     if ( is_user_logged_in() && !$is_admin && !empty($user_email) ) {
         $is_delegate = $repo->is_user_delegate($user_email);
+        $delegated_categories = $repo->get_user_delegated_categories($user_email);
     }
 
 
@@ -140,13 +151,7 @@ function fsb_enqueue_calendar_scripts() {
         wp_enqueue_media();
 
         // Load the Editor logic (For this pass, load for everyone to test the split)
-        wp_enqueue_script(
-            'fsb-cal-editor', 
-            plugins_url('assets/js/calendar-editor.js', __FILE__), 
-            array('fsb-cal-view'), 
-            $ver, 
-            true
-        );
+        wp_enqueue_script('fsb-cal-editor');
     }
 
 
@@ -173,13 +178,14 @@ function fsb_enqueue_calendar_scripts() {
         'start_day'     => get_option('fsb_start_day', '0'),
         'is_admin'      => $is_admin,
         'user_email'    => $user_email,
+        'delegated_categories' => $delegated_categories,
         'version'       => time(),
         'is_pro'        => apply_filters('fsb_is_pro_active', false),
         'print_js_url'  => apply_filters('fsb_pro_print_js_url', ''),
         'print_data_url' => apply_filters('fsb_pro_print_data_url', '')
     ));
 
-
+   do_action('fsb_enqueue_pro_scripts');
 }
 
 // --- THE SHADOW STATE: INTERCEPT OPTIONS FOR SANDBOX ---
@@ -190,16 +196,22 @@ function fsb_apply_sandbox_options() {
     if (isset($_COOKIE['fsb_test_mode'])) {
         $sandbox_options = get_transient('fsb_sandbox_options') ?: [];
 
-        $allowed_overrides = ['fsb_start_day', 'fsb_time_format', 'fsb_time_position'];
+        // Map the allowed overrides to their absolute baseline defaults
+        $allowed_overrides = [
+            'fsb_start_day'     => '0',      // Sunday
+            'fsb_time_format'   => '12hr',
+            'fsb_time_position' => 'prepend'
+        ];
 
-        foreach ($allowed_overrides as $opt) {
-            add_filter("pre_option_{$opt}", function($false) use ($opt, $sandbox_options) {
-                // If Playwright explicitly set a shadow option, return it!
+        foreach ($allowed_overrides as $opt => $default_val) {
+            add_filter("pre_option_{$opt}", function($false) use ($opt, $sandbox_options, $default_val) {
+                // 1. If Playwright explicitly set a shadow option, return it
                 if (isset($sandbox_options[$opt])) {
                     return $sandbox_options[$opt];
                 }
-                // Otherwise, fall through to the real default database option
-                return $false;
+                // 2. TOTAL ISOLATION: Return the baseline default.
+                // This prevents WordPress from ever querying the live database.
+                return $default_val;
             });
         }
     }
@@ -212,7 +224,7 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
         wp_die();
     }
 
-    $step = sanitize_text_field($_GET['step']);
+    $step = sanitize_text_field($_REQUEST['step']);
     $runner = new \FSBHOA\Cal\TestRunner();
 
     switch($step) {
@@ -554,12 +566,18 @@ function fsb_handle_save_event() {
     if ($tz) date_default_timezone_set($tz);
 
     $edit_mode  = sanitize_text_field($_POST['edit_mode'] ?? 'standard');
+    $is_drag_drop = isset($_POST['is_drag_drop']) && $_POST['is_drag_drop'] === 'true';
     $master_id   = isset($_POST['event_id']) ? intval($_POST['event_id']) : null;
     $pivot_id   = isset($_POST['pivot_id']) ? intval($_POST['pivot_id']) : $master_id;
     $move_id   = isset($_POST['move_id']) ? intval($_POST['move_id']) : null;
     $repo = fsb_get_repo();
     $compiler = fsb_get_compiler();
 
+    if ( $is_drag_drop && !defined('FSB_CALENDAR_PRO_VERSION') ) {
+        error_log("FSBHOA SECURITY: Blocked unauthorized drag-and-drop attempt.");
+        wp_send_json_error('Drag-and-drop features require FSBHOA Calendar Pro.');
+        wp_die();
+    }
     error_log("FSBHOA AJAX TRIGGERED: Mode=" . $edit_mode . 
               " ID=$master_id move_id=$move_id pivot_id=$pivot_id");
 
@@ -571,6 +589,9 @@ function fsb_handle_save_event() {
 
     // Quick check: Is this admin or user an owner of ANY event?
     $is_admin = current_user_can('manage_options');
+    //  fetch the user's email so the Gatekeeper knows who they are!
+    $current_user = wp_get_current_user();
+    $user_email = !empty($current_user->user_email) ? strtolower($current_user->user_email) : '';
     $is_delegate = false;
     if ( is_user_logged_in() && !$is_admin ) {
         $is_delegate = $repo->is_user_delegate($user_email);
@@ -580,7 +601,29 @@ function fsb_handle_save_event() {
         wp_send_json_error('You do not have permission to edit events.');
     }
 
-
+    // ---  STRICT CATEGORY GATEKEEPER for delegates ---
+    $category_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
+    if (!$is_admin && $category_id) {
+        $is_event_owner = false;
+        if ($master_id) {
+            $existing_event = $repo->get($master_id);
+            if ($existing_event && strtolower($existing_event->owner_email) === strtolower($user_email)) {
+                $is_event_owner = true;
+            }
+        }
+        
+        $is_cat_delegate = $repo->is_category_delegate($user_email, $category_id);
+        
+        // Block if they don't own the category AND they don't own the specific event
+        if (!$is_cat_delegate && !$is_event_owner) {
+            wp_send_json_error('Security Violation: You do not have permission to post to this category.');
+        }
+        
+        // Edge case: An event owner is trying to move their event into a category they don't manage
+        if ($is_event_owner && !$is_cat_delegate && $existing_event->category_id != $category_id) {
+            wp_send_json_error('Security Violation: You cannot move this event into a category you do not manage.');
+        }
+    }
 
 
     // 2. Collect and Sanitize Data

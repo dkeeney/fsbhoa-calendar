@@ -543,6 +543,7 @@ function renderMonthGrid(monthlyApp) {
         else appEl.removeAttribute('data-has-split-cell');
     }
 
+    const canCreate = config.isAdmin || (fsb_config.delegated_categories && fsb_config.delegated_categories.length > 0);
     grid.innerHTML = '';
 
     for (let i = 0; i < 35; i++) {
@@ -575,7 +576,8 @@ function renderMonthGrid(monthlyApp) {
                 <div class="day-top">
                     <div class="day-number">${d}</div>
                     <div class="day-icons-corner">${renderIcons(icons, dateStr)}</div>
-                    ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateStr}')">+</div>` : ''}
+                    ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateStr}')">+</div>` : ''}
+                    
                 </div>
                 <div class="day-events">${renderEvents(bars)}</div>
             </div>`;
@@ -593,21 +595,27 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
     
     const isPastA = dateA < todayStr;
     const isPastB = dateB < todayStr;
+
+    const todayDateStr = new Date().toDateString();
+    const isTodayA = todayDateStr === new Date(year, month, topDay).toDateString();
+    const isTodayB = todayDateStr === new Date(year, month, botDay).toDateString();
     
     // The diaginal line for the split cells.
     const activeSVG = `<svg viewBox="0 0 100 100" preserveAspectRatio="none" class="split-diagonal">
     <line x1="100" y1="0" x2="0" y2="100" stroke="#aaa" stroke-width="1" />
 </svg>`;
-    let splitStateClass = '';
+    let stateClasses = [];
+    if (isPastA && isPastB) stateClasses.push('both-past');
+    else if (isPastA) stateClasses.push('top-past');
+    
+    if (isTodayA) stateClasses.push('top-today');
+    if (isTodayB) stateClasses.push('bottom-today');
 
-    if (isPastA && isPastB) {
-        splitStateClass = 'both-past';
-    } else if (isPastA) {
-        splitStateClass = 'top-past';
-    }
+    const splitStateClass = stateClasses.join(' ');
 
     const evtsA = allEvents.filter(e => e.date === dateA);
     const evtsB = allEvents.filter(e => e.date === dateB);
+    const canCreate = config.isAdmin || (fsb_config.delegated_categories && fsb_config.delegated_categories.length > 0);
 
     return `
     <div class="calendar-day split-cell ${splitStateClass}"
@@ -636,7 +644,7 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
             <div class="day-top">
                 <div class="day-number">${topDay}</div>
                 <div class="day-icons-corner">${renderIcons(evtsA.filter(e => iconLibrary[e.category_id]), dateA)}</div>
-                ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>` : ''}
+                ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>` : ''}
             </div>
         </div>
 
@@ -658,7 +666,7 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
                 <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
             <div class="day-bottom">
-                ${config.isAdmin ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>` : ''}
+                ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>` : ''}
                 <div class="day-icons-corner">${renderIcons(evtsB.filter(e => iconLibrary[e.category_id]), dateB)}</div>
                 <div class="day-number">${botDay}</div>
             </div>
@@ -671,9 +679,10 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 function renderIcons(icons, dateStr) {
     return icons.map(e => {
         //  Only show the pencil if they have permission AND we aren't in the agenda
-        const canEdit = 
+        const isCatDelegate = fsb_config.delegated_categories && fsb_config.delegated_categories.includes(parseInt(e.category_id));
+        const canEdit =
             window.handleAddEventFromModal &&
-            ((config.isAdmin || (e.owner_email && e.owner_email === config.userEmail))
+            ((config.isAdmin || isCatDelegate || (e.owner_email && config.userEmail && e.owner_email.toLowerCase() === config.userEmail.toLowerCase()))
             && currentView !== 'agenda');
         let svgContent = iconLibrary[e.category_id] || '';
 
@@ -686,7 +695,7 @@ function renderIcons(icons, dateStr) {
         return `
             <div class="corner-unit event-item"
                  title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
-                 draggable="${canEdit ? 'true' : 'false'}"
+                 draggable="${(canEdit && fsb_config.is_pro) ? 'true' : 'false'}"
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${e.move_id || ''}"
@@ -921,6 +930,7 @@ function openDayModal(dateStr) {
     const dateObj = new Date(dateStr + 'T00:00:00');
     const title = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     const dayIcons = events;
+    const canCreate = config.isAdmin || (fsb_config.delegated_categories && fsb_config.delegated_categories.length > 0);
 
     // heading
     let html = `
@@ -934,7 +944,7 @@ function openDayModal(dateStr) {
                 </div>
             </div>
 
-            ${config.isAdmin ? `
+            ${canCreate ? `
                 <span title="Add New Event"
                       style="color:#0056b3; cursor:pointer; font-size:2rem; font-weight:900; line-height:1; margin-right:10px;"
                       onclick="handleAddEventFromModal('${dateStr}')">+</span>
@@ -1016,7 +1026,8 @@ function renderEvents(events) {
         if (e.visibility && e.visibility === 'resident' && !config.userEmail) {
             return '';
         }
-        const canEdit = config.isAdmin || (e.owner_email && e.owner_email === config.userEmail);
+        const isCatDelegate = fsb_config.delegated_categories && fsb_config.delegated_categories.includes(parseInt(e.category_id));
+        const canEdit = config.isAdmin || isCatDelegate || (e.owner_email && config.userEmail && e.owner_email.toLowerCase() === config.userEmail.toLowerCase());
 
         // Smart Time Logic (e.g., "9a" or "9:30p")
         let timeStr = e.start_fmt || '';
@@ -1040,7 +1051,7 @@ function renderEvents(events) {
 
         return `
             <div class="event-item"
-                 draggable="${canEdit ? 'true' : 'false'}"
+                 draggable="${(canEdit && fsb_config.is_pro) ? 'true' : 'false'}"
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${moveId || ''}"

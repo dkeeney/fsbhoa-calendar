@@ -494,11 +494,19 @@
 }
 
 /* Split Cell Partial Past (handled by JS classes on sub-containers) */
-.past-day.day-top, 
-.past-day.day-bottom, 
-.past-day.day-events, 
-.past-day.day-events-bottom {
+.split-half.past-day .day-top,
+.split-half.past-day .day-bottom,
+.split-half.past-day .day-events,
+.split-half.past-day .day-events-bottom {
     filter: grayscale(1) opacity(0.6);
+}
+/* Split Cell Background Shading (Using Gradients for Triangles) */
+.calendar-day.split-cell.both-past {
+    background-color: rgba(0, 0, 0, 0.05) !important;
+}
+
+.calendar-day.split-cell.top-past {
+    background: linear-gradient(to bottom right, rgba(0,0,0,0.05) 50%, transparent 50%) !important;
 }
 
 
@@ -522,6 +530,11 @@
 /* Keep the highlight when magnified */
 #calendar-grid:not(.magnifier-disabled) .calendar-day.today:hover {
     background-color: #fff9c4 !important; /* Solid yellow when magnified for readability */
+}
+
+/* If the 31st is Today (Yellow highlight on the bottom triangle) */
+.calendar-day.split-cell.top-past.bottom-today {
+    background: linear-gradient(to bottom right, rgba(0,0,0,0.05) 50%, rgba(255, 249, 196, 0.5) 50%) !important;
 }
 
 /* --- Section 9. THE MAGNIFIER (HOVER) --- */

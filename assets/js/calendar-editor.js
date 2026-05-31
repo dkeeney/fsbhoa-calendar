@@ -14,148 +14,6 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 
-    /* --- Drag & Drop --- */
-
-    document.addEventListener('dragstart', (e) => {
-        const chip = e.target.closest('.event-item');
-        if (!chip) return;
-
-
-        // Assign the data once
-        draggedData = {
-            id: chip.dataset.eventId,
-            pivotId: chip.dataset.pivotId,
-            moveId: chip.dataset.moveId,
-            originalDate: chip.dataset.eventDate,
-            originalStartTime: chip.dataset.eventStartTime,
-            isSingle: chip.dataset.isSingle === 'true'
-        };
-
-        // Update the UI state
-        document.getElementById('calendar-grid').classList.add('is-dragging');
-        e.dataTransfer.effectAllowed = "move";
-    });
-
-    document.addEventListener('dragover', (e) => {
-        e.preventDefault(); // Required to allow drop
-        const dayCell = e.target.closest('.calendar-day');
-        const appHeader = e.target.closest('#fsb-calendar-app');
-        const isShift = e.shiftKey;
-
-        // Reset all targets
-        document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
-        appHeader?.classList.remove('header-drop-active');
-
-        // Handle Day Cell Hover
-        if (dayCell && !dayCell.classList.contains('empty')) {
-            dayCell.classList.add('drop-target');
-            dayCell.setAttribute('data-drop-text', isShift ? "Reschedule Following" : "Reschedule Here");
-        }
-        // Handle Header Hover (Check if mouse is in the top 14%)
-        else if (appHeader) {
-            const rect = appHeader.getBoundingClientRect();
-            if (e.clientY - rect.top < (rect.height * 0.14)) {
-                appHeader.classList.add('header-drop-active');
-                appHeader.setAttribute('data-drop-text', isShift ? "DROP TO END SERIES" : "DROP TO CANCEL INSTANCE");
-            }
-        }
-    });
-
-    document.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        // --- MOVE CLEANUP TO THE TOP ---
-        document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
-        const grid = document.getElementById('calendar-grid');
-        const appContainer = document.getElementById('fsb-calendar-app');
-        grid.classList.remove('is-dragging');
-        appContainer.classList.remove('header-drop-active');
-        // -------------------------------
-        console.log("DROP DETECTED"); // Check if the drop is even firing
-        
-        const isShift = e.shiftKey;
-
-        // 1. Clean up UI immediately
-        grid.classList.remove('is-dragging');
-        appContainer.classList.remove('header-drop-active');
-
-        if (!draggedData) {
-            console.log("DROP ABORTED: No draggedData");
-            return;
-        }
-
-        // 2. Check if we are in the Header (The top 14%)
-        const rect = appContainer.getBoundingClientRect();
-        const relativeY = e.clientY - rect.top;
-        const isInHeader = relativeY >= 0 && relativeY < (rect.height * 0.14);
-
-        if (isInHeader) {
-            const ev = allEvents.find(e => e.id == draggedData.id && e.date == draggedData.originalDate);
-            const isRecurring = ev && ev.rrule && ev.rrule.trim() !== '';
-
-            let mode;
-            if (draggedData.isSingle) {
-                // It's a one-time event: Kill the root record
-                mode = 'master_delete';
-            } else {
-                // It's a series: Determine if we are ending it or just poking a hole
-                mode = isShift ? 'series_end' : 'instance_cancel';
-            }
-            console.log(`FSBHOA: Header Drop [${mode}] for ID ${draggedData.id}`);
-
-            // Pass all IDs to ensure PHP has what it needs
-            const msg = draggedData.isSingle
-                ? "Delete this one-time event forever?"
-                : (isShift ? "End this series forever starting today?" : "Cancel ONLY this instance?");
-
-            if (confirm(msg)) {
-                await saveEventChanges(mode, draggedData.id, draggedData.originalDate, false);
-            }
-
-            // Reset state and exit
-            draggedData = null;
-            return;
-        }
-
-        // 3. Day Cell Reschedule
-        const cell = e.target.closest('.calendar-day');
-        if (cell && !cell.classList.contains('empty')) {
-            console.log("DROPPED ON CELL:", cell.dataset.date);
-
-            let targetDate = cell.dataset.date;
-            if (cell.classList.contains('split-cell')) {
-                const cellRect = cell.getBoundingClientRect();
-                const mouseX = e.clientX - cellRect.left;
-                const mouseY = e.clientY - cellRect.top;
-
-                // In a square/rect split by a \ line:
-                // If (relativeX / width) + (relativeY / height) > 1, we are in the bottom-right.
-                const isBottom = (mouseX / cellRect.width) + (mouseY / cellRect.height) > 1;
-
-                targetDate = isBottom ? cell.dataset.dateBottom : cell.dataset.dateTop;
-                console.log(`FSBHOA: Split Cell Drop Detected. Target: ${isBottom ? 'Bottom' : 'Top'} (${targetDate})`);
-            }
-
-            if (targetDate !== draggedData.originalDate || e.shiftKey) {
-                console.log("CALLING SUBMIT RESCHEDULE for:", targetDate);
-                submitReschedule(draggedData.id, draggedData.originalDate, draggedData.pivotId, draggedData.moveId, targetDate, e.shiftKey);
-            } else {
-                console.log("DROP ABORTED: Not a valid cell", e.target);
-            }
-        }
-
-        draggedData = null;
-    });
-
-
-    document.addEventListener('dragend', () => {
-        document.getElementById('calendar-grid').classList.remove('is-dragging');
-        document.getElementById('fsb-calendar-app').classList.remove('header-drop-active');
-        document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
-        draggedData = null;
-        grid.classList.remove('is-dragging');
-    });
-
-
 });
 
 
@@ -303,9 +161,18 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                 <div style="flex:1">
                     <label>Category</label>
                     <select name="category_id" style="width:100%;">
-                        ${fsb_config.categories.map(cat =>
-                            `<option value="${cat.id}" ${eventData.category_id == cat.id ? 'selected' : ''}>${cat.name}</option>`
-                        ).join('')}
+                        ${(() => {
+                            let availableCategories = fsb_config.categories;
+                            if (!config.isAdmin) {
+                                availableCategories = fsb_config.categories.filter(cat => 
+                                    (fsb_config.delegated_categories && fsb_config.delegated_categories.includes(parseInt(cat.id))) ||
+                                    (eventData.category_id && eventData.category_id == cat.id) // Always show the current category if editing
+                                );
+                            }
+                            return availableCategories.map(cat => 
+                                `<option value="${cat.id}" ${eventData.category_id == cat.id ? 'selected' : ''}>${cat.name}</option>`
+                            ).join('');
+                        })()}
                     </select>
                 </div>
             </div>
@@ -648,7 +515,7 @@ function formatTimeAMPM(time24) {
     return `${hours}:${minutes} ${ampm}`;
 }
 
-async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false, newTime = null) {
+async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false, newTime = null, isDragDrop = false) {
     // Determine the new time.
     // For a drag-drop, we usually keep the original start time.
     let startTime = "09:00"; // Absolute fallback
@@ -686,6 +553,7 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
         method: 'POST',
         body: formData
     });
+    if (isDragDrop) formData.append('is_drag_drop', 'true');
 
     const result = await response.json();
     if (result.success) {
@@ -881,7 +749,7 @@ function openFlyerMediaLibrary(e) {
 }
 
 
-async function saveEventChanges(overrideMode = null, overrideId = null, overrideDate = null, silent = false) {
+async function saveEventChanges(overrideMode = null, overrideId = null, overrideDate = null, silent = false, isDragDrop = false) {
     const form = document.getElementById('fsb-edit-form');
     // If the form exists, use it; otherwise, start with an empty FormData object
     const formData = form ? new FormData(form) : new FormData();
@@ -924,6 +792,8 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
             allModals.forEach(m => m.classList.remove('is-visible'));
             document.body.classList.remove('modal-open');
 
+            if (isDragDrop) formData.append('is_drag_drop', 'true');
+
             // After a slight delay for database write, refresh the grid
             setTimeout(() => {
                 if (window.loadData) { 
@@ -958,5 +828,11 @@ function openAddModal(dateStr) {
 // Ensure handleEditClick is available globally if needed by other modules
 window.handleEditClick = handleEditClick;
 window.openAddModal = openAddModal;
+window.submitReschedule = submitReschedule;
+window.saveEventChanges = saveEventChanges;
+
+
+
+
 
 

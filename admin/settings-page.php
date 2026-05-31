@@ -11,8 +11,48 @@ add_action('admin_menu', function() {
         'fsb_render_settings_tabs',
         'dashicons-calendar-alt'
     );
+
 });
 
+function fsb_render_settings_tabs() {
+    $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
+    ?>
+    <div class="wrap">
+        <h1>FSBHOA Calendar Configuration</h1>
+        <h2 class="nav-tab-wrapper">
+            <a href="?page=fsb-cal-settings&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
+            <a href="?page=fsb-cal-settings&tab=backgrounds" class="nav-tab <?php echo $active_tab == 'backgrounds' ? 'nav-tab-active' : ''; ?>">Monthly Backgrounds</a>
+            <a href="?page=fsb-cal-settings&tab=locations" class="nav-tab <?php echo $active_tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
+            <a href="?page=fsb-cal-settings&tab=categories" class="nav-tab <?php echo $active_tab == 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
+            <a href="?page=fsb-cal-settings&tab=audit" class="nav-tab <?php echo $active_tab == 'audit' ? 'nav-tab-active' : ''; ?>">Event Audit Log</a>
+            <a href="?page=fsb-cal-settings&tab=regression" class="nav-tab <?php echo $active_tab == 'regression' ? 'nav-tab-active' : ''; ?>">Regression Test</a>
+            <a href="?page=fsb-cal-settings&tab=license" class="nav-tab <?php echo $active_tab == 'license' ? 'nav-tab-active' : ''; ?>" style="color: #d63638;">Pro License</a>
+            <?php 
+            // Allow external plugins (like Pro) to inject their own tabs here
+            do_action('fsb_calendar_extra_tabs', $active_tab); 
+            ?>
+        </h2>
+
+        <div style="margin-top: 20px;">
+            <?php
+            switch($active_tab) {
+                case 'settings':   fsb_render_settings_manager(); break;
+                case 'locations':  fsb_render_location_manager(); break;
+                case 'backgrounds':fsb_render_bg_manager(); break;
+                case 'categories': fsb_render_category_manager(); break;
+                case 'audit':      fsb_render_event_audit(); break;
+                case 'regression': fsb_render_regression_test(); break;
+                case 'license':     fsb_render_pro_license_installer(); break;
+                default:
+                    // If it's not a core tab, fire a hook so external plugins can render content
+                    do_action('fsb_calendar_extra_tab_content', $active_tab);
+                    break;
+            }
+            ?>
+        </div>
+    </div>
+    <?php
+}
 add_action('admin_init', function() {
     register_setting('fsb_cal_settings_group', 'fsb_cal_past_months');
     register_setting('fsb_cal_settings_group', 'fsb_cal_future_months');
@@ -46,35 +86,6 @@ add_action('admin_enqueue_scripts', function($hook) {
     ");
 });
 
-function fsb_render_settings_tabs() {
-    $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
-    ?>
-    <div class="wrap">
-        <h1>FSBHOA Calendar Configuration</h1>
-        <h2 class="nav-tab-wrapper">
-            <a href="?page=fsb-cal-settings&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
-            <a href="?page=fsb-cal-settings&tab=backgrounds" class="nav-tab <?php echo $active_tab == 'backgrounds' ? 'nav-tab-active' : ''; ?>">Monthly Backgrounds</a>
-            <a href="?page=fsb-cal-settings&tab=locations" class="nav-tab <?php echo $active_tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
-            <a href="?page=fsb-cal-settings&tab=categories" class="nav-tab <?php echo $active_tab == 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
-            <a href="?page=fsb-cal-settings&tab=audit" class="nav-tab <?php echo $active_tab == 'audit' ? 'nav-tab-active' : ''; ?>">Event Audit Log</a>
-            <a href="?page=fsb-cal-settings&tab=regression" class="nav-tab <?php echo $active_tab == 'regression' ? 'nav-tab-active' : ''; ?>">Regression Test</a>
-        </h2>
-
-        <div style="margin-top: 20px;">
-            <?php
-            switch($active_tab) {
-                case 'settings':   fsb_render_settings_manager(); break;
-                case 'locations':  fsb_render_location_manager(); break;
-                case 'categories': fsb_render_category_manager(); break;
-                case 'audit':      fsb_render_event_audit(); break;
-                case 'regression': fsb_render_regression_test(); break;
-                default:           fsb_render_bg_manager(); break;
-            }
-            ?>
-        </div>
-    </div>
-    <?php
-}
 
 function fsb_render_settings_manager() {
     $past_val    = get_option('fsb_cal_past_months', 1);
@@ -304,7 +315,8 @@ function fsb_render_category_manager() {
         $data = [
             'name'      => sanitize_text_field($_POST['cat_name']),
             'color_hex' => sanitize_hex_color($_POST['cat_color']),
-            'svg_path'  => fsb_sanitize_svg($_POST['svg_path'])
+            'svg_path'  => fsb_sanitize_svg($_POST['svg_path']),
+            'delegate_emails' => sanitize_textarea_field($_POST['delegate_emails'] ?? '')
         ];
 
         if (!empty($_POST['cat_id'])) {
@@ -364,6 +376,7 @@ function fsb_render_category_manager() {
                                     <?php echo esc_html($cat->color_hex); ?>
                                 </span>
                             </td>
+                            
                             <td>
                                 <?php if ($cat->svg_path): ?>
                                     <div style="display:flex; align-items:center; gap:10px;">
@@ -407,6 +420,11 @@ function fsb_render_category_manager() {
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; font-weight:bold;">Display Color:</label>
                     <input type="color" name="cat_color" value="<?php echo $edit_cat ? esc_attr($edit_cat->color_hex) : '#3498db'; ?>" style="height:35px; width:60px; cursor:pointer;">
+                </div>
+                <div style="margin-bottom: 15px;">
+                    <label style="display:block; font-weight:bold;">Category Delegates (Emails):</label>
+                    <textarea name="delegate_emails" rows="2" class="large-text" placeholder="social_committe@fsbhoa.com, resident@email.com"><?php echo $edit_cat ? esc_textarea($edit_cat->delegate_emails) : ''; ?></textarea>
+                    <p class="description">Comma-separated list of emails. These residents can create and manage events within this category.</p>
                 </div>
 
                 <div style="margin-bottom: 15px;">
@@ -824,3 +842,146 @@ function fsb_render_regression_test() {
     </script>
     <?php
 }
+
+
+// ==========================================
+// PRO LICENSE & AUTO-INSTALLER ENGINE
+// ==========================================
+
+function fsb_render_pro_license_installer() {
+    $license_key = get_option('fsb_pro_license_key');
+
+    // 1. Force WP to load the plugin library so we can accurately check if Pro is active
+    if ( ! function_exists( 'is_plugin_active' ) ) {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+    }
+
+    $is_pro_active = is_plugin_active('fsbhoa-calendar-pro/fsbhoa-calendar-pro.php');
+    ?>
+    <div class="card" style="max-width: 600px; padding: 20px; margin-top: 0;">
+        <h3 style="margin-top: 0;">FSBHOA Calendar Pro</h3>
+
+        <?php
+        // DIAGNOSTICS: Print out exactly what went wrong if the installer fails
+        if ( isset($_GET['pro_status']) ) {
+            $status = sanitize_text_field($_GET['pro_status']);
+            if ( $status === 'api_fail' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: API rejected the key or server is unreachable.</div>';
+            if ( $status === 'install_fail' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: WP Upgrader failed to extract the ZIP.</div>';
+            if ( $status === 'file_missing' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: ZIP extracted, but the plugin file was not found! Check ZIP folder structure.</div>';
+            if ( $status === 'activation_fail' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: Plugin installed, but WP refused to activate it. Check PHP error log.</div>';
+        }
+        ?>
+
+        <?php if ( $is_pro_active && !empty($license_key) ) : ?>
+
+            <div style="background: #e7f5ea; border-left: 4px solid #46b450; padding: 12px;">
+                <strong>Pro Version is Active!</strong> Your license key is installed and automated updates are running.
+            </div>
+            <p style="margin-top: 15px;"><strong>Current Key:</strong> <code><?php echo esc_html($license_key); ?></code></p>
+
+        <?php else : ?>
+
+            <p>Enter your License Key to instantly download, install, and activate the Pro features.</p>
+            <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
+                <input type="hidden" name="action" value="fsb_install_pro_plugin">
+                <?php wp_nonce_field('fsb_install_pro_nonce'); ?>
+
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">License Key:</th>
+                        <td>
+                            <input type="text" name="fsb_pro_license_key"
+                                   value="<?php echo esc_attr($license_key); ?>"
+                                   class="regular-text" placeholder="XXXX-XXXX-XXXX-XXXX" required />
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button('Install & Activate Pro'); ?>
+            </form>
+
+        <?php endif; ?>
+    </div>
+    <?php
+}
+
+// Intercept the form submission, verify the key, and trigger the WP core downloader
+add_action('admin_post_fsb_install_pro_plugin', 'fsb_handle_pro_installation');
+
+function fsb_handle_pro_installation() {
+    if ( ! current_user_can('install_plugins') || ! check_admin_referer('fsb_install_pro_nonce') ) {
+        wp_die('Unauthorized');
+    }
+
+    $key = sanitize_text_field($_POST['fsb_pro_license_key']);
+    $pro_path = 'fsbhoa-calendar-pro/fsbhoa-calendar-pro.php';
+    $redirect_url = admin_url('admin.php?page=fsb-cal-settings&tab=license');
+
+    // 1. Ask your server if the key is valid and get the secure download URL
+    $api_url = 'https://testbed.fsbhoa.com/wp-json/fsb-licensing/v1/check?item=pro&license_key=' . urlencode($key);
+    $response = wp_remote_get($api_url);
+    $body = json_decode(wp_remote_retrieve_body($response));
+
+    if ( $body && $body->status === 'valid' ) {
+
+        // Key is good! Save it to the database so the Pro plugin can use it later
+        update_option('fsb_pro_license_key', $key);
+
+        // 2. Surgical Extraction (Bypassing Upgrader logic)
+        if ( ! file_exists( WP_PLUGIN_DIR . '/' . $pro_path ) ) {
+            require_once ABSPATH . 'wp-admin/includes/file.php';
+            WP_Filesystem();
+
+            $temp_zip = download_url( $body->download_url );
+            if ( is_wp_error( $temp_zip ) ) {
+                wp_redirect( add_query_arg('pro_status', 'install_fail', $redirect_url) );
+                exit;
+            }
+
+            // Unzip into the plugins directory
+            $unzip_result = unzip_file( $temp_zip, WP_PLUGIN_DIR );
+            @unlink( $temp_zip );
+
+            if ( is_wp_error( $unzip_result ) ) {
+                wp_redirect( add_query_arg('pro_status', 'install_fail', $redirect_url) );
+                exit;
+            }
+        }
+
+        // 3. Activate the newly downloaded plugin
+        if ( file_exists( WP_PLUGIN_DIR . '/' . $pro_path ) ) {
+
+            // Force WP to load the activation library
+            if ( ! function_exists( 'activate_plugin' ) ) {
+                require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            }
+
+            // Flush caches
+            clearstatcache();
+            wp_cache_delete( 'plugins', 'plugins' );
+
+            // Activate the plugin
+            $activation_result = activate_plugin( $pro_path );
+
+            // If WP rejects the activation, bounce back with the error code
+            if ( is_wp_error( $activation_result ) ) {
+                error_log( 'FSBHOA Pro Auto-Activation Error: ' . $activation_result->get_error_message() );
+                wp_redirect( add_query_arg('pro_status', 'activation_fail', $redirect_url) );
+                exit;
+            } else {
+                // SUCCESS! Bounce back clean to show the green box
+                wp_redirect( $redirect_url );
+                exit;
+            }
+        } else {
+            // The unzipper worked, but the folder was named incorrectly inside the zip
+            wp_redirect( add_query_arg('pro_status', 'file_missing', $redirect_url) );
+            exit;
+        }
+    }
+
+    // API Failed or invalid key
+    wp_redirect( add_query_arg('pro_status', 'api_fail', $redirect_url) );
+    exit;
+}
+
+

@@ -61,6 +61,7 @@ class Repository {
             name varchar(100) NOT NULL,
             color_hex varchar(7) DEFAULT '#3498db',
             svg_path text,
+            delegate_emails text DEFAULT NULL,
             PRIMARY KEY (id)
         ) $charset_collate;";
 
@@ -220,9 +221,10 @@ class Repository {
         $locations = $wpdb->get_results("SELECT id, name FROM {$this->prefix}fsbhoa_locations");
         return $locations;
     }
+
     public function get_categories() {
         global $wpdb;
-        $categories = $wpdb->get_results("SELECT id, name FROM {$this->prefix}fsbhoa_categories");
+        $categories = $wpdb->get_results("SELECT id, name, color_hex, svg_path, delegate_emails FROM {$this->prefix}fsbhoa_categories");
         return $categories;
     }
 
@@ -580,19 +582,61 @@ class Repository {
     }
 
 
-    // We need to know if this user is a delegate on any event
+    // We need to know if this user is a delegate on any event or cateogry
     // so we know to load the edit modules.
     public function is_user_delegate($email) {
         global $wpdb;
         if (empty($email)) return false;
 
-        $table = $this->prefix . 'fsbhoa_events';
+        // 1. Check Event-level delegation
+        $event_table = $this->prefix . 'fsbhoa_events';
         $count = $wpdb->get_var($wpdb->prepare(
-            "SELECT COUNT(*) FROM $table WHERE owner_email = %s",
+            "SELECT COUNT(*) FROM $event_table WHERE owner_email = %s",
             $email
         ));
+        if ($count > 0) return true;
 
-        return ($count > 0);
+        // 2. Check Category-level delegation
+        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $cats = $wpdb->get_results("SELECT delegate_emails FROM $cat_table WHERE delegate_emails IS NOT NULL AND delegate_emails != ''");
+        foreach ($cats as $cat) {
+            $emails = array_map('trim', explode(',', strtolower($cat->delegate_emails)));
+            if (in_array(strtolower($email), $emails)) return true;
+        }
+
+        return false;
+    }
+
+    // Extracts exactly which categories a specific email is allowed to manage
+    public function get_user_delegated_categories($email) {
+        global $wpdb;
+        $allowed_cats = [];
+        if (empty($email)) return $allowed_cats;
+
+        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $cats = $wpdb->get_results("SELECT id, delegate_emails FROM $cat_table WHERE delegate_emails IS NOT NULL AND delegate_emails != ''");
+        foreach ($cats as $cat) {
+            $emails = array_map('trim', explode(',', strtolower($cat->delegate_emails)));
+            if (in_array(strtolower($email), $emails)) {
+                $allowed_cats[] = (int) $cat->id;
+            }
+        }
+        return $allowed_cats;
+    }
+
+    // Gatekeeper check for the backend AJAX receiver
+    public function is_category_delegate($email, $category_id) {
+        global $wpdb;
+        if (empty($email) || empty($category_id)) return false;
+
+        $table = $this->prefix . 'fsbhoa_categories';
+        $cat = $wpdb->get_row($wpdb->prepare("SELECT delegate_emails FROM $table WHERE id = %d", $category_id));
+
+        if ($cat && !empty($cat->delegate_emails)) {
+            $emails = array_map('trim', explode(',', strtolower($cat->delegate_emails)));
+            return in_array(strtolower($email), $emails);
+        }
+        return false;
     }
 
     /**
