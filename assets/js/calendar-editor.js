@@ -54,7 +54,10 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
 
 
     const hasDelegate = !!(eventData.owner_email && eventData.owner_email.trim() !== '');
-    const delegateSection = `
+    // Only render the input if the current user is a full Admin
+    let delegateSection = '';
+    if (window.fsb_config && window.fsb_config.is_admin) {
+        delegateSection = `
         <div class="form-group" style="margin-top:15px; padding:10px; background:#f0f4f8; border-radius:4px; border:1px solid #d1d9e0;">
             <label style="display:flex; align-items:center; cursor:pointer; margin-bottom:0;">
                 <input type="checkbox" id="toggle-delegate" ${hasDelegate ? 'checked' : ''}
@@ -73,6 +76,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
             </div>
         </div>
     `;
+    }
 
 
     const rescheduled = (move_id && move_id !== "" && move_id !== "null") ? "that was rescheduled." : "";

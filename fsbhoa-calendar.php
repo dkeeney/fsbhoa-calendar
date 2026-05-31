@@ -750,8 +750,11 @@ function fsb_handle_save_event() {
                     'flyer_url'      => esc_url_raw($_POST['flyer_url'] ?? ''),
                     'visibility'     => isset($_POST['visibility']) ? sanitize_text_field($_POST['visibility']) : 'public',
                     'status'         => 'active',
-                    'owner_email'    => isset($_POST['owner_email']) ? sanitize_email($_POST['owner_email']) : null,
                 ];
+
+                if (current_user_can('manage_options')) {
+                    $dna_data['owner_email'] = isset($_POST['owner_email']) ? sanitize_email($_POST['owner_email']) : null;
+                }             
 
                 if ($edit_mode == 'soft_save') {
                     // Just update the metadata on the Master record
