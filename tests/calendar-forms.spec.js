@@ -1478,6 +1478,92 @@ test.describe('Calendar Forms and Modals', () => {
 });
 
 
+// =========================================================================
+// TEST 22: Recurring Series with an End Date (UNTIL boundary)
+// =========================================================================
+  test('TEST 22: Recurring Series with an End Date (UNTIL boundary)', async ({ page }) => {
+    console.log("\n========================================================");
+    console.log("TEST 22 -- Series End Date (UNTIL)");
+    console.log("========================================================");
+
+    // 1. Calculate target dates in the safe NEXT_MONTH window
+    const today = new Date();
+    const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+
+    // Find the first Wednesday of next month
+    let firstWed = new Date(nextMonth);
+    while (firstWed.getDay() !== 3) { firstWed.setDate(firstWed.getDate() + 1); }
+
+    // Calculate the 3rd and 4th Wednesdays
+    const thirdWed = new Date(firstWed);
+    thirdWed.setDate(thirdWed.getDate() + 14);
+
+    const fourthWed = new Date(firstWed);
+    fourthWed.setDate(fourthWed.getDate() + 21);
+
+    const formatDt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+    const firstWedStr = formatDt(firstWed);
+    const thirdWedStr = formatDt(thirdWed);
+    const fourthWedStr = formatDt(fourthWed);
+
+    const targetHorizon = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
+    await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
+    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+
+    // 2. Open Modal on First Wednesday
+    const dayCell = page.locator(`.calendar-day[data-date="${firstWedStr}"]`).first();
+    await dayCell.hover({ force: true });
+    await dayCell.locator('.add-event-plus').first().evaluate(el => el.click());
+
+    const modal = page.locator('#fsb-edit-modal');
+    await expect(modal).toBeVisible();
+
+    // 3. Fill out the form
+    await modal.locator('input[name="title"]').fill('Summer Volleyball');
+    await modal.locator('#is_repeating').check();
+    await expect(modal.locator('#rr-builder-panel')).toBeVisible();
+
+    // Set to repeat on Wednesdays
+    await modal.locator('.rr-day[value="WE"]').check();
+
+    // Set the UNTIL date to the Third Wednesday
+    await modal.locator('#rr-until').fill(thirdWedStr);
+
+    // Save
+    await modal.locator('.fsb-save-btn').click();
+    await expect(modal).toBeHidden({ timeout: 5000 });
+    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+
+    // 4. Verify Frontend Render Boundary
+    // Should exist on 1st and 3rd Wednesday
+    await expect(page.locator(`.calendar-day[data-date="${firstWedStr}"] .event-item`).filter({ hasText: 'Summer Volleyball' })).toBeVisible();
+    await expect(page.locator(`.calendar-day[data-date="${thirdWedStr}"] .event-item`).filter({ hasText: 'Summer Volleyball' })).toBeVisible();
+
+    // Should NOT exist on 4th Wednesday
+    // (Check if 4th Wed is still in the same month horizon so it's on screen)
+    if (fourthWed.getMonth() === firstWed.getMonth()) {
+        await expect(page.locator(`.calendar-day[data-date="${fourthWedStr}"] .event-item`).filter({ hasText: 'Summer Volleyball' })).toHaveCount(0);
+    }
+
+    // 5. Verify Backend DB State
+    // Find the event ID in memory
+    const targetEventId = await page.evaluate(() => {
+        const ev = window.allEvents.find(e => e.title === "Summer Volleyball");
+        return parseInt(ev.pivot_id || ev.id, 10);
+    });
+
+    const dbState = await page.evaluate(async (mId) => {
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        return (await res.json()).data.db_state;
+    }, targetEventId);
+
+    // Verify the UNTIL string was correctly formatted and appended
+    const formattedUntil = thirdWedStr.replace(/-/g, '') + 'T235959';
+    expect(dbState.master.rrule).toContain(`UNTIL=${formattedUntil}`);
+    console.log(`[DB TRACE] UNTIL boundary successful. RRule is: ${dbState.master.rrule}`);
+  });
+
 
 
 /********************************************

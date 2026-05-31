@@ -194,6 +194,12 @@ Confirm that the first day of week changes from Sunday to Monday.
     * Note that day of week headings will not change because they are set by the user in Canva.
     * Confirm that The correct days are now in the split cells.
 
+
+### TEST 22: Serise End Date (UNTIL)
+test to validate the new UNTIL end date logic. It creates a "Summer Volleyball" series, sets it to repeat weekly, applies a specific end date via the new UI field, and then confirms that the frontend successfully truncates the rendering while the backend successfully formats the RRULE string.
+
+It is ok to assume that if the rule contains the UNTIL option, the RRULE logic will handle it correctly.
+
 ---
 
 NOTE: to run tests so we can see the screen.

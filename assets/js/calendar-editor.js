@@ -249,6 +249,11 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                     </select>
                     <p style="font-size:10px; color:#666; margin:2px 0;">(Overrides "Which Weeks" if set)</p>
                 </div>
+                <div class="rr-row" style="margin-top:15px; padding-top:10px; border-top:1px dashed #ccc;">
+                    <strong>Ends On (Optional):</strong><br>
+                    <input type="date" id="rr-until" onchange="buildRRule()" style="padding:4px; margin-top:5px; width:100%;">
+                    <p style="font-size:10px; color:#666; margin:2px 0;">Leave blank for an infinite series.</p>
+                </div>
                 <div class="rr-row" style="margin-top:15px;">
                     <label>Manual RRULE (Overrides Builder):</label>
                     <input type="text" name="rrule" id="rrule_input" value="${eventData.rrule || ''}" style="width:100%; font-family:monospace; font-size:11px;">
@@ -316,6 +321,19 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
         const monthDayMatch = rrule.match(/BYMONTHDAY=([^;]+)/);
         if (monthDayMatch) {
             document.getElementById('rr-bymonthday').value = monthDayMatch[1];
+        }
+
+        // Parse UNTIL date if it exists
+        const untilMatch = rrule.match(/UNTIL=([^;]+)/);
+        if (untilMatch) {
+            const rawUntil = untilMatch[1];
+            // Format is usually YYYYMMDDTHHMMSS
+            if (rawUntil.length >= 8) {
+                const y = rawUntil.substring(0, 4);
+                const m = rawUntil.substring(4, 6);
+                const d = rawUntil.substring(6, 8);
+                document.getElementById('rr-until').value = `${y}-${m}-${d}`;
+            }
         }
     }
     modal.classList.add('is-visible');
@@ -396,8 +414,19 @@ function buildRRule() {
         rule += `;INTERVAL=${interval}`;
     }
 
+    // Append UNTIL boundary
+    const untilInput = document.getElementById('rr-until');
+    if (rule !== "FREQ=" && untilInput && untilInput.value) {
+        // Strip hyphens and append End-Of-Day time (T235959)
+        const formattedUntil = untilInput.value.replace(/-/g, '') + 'T235959';
+        rule += `;UNTIL=${formattedUntil}`;
+    }
+
     if (rule !== "FREQ=") {
         document.getElementById('rrule_input').value = rule;
+    } else {
+        // Clear the rule completely if everything is deselected
+        document.getElementById('rrule_input').value = '';
     }
 }
 

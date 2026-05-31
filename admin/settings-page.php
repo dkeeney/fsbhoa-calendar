@@ -647,13 +647,15 @@ function fsb_render_event_audit() {
                 </tr>
             </thead>
             <tbody>
-                <?php foreach ($results as $e) : 
+                <?php 
+                $repo = fsb_get_repo();
+                foreach ($results as $e) : 
                     $is_child = !empty($e->parent_id);
                     $is_hole = ($e->status === 'cancelled');
                     $row_class = $is_child ? 'fsb-audit-child' : 'fsb-audit-master';
                     $row_style = $is_child ? 'background: #fcfcfc;' : 'background: #f0f6fb; font-weight: 600;';
                     if ($is_hole) $row_style .= ' opacity: 0.6;';
-                    $target_date = date('Y-m-d', strtotime($e->start_datetime));
+                    $target_date = $repo->get_first_instance_date($e->start_datetime, $e->rrule);  // first instance
                     $target_time = date('H:i', strtotime($e->start_datetime));
                     $display_time = date('g:i A', strtotime($e->start_datetime));
                     
@@ -775,6 +777,44 @@ function fsb_render_event_audit() {
                 if(result.success) { location.reload(); } else { alert(result.data); }
             }
         }
+        // 3. Auto-Refresh the static Audit Log table after a successful modal edit
+        const originalFetch = window.fetch;
+        window.fetch = async function(...args) {
+            // Let the real network request happen normally
+            const response = await originalFetch.apply(this, args);
+
+            try {
+                // Inspect the outgoing request
+                if (args[1] && args[1].body) {
+                    const body = args[1].body;
+                    let isSaveAction = false;
+
+                    // Check if it's our save event (handles FormData, URLSearchParams, and raw Strings)
+                    if (body.get && typeof body.get === 'function') {
+                        isSaveAction = body.get('action') === 'fsb_save_calendar_event';
+                    } else if (typeof body === 'string') {
+                        isSaveAction = body.includes('action=fsb_save_calendar_event');
+                    }
+
+                    // If it was a save, check if the server said it was successful
+                    if (isSaveAction) {
+                        // Clone the response so we don't break the main calendar JS reading it
+                        const data = await response.clone().json();
+                        if (data.success) {
+                            // The database has committed the change. Wait 200ms to let
+                            // the modal visually close, then reload the page!
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 200);
+                        }
+                    }
+                }
+            } catch (e) {
+                // Fail silently so we never accidentally break the calendar app
+            }
+
+            return response;
+        };
         </script>
     <?php
 }
