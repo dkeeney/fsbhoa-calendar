@@ -1196,12 +1196,37 @@ function updateBackground(appContainer, year, month) {
     const fileName = `cal-${year}-${monthPad}.png`;
     const bgUrl = `${fsb_config.bg_base_url}${fileName}?v=${fsb_config.version}`;
 
-    // Apply the background
-    window.currentBackgroundUrl = bgUrl;  // for print functions
-    appContainer.style.backgroundImage = `url('${bgUrl}')`;
-    appContainer.style.backgroundSize = 'cover';
-    appContainer.style.backgroundPosition = 'no-repeat';
+    // The dynamic fallback endpoint
+    const fallbackUrl = `${fsb_config.ajax_url}?action=fsb_generate_fallback_bg&year=${year}&month=${month + 1}`;
+
+    // Create a temporary image object to test if the Canva file exists
+    const imgTest = new Image();
+
+    imgTest.onload = function() {
+        // Image exists! Use the Canva background
+        window.currentBackgroundUrl = bgUrl;
+        applyBackgroundStyles(appContainer, bgUrl);
+    };
+
+    imgTest.onerror = function() {
+        // Image missing (404)! Fallback to the generated SVG
+        console.warn(`[FSBHOA Calendar] Background image missing for ${year}-${monthPad}. Using SVG fallback.`);
+        window.currentBackgroundUrl = fallbackUrl;
+        applyBackgroundStyles(appContainer, fallbackUrl);
+    };
+
+    // Trigger the load attempt
+    imgTest.src = bgUrl;
 }
+
+// Helper function to keep things DRY
+function applyBackgroundStyles(container, url) {
+    container.style.backgroundImage = `url('${url}')`;
+    container.style.backgroundSize = 'cover';
+    container.style.backgroundPosition = 'no-repeat';
+}
+
+
 
 
 

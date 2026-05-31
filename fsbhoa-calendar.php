@@ -968,3 +968,109 @@ function escape_ics_text($string) {
 }
 
 
+// --- THE BACKGROUND SVG GENERATOR (TEMPLATE & FALLBACK) ---
+add_action('wp_ajax_fsb_generate_fallback_bg', 'fsb_serve_svg_background');
+add_action('wp_ajax_nopriv_fsb_generate_fallback_bg', 'fsb_serve_svg_background');
+
+
+function fsb_serve_svg_background() {
+    $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
+    $month = isset($_GET['month']) ? intval($_GET['month']) : date('n');
+    $is_template = isset($_GET['template_only']) && $_GET['template_only'] === '1';
+
+    $month_name = date('F', mktime(0, 0, 0, $month, 10));
+    $start_day = get_option('fsb_start_day', '0'); // 0=Sun, 1=Mon
+
+    // Title case
+    $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    if ($start_day === '1') {
+        $days = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    }
+
+    // Exact 1700x1100 Math
+    $width = 1700;
+    $height = 1100;
+    $header_h = 154; // 14% of 1100
+    $grid_h = $height - $header_h; // 946
+
+    $col_w = $width / 7; // 242.857px
+    $row_h = $grid_h / 5; // 189.2px
+
+    header('Content-Type: image/svg+xml; charset=utf-8');
+
+    if ($is_template) {
+        header('Content-Disposition: attachment; filename="canva-grid-seed-1700x1100.svg"');
+    }
+
+    echo '<?xml version="1.0" encoding="UTF-8" standalone="no"?>';
+    ?>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 <?php echo $width; ?> <?php echo $height; ?>" width="100%" height="100%">
+        <defs>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Calistoga&amp;display=swap');
+
+                .bg { fill: #ffffff; }
+                .header { fill: <?php echo $is_template ? '#ffffff' : '#ffffff'; ?>; }
+                .grid-line { stroke: <?php echo $is_template ? '#aaaaaa' : '#aaaaaa'; ?>; stroke-width: 2; }
+
+                /* heavy 3px perimeter */
+                .perimeter { stroke: <?php echo $is_template ? '#000000' : '#000000'; ?>; stroke-width: 3; fill: none; }
+                .title-text {
+                    font-family: 'Calistoga', serif;
+                    font-size: 92px;
+                    font-weight: bold;
+                    fill: <?php echo $is_template ? '#333333' : '#333333'; ?>;
+                    stroke: <?php echo $is_template ? '#333333' : '#333333'; ?>;
+                    stroke-width: 3px;
+                }
+                .day-text {
+                    font-family: 'Calistoga', serif;
+                    font-size: 43px;
+                    font-weight: bold;
+                    fill: <?php echo $is_template ? '#333333' : '#333333'; ?>;
+                    stroke: <?php echo $is_template ? '#333333' : '#333333'; ?>;
+                    stroke-width: 1.5px;
+                    letter-spacing: 2px;
+                }
+            </style>
+        </defs>
+
+        <rect class="bg" x="0" y="0" width="<?php echo $width; ?>" height="<?php echo $height; ?>" />
+
+        <rect class="header" x="0" y="0" width="<?php echo $width; ?>" height="<?php echo $header_h; ?>" />
+
+        <?php if (!$is_template): ?>
+            <text x="<?php echo $width / 2; ?>" y="86" class="title-text" text-anchor="middle"><?php echo esc_html("$month_name $year"); ?></text>
+        <?php else: ?>
+            <text x="<?php echo $width / 2; ?>" y="86" class="title-text" text-anchor="middle"><?php echo esc_html("$month_name $year"); ?></text>
+        <?php endif; ?>
+
+        <?php for ($i = 0; $i < 7; $i++):
+            $x_center = ($i * $col_w) + ($col_w / 2);
+            $y_text = $header_h - 15; // Just above the grid lines
+        ?>
+            <text x="<?php echo $x_center; ?>" y="<?php echo $y_text; ?>" class="day-text" text-anchor="middle"><?php echo $days[$i]; ?></text>
+        <?php endfor; ?>
+
+        <g class="grid-line">
+            <line x1="0" y1="<?php echo $header_h; ?>" x2="<?php echo $width; ?>" y2="<?php echo $header_h; ?>" stroke="<?php echo $is_template ? '#666666' : '#666666'; ?>" stroke-width="3" />
+
+            <?php for ($i = 1; $i < 7; $i++):
+                $x = $i * $col_w;
+            ?>
+                <line x1="<?php echo $x; ?>" y1="<?php echo $header_h; ?>" x2="<?php echo $x; ?>" y2="<?php echo $height; ?>" />
+            <?php endfor; ?>
+
+            <?php for ($i = 1; $i < 5; $i++):
+                $y = $header_h + ($i * $row_h);
+            ?>
+                <line x1="0" y1="<?php echo $y; ?>" x2="<?php echo $width; ?>" y2="<?php echo $y; ?>" />
+            <?php endfor; ?>
+        </g>
+
+        <rect x="1.5" y="1.5" width="<?php echo $width - 3; ?>" height="<?php echo $height - 3; ?>" class="perimeter" />
+    </svg>
+    <?php
+    exit;
+}
+

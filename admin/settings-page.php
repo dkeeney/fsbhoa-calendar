@@ -173,8 +173,12 @@ function fsb_render_bg_manager() {
 
     ?>
     <h3>Monthly Backgrounds (ZIP Upload)</h3>
-    <p>Upload a ZIP file containing images named <strong>cal-YYYY-MM.png</strong> (e.g., <em>cal-2026-03.png</em>).</p>
-
+    <div style="margin-bottom: 20px;">
+        <p>Upload a ZIP file containing images named <strong>cal-YYYY-MM.png</strong> (e.g., <em>cal-2026-03.png</em>).</p>
+        <a href="<?php echo admin_url('admin-ajax.php?action=fsb_generate_fallback_bg&template_only=1'); ?>" class="button" target="_blank" download>
+            <span class="dashicons dashicons-download" style="margin-top:4px;"></span> Download 11x17 Canva Grid Seed (SVG)
+        </a>
+    </div>
     <form method="post" enctype="multipart/form-data" style="background:#fff; padding:20px; border:1px solid #ccc; display:inline-block;">
         <input type="file" name="cal_zip" accept=".zip" required>
         <input type="submit" name="fsb_upload_zip" class="button-primary" value="Upload and Process ZIP">
