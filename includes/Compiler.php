@@ -18,9 +18,7 @@ class Compiler {
         } else {
             // 2. Otherwise, check the DB option or use the WP default
             $upload_dir = wp_upload_dir();
-            $default_path = $upload_dir['basedir'] . '/fsbhoa-calendar/calendar-events.json';
-
-            $this->json_path = get_option('fsb_cal_json_path', $default_path);
+            $this->json_path = FSBHOA_CALENDAR_DIR . '/calendar-events.json';
         }
     }
 

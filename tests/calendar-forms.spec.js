@@ -1063,16 +1063,60 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("\n========================================================");
     console.log("TEST 13  -- past days");
     console.log("========================================================");
-    // Navigate to CURRENT month to ensure past days exist
-    await page.goto(`/calendar/?viewDate=${SERIES_START_DATE}&pw_nocache=${Date.now()}`);
+
+    // 1. Extend the past limit guardrail so the UI allows navigating backward
+    await setSandboxOption(page, 'fsb_past_limit', '2');
+    await page.evaluate(() => {
+        const today = new Date();
+        // Recalculate the window threshold matching the new past_limit
+        window.fsbMinTime = new Date(today.getFullYear(), today.getMonth() - 2, 1).getTime();
+        // Refresh the navigation arrow states to unlock the button
+        updateNavGuardrails(window.currentYear, window.currentMonth);
+    });
+
+    // 2. Click the previous month button to drop back into the current month horizon
+    await page.locator('#prevMonth').first().click();
     await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
 
-    // 1. Find a cell in the past
-    const pastCell = page.locator('.calendar-day.past-day').first();
+    // 3. Target the 1st of the current month (SERIES_START_DATE) which is a past-day
+    const pastCell = page.locator(`.calendar-day[data-date="${SERIES_START_DATE}"]`).first();
     await expect(pastCell).toBeVisible();
+    await expect(pastCell).toHaveClass(/past-day/);
 
-    // 2. Assert: Verify Pencil is entirely suppressed from the DOM on historical events
-    await expect(pastCell.locator('.edit-pencil, .edit-pencil-mini')).toHaveCount(0);
+    // 4. Hover over the past cell and trigger the Add Event Modal
+    await pastCell.hover({ force: true });
+    const addIcon = pastCell.locator('.add-event-plus').first();
+    await expect(addIcon).toBeVisible();
+    await addIcon.evaluate(el => el.click());
+
+    // 5. Interact with the Edit Modal Form
+    const modal = page.locator('#fsb-edit-modal');
+    await expect(modal).toBeVisible();
+
+    // Fill the title
+    await modal.locator('input[name="title"]').fill('Past Repeating Series');
+
+    // Toggle the repeating options layout panel
+    await modal.locator('#is_repeating').check();
+    await expect(modal.locator('#rr-builder-panel')).toBeVisible();
+
+    // Set to repeat on Mondays (Since June 1, 2026 is a Monday)
+    await modal.locator('.rr-day[value="MO"]').check();
+
+    // 6. Save the new historical series
+    await modal.locator('.fsb-save-btn').click();
+
+    // Verify modal closes and grid rebuild pass completes successfully
+    await expect(modal).toBeHidden({ timeout: 5000 });
+    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+
+    // 7. Verify the generated event chip has edit permissions intact
+    const eventChip = pastCell.locator('.event-item').filter({ hasText: 'Past Repeating Series' }).first();
+    await eventChip.hover({ force: true });
+
+    // Assert: Verify the edit pencil renders natively inside the past day card
+    const editPencil = eventChip.locator('.edit-pencil, .edit-pencil-mini').first();
+    await expect(editPencil).toBeVisible();
   });
 
 

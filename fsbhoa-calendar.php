@@ -3,7 +3,7 @@
  * Plugin Name: FSBHOA Calendar
  * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.1.0
+ * Version:           1.1.5
  * Author:            David Keeney
  * AI Tool:           Gemini Pro 2.5 and 3.1
  * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
@@ -17,11 +17,57 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
+if ( ! defined( 'FSB_LICENSE_SERVER_URL' ) ) {
+    define( 'FSB_LICENSE_SERVER_URL', 'https://testbed.fsbhoa.com' );
+}
+// Define fixed file paths dynamically based on the server's environment
+if ( ! defined( 'FSBHOA_CALENDAR_DIR' ) ) {
+    $upload_dir = wp_upload_dir();
+    define( 'FSBHOA_CALENDAR_DIR', $upload_dir['basedir'] . '/fsbhoa-calendar' );
+}
+
+
 use FSBHOA\Cal\Repository;
 use FSBHOA\Cal\Compiler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/admin/settings-page.php';
+
+
+register_activation_hook( __FILE__, 'fsb_core_network_activation' );
+
+function fsb_core_network_activation( $network_wide ) {
+    // If it's a multisite and the PMC clicked "Network Activate"
+    if ( is_multisite() && $network_wide ) {
+        // Fetch all sub-sites in the network
+        $site_ids = get_sites( array( 'fields' => 'ids' ) );
+        foreach ( $site_ids as $site_id ) {
+            switch_to_blog( $site_id );
+
+            $repo = new FSBHOA\Cal\Repository();
+            $repo->create_table();
+
+            restore_current_blog(); // Crucial: Always switch back!
+        }
+    } else {
+        // Standard single-site activation
+        $repo = new FSBHOA\Cal\Repository();
+        $repo->create_table();
+    }
+}
+
+// Listen for NEW HOAs being added to the network in the future
+add_action( 'wp_insert_site', function( $new_site ) {
+    // If the plugin is already network-active, build tables for the new site
+    if ( is_plugin_active_for_network( plugin_basename( __FILE__ ) ) ) {
+        switch_to_blog( $new_site->blog_id );
+
+        $repo = new FSBHOA\Cal\Repository();
+        $repo->create_table();
+
+        restore_current_blog();
+    }
+});
 
 
 // --- SANDBOX BRIDGE HELPERS ---
@@ -39,7 +85,7 @@ function fsb_get_compiler() {
     // If the Playwright cookie is present, use test prefix AND test JSON path!
     if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
         $upload_dir = wp_upload_dir();
-        $test_json_path = $upload_dir['basedir'] . '/fsbhoa-calendar/test_calendar-events.json';
+        $test_json_path = FSBHOA_CALENDAR_DIR . '/test_calendar-events.json';
         return new \FSBHOA\Cal\Compiler($wpdb->prefix . 'test_', $test_json_path);
     }
     return new \FSBHOA\Cal\Compiler();
@@ -51,12 +97,6 @@ register_activation_hook( __FILE__, function() {
     $repo = new Repository();
     $repo->create_table();
 
-    // Set the default JSON path if it doesn't exist
-    if (!get_option('fsb_cal_json_path')) {
-        $upload_dir = wp_upload_dir();
-        $default_path = $upload_dir['basedir'] . '/fsbhoa-calendar/calendar-events.json';
-        update_option('fsb_cal_json_path', $default_path);
-    }
 });
 
 // Register the uninstall hook
@@ -141,6 +181,7 @@ function fsb_enqueue_calendar_scripts() {
     // Quick check: Is this user an owner of ANY event?
     $repo = fsb_get_repo();
     $is_delegate = false;
+    $delegated_categories = [];
     if ( is_user_logged_in() && !$is_admin && !empty($user_email) ) {
         $is_delegate = $repo->is_user_delegate($user_email);
         $delegated_categories = $repo->get_user_delegated_categories($user_email);
@@ -838,13 +879,10 @@ function fsb_serve_calendar_json() {
     $upload_dir = wp_upload_dir();
     // 1. Check for Sandbox Bridge
     if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
-        $path = $upload_dir['basedir'] . '/fsbhoa-calendar/test_calendar-events.json';
+        $path = FSBHOA_CALENDAR_DIR . '/test_calendar-events.json';
     } else {
         // Normal live operation
-        $path = get_option('fsb_cal_json_path');
-        if (empty($path)) {
-            $path = $upload_dir['basedir'] . '/fsbhoa-calendar/calendar-events.json';
-        }
+        $path = FSBHOA_CALENDAR_DIR . '/calendar-events.json';
     }
 
     // 3. Check if the file actually exists on the Pi
@@ -1076,4 +1114,3 @@ function fsb_serve_svg_background() {
     <?php
     exit;
 }
-

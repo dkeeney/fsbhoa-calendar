@@ -739,12 +739,11 @@ class Repository {
             error_log("CRITICAL: Repository->cleanup_test_tables aborted.");
             wp_die("CRITICAL SAFETY ABORT: Refusing to truncate live database tables.", '', 500);
         }
-        // ENSURE THEY EXIST BEFORE TRUNCATING
-        $this->prepare_test_tables();
 
-        $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_events");
-        $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_categories");
-        $wpdb->query("TRUNCATE TABLE {$this->prefix}fsbhoa_locations");
+        // Nuke the test schemas completely
+        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_events");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_categories");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_locations");
 
     }
 

@@ -143,7 +143,10 @@ So this can reduce down to a test that can evaluate the render of both upper and
 
 ### TEST 13: Temporal State Lockdowns (Past vs. Future)
 *   **Scenario:** Verify rules governing historical calendar frames.
-*   **Assertions:** All day cells representing dates prior to the current system date are explicitly grayed out visually.
+*   **Assertions:** Configure nav range to be one month into the past. Create one repeating event in past month.
+    * All day cells representing dates prior to the current system date are explicitly grayed out visually. 
+    * Confirm that the + add icons exist on non-empty day cells.
+    * Confirm that the edit icons exist on the events in the past.
 
 ### TEST 14: Edge Case - Form Validator (Happy Path)
 *   **Scenario:** Attempt to save with invalid form data.

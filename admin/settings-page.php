@@ -59,7 +59,7 @@ add_action('admin_init', function() {
     register_setting('fsb_cal_settings_group', 'fsb_time_position');
     register_setting('fsb_cal_settings_group', 'fsb_time_format');
     register_setting('fsb_cal_settings_group', 'fsb_start_day');
-    register_setting('fsb_cal_settings_group', 'fsb_cal_json_path');
+    register_setting( 'fsbhoa_calendar_settings', 'fsbhoa_nuke_on_delete' );
 });
 
 // Ensure scripts and modal styles are loaded for the settings page
@@ -93,7 +93,6 @@ function fsb_render_settings_manager() {
     $time_pos    = get_option('fsb_time_position', 'prepend');
     $time_format = get_option('fsb_time_format', '12hr');
     $start_day   = get_option('fsb_start_day', '0');
-    $json_path   = get_option('fsb_cal_json_path');
     ?>
     <div class="wrap">
         <form method="post" action="options.php">
@@ -111,12 +110,6 @@ function fsb_render_settings_manager() {
                     <tr>
                         <th scope="row">Future Months:</th>
                         <td><input type="number" name="fsb_cal_future_months" value="<?php echo esc_attr($future_val); ?>" style="width:70px;"></td>
-                    </tr>
-                    <tr>
-                        <th scope="row">JSON Storage Path:</th>
-                        <td>
-                            <input type="text" name="fsb_cal_json_path" value="<?php echo esc_attr($json_path); ?>" class="large-text" style="font-family:monospace;">
-                        </td>
                     </tr>
                 </table>
             </div>
@@ -154,6 +147,24 @@ function fsb_render_settings_manager() {
                     </tr>
                 </table>
             </div>
+            <div style="background:#fff; padding:20px; border:1px solid #ccc; margin-top:20px; border-radius:4px;">
+                <h3>Display Preferences</h3>
+                <table class="form-table">
+                    <tr valign="top">
+                        <th scope="row">Uninstall Behavior:</th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="fsbhoa_nuke_on_delete" value="1" <?php checked( 1, get_option( 'fsbhoa_nuke_on_delete' ), true ); ?> />
+                                <strong style="color: #d63638;">Erase all calendar data upon plugin deletion</strong>
+                            </label>
+                            <p class="description">
+                                Leave this unchecked to safely keep your events in the database when updating or temporarily deactivating the plugin.<br>
+                                <strong>Warning:</strong> If checked, all events, schedules, backgrounds and settings will be permanently destroyed when this plugin is deleted from the WordPress plugins page.
+                            </p>
+                        </td>
+                    </tr>
+                </table>
+            </div>
             <?php submit_button('Save All Settings & Re-Bake'); ?>
         </form>
     </div>
@@ -175,9 +186,6 @@ function fsb_render_bg_manager() {
     <h3>Monthly Backgrounds (ZIP Upload)</h3>
     <div style="margin-bottom: 20px;">
         <p>Upload a ZIP file containing images named <strong>cal-YYYY-MM.png</strong> (e.g., <em>cal-2026-03.png</em>).</p>
-        <a href="<?php echo admin_url('admin-ajax.php?action=fsb_generate_fallback_bg&template_only=1'); ?>" class="button" target="_blank" download>
-            <span class="dashicons dashicons-download" style="margin-top:4px;"></span> Download 11x17 Canva Grid Seed (SVG)
-        </a>
     </div>
     <form method="post" enctype="multipart/form-data" style="background:#fff; padding:20px; border:1px solid #ccc; display:inline-block;">
         <input type="file" name="cal_zip" accept=".zip" required>
@@ -193,6 +201,11 @@ function fsb_render_bg_manager() {
     } else {
         echo '<p style="color:red;">No background found for ' . date('F Y') . ' (Expected: ' . $current_file . ')</p>';
     }
+    ?>
+    <a href="<?php echo admin_url('admin-ajax.php?action=fsb_generate_fallback_bg&template_only=1'); ?>" class="button" target="_blank" download>
+            <span class="dashicons dashicons-download" style="margin-top:4px;"></span> Download 11x17 Canva Grid Seed (SVG)
+    </a>
+    <?php
 }
 
 
@@ -887,13 +900,20 @@ function fsb_render_regression_test() {
     <?php
 }
 
-
 // ==========================================
 // PRO LICENSE & AUTO-INSTALLER ENGINE
 // ==========================================
 
+// Ensure our constants exist (in case they aren't in the main plugin file yet)
+if ( ! defined( 'FSB_LICENSE_SERVER_URL' ) ) {
+    define( 'FSB_LICENSE_SERVER_URL', 'https://testbed.fsbhoa.com' );
+}
+if ( ! defined( 'FSB_PRO_SHARED_SECRET' ) ) {
+    define( 'FSB_PRO_SHARED_SECRET', '!*UuYp5iYLmsTM*' );
+}
+
 function fsb_render_pro_license_installer() {
-    $license_key = get_option('fsb_pro_license_key');
+    $license_key = is_multisite() ? get_site_option('fsb_pro_license_key') : get_option('fsb_pro_license_key');
 
     // 1. Force WP to load the plugin library so we can accurately check if Pro is active
     if ( ! function_exists( 'is_plugin_active' ) ) {
@@ -906,10 +926,9 @@ function fsb_render_pro_license_installer() {
         <h3 style="margin-top: 0;">FSBHOA Calendar Pro</h3>
 
         <?php
-        // DIAGNOSTICS: Print out exactly what went wrong if the installer fails
+        // DIAGNOSTICS: Print out exactly what went wrong if the physical installation fails
         if ( isset($_GET['pro_status']) ) {
             $status = sanitize_text_field($_GET['pro_status']);
-            if ( $status === 'api_fail' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: API rejected the key or server is unreachable.</div>';
             if ( $status === 'install_fail' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: WP Upgrader failed to extract the ZIP.</div>';
             if ( $status === 'file_missing' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: ZIP extracted, but the plugin file was not found! Check ZIP folder structure.</div>';
             if ( $status === 'activation_fail' ) echo '<div style="color:#d32f2f; margin-bottom:15px; font-weight:bold;">Error: Plugin installed, but WP refused to activate it. Check PHP error log.</div>';
@@ -931,6 +950,7 @@ function fsb_render_pro_license_installer() {
                 <?php wp_nonce_field('fsb_install_pro_nonce'); ?>
 
                 <table class="form-table">
+                    <!-- EMAIL FIELD HAS BEEN REMOVED! -->
                     <tr valign="top">
                         <th scope="row">License Key:</th>
                         <td>
@@ -960,72 +980,181 @@ function fsb_handle_pro_installation() {
     $pro_path = 'fsbhoa-calendar-pro/fsbhoa-calendar-pro.php';
     $redirect_url = admin_url('admin.php?page=fsb-cal-settings&tab=license');
 
-    // 1. Ask your server if the key is valid and get the secure download URL
-    $api_url = 'https://testbed.fsbhoa.com/wp-json/fsb-licensing/v1/check?item=pro&license_key=' . urlencode($key);
-    $response = wp_remote_get($api_url);
-    $body = json_decode(wp_remote_retrieve_body($response));
+    // 1. Build the Cryptographic Payload
+    $site_url = get_site_url();
+    $time     = time();
+    $data_string = $key . $site_url . $time;
+    $signature   = hash_hmac( 'sha256', $data_string, FSB_PRO_SHARED_SECRET );
 
-    if ( $body && $body->status === 'valid' ) {
+    // 2. Ask the server if the key is valid BEFORE downloading
+    $check_url = add_query_arg( array(
+        'action'      => 'check',
+        'license_key' => urlencode( $key ),
+        'site_url'    => urlencode( $site_url )
+    ), FSB_LICENSE_SERVER_URL . '/wp-json/fsb-licensing/v1/check' );
 
-        // Key is good! Save it to the database so the Pro plugin can use it later
-        update_option('fsb_pro_license_key', $key);
+    $response = wp_remote_get( $check_url, array( 'timeout' => 15 ) );
 
-        // 2. Surgical Extraction (Bypassing Upgrader logic)
-        if ( ! file_exists( WP_PLUGIN_DIR . '/' . $pro_path ) ) {
-            require_once ABSPATH . 'wp-admin/includes/file.php';
-            WP_Filesystem();
-
-            $temp_zip = download_url( $body->download_url );
-            if ( is_wp_error( $temp_zip ) ) {
-                wp_redirect( add_query_arg('pro_status', 'install_fail', $redirect_url) );
-                exit;
-            }
-
-            // Unzip into the plugins directory
-            $unzip_result = unzip_file( $temp_zip, WP_PLUGIN_DIR );
-            @unlink( $temp_zip );
-
-            if ( is_wp_error( $unzip_result ) ) {
-                wp_redirect( add_query_arg('pro_status', 'install_fail', $redirect_url) );
-                exit;
-            }
-        }
-
-        // 3. Activate the newly downloaded plugin
-        if ( file_exists( WP_PLUGIN_DIR . '/' . $pro_path ) ) {
-
-            // Force WP to load the activation library
-            if ( ! function_exists( 'activate_plugin' ) ) {
-                require_once ABSPATH . 'wp-admin/includes/plugin.php';
-            }
-
-            // Flush caches
-            clearstatcache();
-            wp_cache_delete( 'plugins', 'plugins' );
-
-            // Activate the plugin
-            $activation_result = activate_plugin( $pro_path );
-
-            // If WP rejects the activation, bounce back with the error code
-            if ( is_wp_error( $activation_result ) ) {
-                error_log( 'FSBHOA Pro Auto-Activation Error: ' . $activation_result->get_error_message() );
-                wp_redirect( add_query_arg('pro_status', 'activation_fail', $redirect_url) );
-                exit;
-            } else {
-                // SUCCESS! Bounce back clean to show the green box
-                wp_redirect( $redirect_url );
-                exit;
-            }
-        } else {
-            // The unzipper worked, but the folder was named incorrectly inside the zip
-            wp_redirect( add_query_arg('pro_status', 'file_missing', $redirect_url) );
-            exit;
-        }
+    // --- GRANULAR ERROR REPORTING ---
+    if ( is_wp_error( $response ) ) {
+        wp_die( '<strong>Network Error:</strong> Could not reach the licensing server. Details: ' . esc_html( $response->get_error_message() ) . '<br><br><a href="' . esc_url($redirect_url) . '">&laquo; Go Back</a>' );
     }
 
-    // API Failed or invalid key
-    wp_redirect( add_query_arg('pro_status', 'api_fail', $redirect_url) );
-    exit;
+    $http_code = wp_remote_retrieve_response_code( $response );
+    $body = wp_remote_retrieve_body( $response );
+
+    if ( $http_code !== 200 ) {
+        wp_die( '<strong>HTTP Error ' . esc_html( $http_code ) . ':</strong> The server responded unexpectedly. <br>Response: ' . esc_html( strip_tags( $body ) ) . '<br><br><a href="' . esc_url($redirect_url) . '">&laquo; Go Back</a>' );
+    }
+
+    $data = json_decode( $body, true );
+
+    if ( ! $data || empty( $data['success'] ) ) {
+        $api_message = isset( $data['data']['message'] ) ? $data['data']['message'] : 'Unknown API error or invalid JSON.';
+        wp_die( '<strong>API Rejected Key:</strong> ' . esc_html( $api_message ) . '<br><br><a href="' . esc_url($redirect_url) . '">&laquo; Go Back</a>' );
+    }
+
+    // 3. Key is good! Save it to the database
+    if ( is_multisite() ) {
+        update_site_option('fsb_pro_license_key', $key);
+    } else {
+        update_option('fsb_pro_license_key', $key);
+    }
+
+    // 4. Use the Official WordPress Plugin Upgrader
+    require_once ABSPATH . 'wp-admin/includes/file.php';
+    require_once ABSPATH . 'wp-admin/includes/class-wp-upgrader.php';
+    require_once ABSPATH . 'wp-admin/includes/plugin-install.php';
+    require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+    // Build the dynamic download URL
+    $download_url = add_query_arg( array(
+        'action'      => 'download',
+        'slug'        => 'fsbhoa-calendar-pro',
+        'license_key' => urlencode( $key ),
+        'site_url'    => urlencode( $site_url )
+    ), FSB_LICENSE_SERVER_URL . '/wp-json/fsb-licensing/v1/check' );
+
+    // We use the Automatic_Upgrader_Skin so it installs silently in the background
+    // without printing all the technical extraction text to the screen
+    $skin     = new Automatic_Upgrader_Skin();
+    $upgrader = new Plugin_Upgrader( $skin );
+
+    // Fire the official install process!
+    $install_result = $upgrader->install( $download_url );
+
+    // ==========================================
+    // 🚨 THE NUCLEAR DEBUG TRAP 🚨
+    // ==========================================
+    if ( ! file_exists( WP_PLUGIN_DIR . '/' . $pro_path ) ) {
+        echo "<div style='background:#fff; border:2px solid #d00; padding:20px; max-width: 800px; margin: 20px auto; font-family: monospace;'>";
+        echo "<h2 style='color:#d00; margin-top:0;'>Diagnostic Trap Triggered</h2>";
+
+        // 1. What did the upgrader return?
+        echo "<h3>1. Upgrader Return Value</h3><pre style='background:#eee; padding:10px;'>";
+        var_dump($install_result);
+        echo "</pre>";
+
+        if ( is_wp_error( $install_result ) ) {
+            echo "<p><strong>WP_Error Message:</strong> " . esc_html( $install_result->get_error_message() ) . "</p>";
+        }
+
+        // 2. What folders actually exist in the plugins directory right now?
+        echo "<h3>2. Plugin Directory Contents</h3>";
+        echo "<p>Checking: <code>" . WP_PLUGIN_DIR . "</code></p><pre style='background:#eee; padding:10px;'>";
+        $dirs = glob( WP_PLUGIN_DIR . '/*' , GLOB_ONLYDIR );
+        foreach( $dirs as $dir ) {
+            echo basename( $dir ) . "\n";
+        }
+        echo "</pre>";
+
+        // 3. Raw Network Test (What is the server ACTUALLY serving us?)
+        echo "<h3>3. Raw Network Download Test</h3>";
+        $test_dl = wp_remote_get( $download_url, array( 'timeout' => 15 ) );
+
+        if ( is_wp_error( $test_dl ) ) {
+            echo "<p><strong>Network Error:</strong> " . esc_html( $test_dl->get_error_message() ) . "</p>";
+        } else {
+            $headers = wp_remote_retrieve_headers( $test_dl );
+            $content_type = isset( $headers['content-type'] ) ? $headers['content-type'] : 'UNKNOWN';
+
+            echo "<p><strong>HTTP Status:</strong> " . wp_remote_retrieve_response_code( $test_dl ) . "</p>";
+            echo "<p><strong>Content-Type:</strong> " . esc_html( $content_type ) . "</p>";
+
+            if ( strpos( strtolower( $content_type ), 'zip' ) === false ) {
+                echo "<p style='color:#d00;'><strong>🚨 CRITICAL: The server did NOT send a ZIP file. It sent this:</strong></p>";
+                echo "<textarea style='width:100%; height:200px; font-family:monospace;'>" . esc_textarea( wp_remote_retrieve_body( $test_dl ) ) . "</textarea>";
+            } else {
+                echo "<p style='color:#0a0;'><strong>SUCCESS:</strong> The server successfully delivered a ZIP payload. The extraction logic is failing.</p>";
+            }
+        }
+
+        echo "</div>";
+        die(); // HALT COMPLETELY - DO NOT REDIRECT
+    }
+    // ==========================================
+
+    if ( is_wp_error( $install_result ) ) {
+        wp_redirect( add_query_arg('pro_status', 'install_fail', $redirect_url) );
+        exit;
+    } elseif ( $install_result === false ) {
+        wp_redirect( add_query_arg('pro_status', 'install_fail', $redirect_url) );
+        exit;
+    }
+
+    // 5. Activate the newly installed plugin
+    if ( file_exists( WP_PLUGIN_DIR . '/' . $pro_path ) ) {
+        clearstatcache();
+        wp_cache_delete( 'plugins', 'plugins' );
+        $activation_result = activate_plugin( $pro_path );
+
+        if ( is_wp_error( $activation_result ) ) {
+            error_log( 'FSBHOA Pro Auto-Activation Error: ' . $activation_result->get_error_message() );
+            wp_redirect( add_query_arg('pro_status', 'activation_fail', $redirect_url) );
+            exit;
+        } else {
+            // SUCCESS!
+            wp_redirect( $redirect_url );
+            exit;
+        }
+    } else {
+        wp_redirect( add_query_arg('pro_status', 'file_missing', $redirect_url) );
+        exit;
+    }
 }
 
 
+// ==========================================
+// TESTBED BYPASS: Generalized Local File Router
+// ==========================================
+add_filter('upgrader_pre_download', 'fsb_testbed_local_download_bypass', 10, 3);
+
+function fsb_testbed_local_download_bypass($reply, $package, $upgrader) {
+    // 1. Only intercept if WP is targeting our local License Server API
+    if ( strpos( $package, '/wp-json/fsb-licensing/v1/check' ) !== false ) {
+
+        // 2. Break apart the URL to read the query parameters
+        $parsed_url = wp_parse_url( $package );
+
+        if ( isset( $parsed_url['query'] ) ) {
+            parse_str( $parsed_url['query'], $query_params );
+
+            // 3. Extract the requested slug (e.g., 'fsbhoa-calendar' or 'fsbhoa-calendar-pro')
+            if ( ! empty( $query_params['slug'] ) ) {
+                $slug = sanitize_file_name( $query_params['slug'] );
+
+                // 4. Construct the expected local path
+                $upload_dir = wp_upload_dir();
+                $local_zip  = $upload_dir['basedir'] . '/' . $slug . '.zip';
+
+                // 5. If the file is physically there, hand it directly to the Upgrader
+                if ( file_exists( $local_zip ) ) {
+                    return $local_zip;
+                }
+            }
+        }
+    }
+
+    // If it's not our API, or the file doesn't exist, let WP proceed normally
+    return $reply;
+}

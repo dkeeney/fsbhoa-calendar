@@ -36,6 +36,7 @@ echo "Deploying to WordPress uploads directory..."
 # Copy it directly to the uploads folder and hand it over to the web server
 sudo cp "$ZIP_FILE" /var/www/html/wp-content/uploads/
 sudo chown www-data:www-data /var/www/html/wp-content/uploads/"$ZIP_FILE"
+rm $ZIP_FILE
 
 echo "--------------------------------------"
 echo "Done! Created: $ZIP_FILE"
