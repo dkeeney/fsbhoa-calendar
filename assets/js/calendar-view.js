@@ -1,5 +1,5 @@
 //   -- calendar-view.js  --
-window.config = {};
+window.config = window.config || {};
 // note: fsb_config is injected by PHP and is not the same as window.config.  
 window.allEvents = [];
 window.grid; 
@@ -27,14 +27,23 @@ document.addEventListener('DOMContentLoaded', function() {
     const monthlyApp = document.getElementById('fsb-calendar-app');
     const agendaApp = document.getElementById('fsb-agenda-app');
 
+    // 1. EXIT if nothing is found
+    if (!monthlyApp && !agendaApp) return;
+
+    
+    // --- ADDED GUARDRAIL ---
+    // 2. EXIT if on the Backend Dashboard. 
+    // This stops the 404 fetches, DOM errors, and prevents it from overwriting the PHP config.
+    if (window.config && window.config.isDashboard) {
+        return; 
+    }
+    // -----------------------
     grid = document.getElementById('calendar-grid');
     agendaContainer = document.getElementById('agenda-view');
     display = document.getElementById('currentMonthDisplay');
 
-    // 1. EXIT if nothing is found
-    if (!monthlyApp && !agendaApp) return;
 
-    // 2. DETERMINE VIEW & CAPABILITY
+    // 3. DETERMINE VIEW & CAPABILITY
     if (monthlyApp && agendaApp) {
         // BOTH ARE HERE: Enable switching and auto-detect width
         window.isHybridPage = true;
@@ -204,7 +213,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     const printBtn = document.getElementById('printCal');
-    printBtn.onclick = function() {
+    if (printBtn) {
+      printBtn.onclick = function() {
 
         if (!fsb_config.is_pro) {
             alert("🖨️ 11x17 Newsletter Export is a Premium feature.\n\nUpgrade to FSBHOA Calendar Pro to instantly generate, tabloid-ready PDFs of your monthly calendar for your community newsletter!");
@@ -222,7 +232,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 };
                 document.head.appendChild(printScript);
         }
-    };
+      };
+   }
 
 
 

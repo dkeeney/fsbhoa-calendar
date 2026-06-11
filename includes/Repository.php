@@ -49,9 +49,7 @@ class Repository {
             KEY parent_id (parent_id),
             KEY start_datetime (start_datetime),
             UNIQUE KEY slug (slug),
-            UNIQUE KEY ical_uid (ical_uid),
-            CONSTRAINT fk_event_location FOREIGN KEY (location_id) REFERENCES $loc_table(id) ON DELETE SET NULL,
-            CONSTRAINT fk_event_category FOREIGN KEY (category_id) REFERENCES $cat_table(id) ON DELETE SET NULL
+            UNIQUE KEY ical_uid (ical_uid)
         ) $charset_collate;";
 
 
@@ -77,6 +75,25 @@ class Repository {
         dbDelta($sql_cat);
         dbDelta($sql_loc);
         dbDelta( $sql );
+
+
+        // Safely Inject the Foreign Key Separately (Bypassing dbDelta)
+        // Check information_schema first to guarantee we never throw a duplicate constraint error
+        $constraint_exists = $wpdb->get_var($wpdb->prepare(
+            "SELECT CONSTRAINT_NAME FROM information_schema.TABLE_CONSTRAINTS
+             WHERE CONSTRAINT_SCHEMA = DATABASE()
+             AND TABLE_NAME = %s
+             AND CONSTRAINT_NAME = 'fk_event_category'",
+            $events_table
+        ));
+        if ( ! $constraint_exists ) {
+            $wpdb->query(
+                "ALTER TABLE $events_table
+                 ADD CONSTRAINT fk_event_category
+                 FOREIGN KEY (category_id) REFERENCES $cat_table(id)
+                 ON DELETE SET NULL"
+            );
+        }
     }
 
 

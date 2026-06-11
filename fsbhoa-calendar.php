@@ -3,7 +3,7 @@
  * Plugin Name: FSBHOA Calendar
  * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.1.5
+ * Version:           1.1.17
  * Author:            David Keeney
  * AI Tool:           Gemini Pro 2.5 and 3.1
  * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
@@ -13,12 +13,25 @@
  * License:           MIT
  * License URI:       https://opensource.org/licenses/MIT
  * Text Domain:       fsbhoa-calendar
+ *
+ * Shortcodes:     
+ *    [fsbhoa_calendar]
+ * This is the master entry point for the plugin. When used without parameters, 
+ * it defaults to the hybrid layout, loading both the monthly grid workspace 
+ * and the agenda stream workspace into the container.
+ *
+ *     [fsbhoa_calendar 'layout' => 'month'] 
+ * Skips the agenda module and exclusively loads the monthly grid.
+ *
+ *     [fsbhoa_calendar 'layout' => 'agenda'] 
+ * Skips the monthly grid and shows only the agenda view.
+ *     
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 if ( ! defined( 'FSB_LICENSE_SERVER_URL' ) ) {
-    define( 'FSB_LICENSE_SERVER_URL', 'https://testbed.fsbhoa.com' );
+    define( 'FSB_LICENSE_SERVER_URL', 'https://HOAplugin.com' );
 }
 // Define fixed file paths dynamically based on the server's environment
 if ( ! defined( 'FSBHOA_CALENDAR_DIR' ) ) {
@@ -31,7 +44,9 @@ use FSBHOA\Cal\Repository;
 use FSBHOA\Cal\Compiler;
 
 require_once __DIR__ . '/vendor/autoload.php';
-require_once __DIR__ . '/admin/settings-page.php';
+if ( is_admin() ) {
+    require_once __DIR__ . '/admin/settings-page.php';
+}
 
 
 register_activation_hook( __FILE__, 'fsb_core_network_activation' );
@@ -396,153 +411,165 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
 });
 
 
+// =========================================================================
+// THE UNIFIED CALENDAR SYSTEM SHORTCODE
+// =========================================================================
+function fsb_calendar_master_shortcode( $atts ) {
+    // Provide an option parameter so admins can still force a single view if desired
+    $args = shortcode_atts( array(
+        'layout' => 'hybrid', // Options: 'hybrid' (both), 'month', 'agenda'
+    ), $atts );
 
-
-// the shortcode for the monthly calendar.
-add_shortcode('fsbhoa_calendar', function() {
     // FORCE LOAD CALENDAR ASSETS STRICTLY WHEN THIS SHORTCODE IS PRESENT
     fsb_enqueue_calendar_scripts();
 
-
-    // Determine the JSON path 
-    $json_url = admin_url('admin-ajax.php') . '?action=fsb_get_calendar_json';
-    $json_url .= '&v=' . get_option('fsb_cal_version', time());  // cache-buster
-
-
-    // Get WP User Data
-    $current_user = wp_get_current_user();
-    $user_email = $current_user->user_email;
-    $is_admin = current_user_can('manage_options') ? 'true' : 'false';
-
-    ob_start();
-    ?>
-    <div id="fsb-monthly-wrapper">
-        <div id="fsb-calendar-app" 
-            data-json-url="<?php echo esc_url($json_url); ?>" 
-            data-user-email="<?php echo esc_attr($user_email); ?>" 
-            data-is-admin="<?php echo $is_admin; ?>">
-
-            <button type="button" id="prevMonth" class="nav-arrow prev">&#10094;</button>
-            <button type="button" id="nextMonth" class="nav-arrow next">&#10095;</button>
-
-            <div id="calendar-grid" class="calendar-grid"></div>
-            <div class="fsb-detail-modal fsb-full-modal">
-                <div class="modal-backdrop"></div>
-                <div class="modal-window">
-                    <button class="modal-close" onclick="closeDetailModal()">&times;</button>
-                    <div class="modal-content-area"> </div>
-                </div>
-            </div>
-            <div id="fsb-edit-modal" class="fsb-modal">
-                <div class="modal-content">
-                    <span class="close-modal">&times;</span>
-                    <div id="edit-form-container"></div>
-                </div>
-            </div>
-            <div id="fsb-reschedule-modal" class="fsb-modal">
-                <div class="modal-content" style="max-width: 400px;">
-                    <span class="close-modal" onclick="closeRescheduleModal()">&times;</span>
-                    <div id="reschedule-form-container"></div>
-                </div>
-            </div>
-            <div id="fsb-day-modal" class="fsb-modal">
-                <div class="modal-content">
-                    <span class="close-modal">&times;</span>
-                    <div id="fsb-modal-content"></div>
-                </div>
-            </div>
-        </div>
-        <div id="fsb-manage-modal" class="fsb-modal">
-            <div class="modal-content" style="max-width: 450px;">
-                <span class="close-modal">&times;</span>
-                <div id="manage-form-container"></div>
-            </div>
-        </div>
-        <div id="fsb-monthly-toolbar" class="calendar-footer-toolbar">
-            <div class="toolbar-left">
-                <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
-                <button type="button" id="toggleFullScreen" class="fsb-mini-btn">⛶ Fullscreen</button>
-            </div>
-    
-            <div class="toolbar-right">
-                <button type="button" id="printCal" class="fsb-mini-btn">Print (PDF)</button>
-                <label class="mini-label">
-                    <input type="checkbox" id="toggle-magnifier" checked> Magnifier
-                </label>
-                <div class="view-toggle-container">
-                    <span class="toggle-label">Monthly</span>
-                    <label class="fsb-switch">
-                        <input type="checkbox" id="viewToggle">
-                        <span class="slider round"></span>
-                    </label>
-                    <span class="toggle-label">Agenda</span>
-                </div>
-            </div>
-        </div>
-    </div>
-
-
-    <?php
-    return ob_get_clean();
-});
-
-// Add the new Agenda-specific shortcode
-add_shortcode('fsbhoa_agenda', function() {
-    // FORCE LOAD CALENDAR ASSETS FOR AGENDA STREAM LAYOUTS
-    fsb_enqueue_calendar_scripts();
-    
+    // Determine the JSON path with cache-buster
     $json_url = admin_url('admin-ajax.php') . '?action=fsb_get_calendar_json';
     $json_url .= '&v=' . get_option('fsb_cal_version', time());
 
+    // Get WP User Data
     $current_user = wp_get_current_user();
-    $user_email = $current_user->user_email;
-    $is_admin = current_user_can('manage_options') ? 'true' : 'false';
+    $user_email   = !empty($current_user->user_email) ? $current_user->user_email : '';
+    $is_admin     = current_user_can('manage_options') ? 'true' : 'false';
 
     ob_start();
-    ?>
-    <div id="fsb-agenda-wrapper">
-         <div id="fsb-agenda-app" 
-              class="agenda-mode-only"
-              data-json-url="<?php echo esc_url($json_url); ?>" 
-              data-user-email="<?php echo esc_attr($user_email); ?>" 
-              data-is-admin="<?php echo $is_admin; ?>">
-            
-              <div class="nav-arrow prev" id="prevMonthAgenda">❮</div>
-              <div class="nav-arrow next" id="nextMonthAgenda">❯</div>
-              <div class="agenda-controls-wrapper">
-                   <div id="agenda-sticky-header" class="agenda-only"></div>
-              </div>
-              <div id="agenda-view">
-                   <div id="agenda-content-area"></div>
-              </div>
+    echo '<div class="fsb-unified-calendar-container">';
 
-              <div class="fsb-detail-modal fsb-full-modal">
-                   <div class="modal-backdrop"></div>
-                   <div class="modal-window">
+    // ----------------=========================================
+    // MODULE A: THE MONTHLY GRID WORKSPACE
+    // ----------------=========================================
+    if ( $args['layout'] === 'hybrid' || $args['layout'] === 'month' ) {
+        ?>
+        <div id="fsb-monthly-wrapper">
+            <div id="fsb-calendar-app"
+                data-json-url="<?php echo esc_url($json_url); ?>"
+                data-user-email="<?php echo esc_attr($user_email); ?>"
+                data-is-admin="<?php echo $is_admin; ?>">
+
+                <button type="button" id="prevMonth" class="nav-arrow prev">&#10094;</button>
+                <button type="button" id="nextMonth" class="nav-arrow next">&#10095;</button>
+
+                <div id="calendar-grid" class="calendar-grid"></div>
+                
+                <div class="fsb-detail-modal fsb-full-modal">
+                    <div class="modal-backdrop"></div>
+                    <div class="modal-window">
                         <button class="modal-close" onclick="closeDetailModal()">&times;</button>
-                        <div class="modal-content-area"></div>
-                   </div>
-              </div>
-         </div>
-         <div id="fsb-agenda-toolbar" class="calendar-footer-toolbar">
-              <div class="toolbar-left">
-                   <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
-              </div>
-              <div class="toolbar-right">
-                   <div class="view-toggle-container">
+                        <div class="modal-content-area"> </div>
+                    </div>
+                </div>
+                
+                <div id="fsb-edit-modal" class="fsb-modal">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <div id="edit-form-container"></div>
+                    </div>
+                </div>
+                <div id="fsb-reschedule-modal" class="fsb-modal">
+                    <div class="modal-content" style="max-width: 400px;">
+                        <span class="close-modal" onclick="closeRescheduleModal()">&times;</span>
+                        <div id="reschedule-form-container"></div>
+                    </div>
+                </div>
+                <div id="fsb-day-modal" class="fsb-modal">
+                    <div class="modal-content">
+                        <span class="close-modal">&times;</span>
+                        <div id="fsb-modal-content"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="fsb-manage-modal" class="fsb-modal">
+                <div class="modal-content" style="max-width: 450px;">
+                    <span class="close-modal">&times;</span>
+                    <div id="manage-form-container"></div>
+                </div>
+            </div>
+            
+            <div id="fsb-monthly-toolbar" class="calendar-footer-toolbar">
+                <div class="toolbar-left">
+                    <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
+                    <button type="button" id="toggleFullScreen" class="fsb-mini-btn">⛶ Fullscreen</button>
+                </div>
+                <div class="toolbar-right">
+                    <button type="button" id="printCal" class="fsb-mini-btn">Print (PDF)</button>
+                    <label class="mini-label">
+                        <input type="checkbox" id="toggle-magnifier" checked> Magnifier
+                    </label>
+                    <div class="view-toggle-container">
                         <span class="toggle-label">Monthly</span>
                         <label class="fsb-switch">
-                             <input type="checkbox" id="viewToggle">
-                             <span class="slider round"></span>
+                            <input type="checkbox" id="viewToggle">
+                            <span class="slider round"></span>
                         </label>
                         <span class="toggle-label">Agenda</span>
-                   </div>
-              </div>
-         </div>
-    </div>
-    <?php
+                    </div>
+                </div>
+            </div>
+        </div>
+        <?php
+    }
+
+    // ----------------=========================================
+    // MODULE B: THE AGENDA STREAM WORKSPACE
+    // ----------------=========================================
+    if ( $args['layout'] === 'hybrid' || $args['layout'] === 'agenda' ) {
+        ?>
+        <div id="fsb-agenda-wrapper">
+             <div id="fsb-agenda-app"
+                  class="agenda-mode-only"
+                  data-json-url="<?php echo esc_url($json_url); ?>"
+                  data-user-email="<?php echo esc_attr($user_email); ?>"
+                  data-is-admin="<?php echo $is_admin; ?>">
+
+                  <div class="nav-arrow prev" id="prevMonthAgenda">❮</div>
+                  <div class="nav-arrow next" id="nextMonthAgenda">❯</div>
+                  <div class="agenda-controls-wrapper">
+                       <div id="agenda-sticky-header" class="agenda-only"></div>
+                  </div>
+                  <div id="agenda-view">
+                       <div id="agenda-content-area"></div>
+                  </div>
+
+                  <div class="fsb-detail-modal fsb-full-modal">
+                       <div class="modal-backdrop"></div>
+                       <div class="modal-window">
+                            <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                            <div class="modal-content-area"></div>
+                       </div>
+                  </div>
+             </div>
+             <div id="fsb-agenda-toolbar" class="calendar-footer-toolbar">
+                  <div class="toolbar-left">
+                       <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
+                  </div>
+                  <div class="toolbar-right">
+                       <div class="view-toggle-container">
+                            <span class="toggle-label">Monthly</span>
+                            <label class="fsb-switch">
+                                 <input type="checkbox" id="viewToggle">
+                                 <span class="slider round"></span>
+                            </label>
+                            <span class="toggle-label">Agenda</span>
+                       </div>
+                  </div>
+             </div>
+        </div>
+        <?php
+    }
+
+    echo '</div>'; // Close Unified Envelope
     return ob_get_clean();
-});
+}
+
+// 1. Register the  master entry point shortcode
+add_shortcode( 'fsbhoa_calendar', 'fsb_calendar_master_shortcode' );
+
+// 2. Map old shortcode endpoints as backwards-compatible aliases so your existing pages don't break!
+add_shortcode( 'fsbhoa_monthly_calendar', function() { return fsb_calendar_master_shortcode(['layout' => 'month']); });
+add_shortcode( 'fsbhoa_agenda_calendar', function() { return fsb_calendar_master_shortcode(['layout' => 'agenda']); });
+
+
 
 
 

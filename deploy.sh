@@ -34,15 +34,11 @@ cd "$DIR_NAME" || exit
 
 echo "Deploying to WordPress uploads directory..."
 # Copy it directly to the uploads folder and hand it over to the web server
-sudo cp "$ZIP_FILE" /var/www/html/wp-content/uploads/
-sudo chown www-data:www-data /var/www/html/wp-content/uploads/"$ZIP_FILE"
+#sudo cp "$ZIP_FILE" /var/www/html/wp-content/uploads/
+#sudo chown www-data:www-data /var/www/html/wp-content/uploads/"$ZIP_FILE"
+scp "$ZIP_FILE" scguild@keolight.com:~/hoaplugin.com/wp-content/uploads/
 rm $ZIP_FILE
 
 echo "--------------------------------------"
-echo "Done! Created: $ZIP_FILE"
-echo "You can now download this to your PC and upload it to your website."
-echo "On PC, cmd window:  scp pi@testbed.fsbhoa.com:/home/pi/fsbhoa-calendar/fsbhoa-calendar.zip C:\\Users\\dkeen\\Downloads\\ "
-echo "OR on Pi"
-echo "sudo cp /home/pi/fsbhoa-calendar/fsbhoa-calendar.zip /var/www/html/wp-content/uploads/"
-echo "sudo chown www-data:www-data /var/www/html/wp-content/uploads/fsbhoa-calendar.zip"
+echo "Done! Created: $ZIP_FILE copied to license server"
 
