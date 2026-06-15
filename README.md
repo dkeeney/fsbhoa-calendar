@@ -6,6 +6,79 @@ The FSBHOA Calendar is a custom WordPress plugin designed to provide a live, res
 The application is built to handle complex recurring event logic (including exceptions, rescheduling, and cancellations) while providing a highly polished, responsive user interface that adapts to desktops, mobile devices, and high-resolution print exports.
 
 ---
+## 
+## 📄 Project Metadata
+* **Author:** David Keeney
+* **Contact:** dkeeney@gmail.com
+* **Role:** Chairperson, FSBHOA IT/Website Committee
+* **License:** Open Source, licensed under the MIT License - see the LICENSE file for details.
+* **Design Tool:** Gemini 2.5 pro, 3.1 pro, 3.5 flash.
+
+
+## 🚀 Quick Links
+* **End-User Documentation:** See [USER_MANUAL.md](docs/USER_MANUAL.md) for full configuration steps, delegate management, and Canva background setup.
+* **Commercial License Server:** [HOAplugin.com](https://hoaplugin.com)
+
+---
+
+## 🛠️ System Requirements
+* **WordPress:** 5.8 or higher
+* **PHP:**  8.x+ (Requires `ext-json` and `ext-pdo`)
+* **Frontend:** Vanilla JavaScript, CSS3, HTML5
+* **Playwright:** (Node.js) for UI regression testing.
+* **Canva:** used for generating monthly background zip files.
+* **Composer and RRule:** for dependancy installation
+
+---
+
+## 📦 Directory Structure
+
+A clean, high-level map of the plugin architecture. Standard vendor directories, Node modules, and automated test reports generated during build operations are omitted for clarity.
+
+```text
+├── admin/                  # Dashboard settings pages, and Pro licensing
+├── assets/                 
+│   ├── css/                # Visual styling stylesheets
+│   ├── images/             # Embedded background zip packages and icons.
+│   └── js/                 # Vanilla JavaScript rendering engines.
+├── docs/                   # End-user operations documentation
+├── includes/               # 
+│   ├── Compiler.php        # Matrix compilation engine
+│   ├── Repository.php      # Data mapping layer
+│   └── TestRunner.php      # Native server-side regression tests.
+├── composer.json           # PHP dependency declarations 
+├── deploy.sh               # Shell script for production release builds
+├── hoapg-calendar.php      # Core master plugin entry point file
+└── uninstall.php           # App delete cleanup.
+
+```
+
+## 🚀 Development environent
+To setup the development and build environment on a Linux system running WordPress.
+### 1. Obtain the repository by cloning from github https://github.com/dkeeney/fsbhoa-calendar.git
+### 2. Install dependancies using Composer
+ Run the following command in the plugin root to install the `rlanvin/php-rrule` package and generate the `vendor/` folder:
+   ```bash
+   composer install
+   ```
+
+### 3. Initialize the frontend automation testing drivers via npm:
+   ```bash
+   npm install
+   ```
+
+### 4. Install a symbolic link from WordPress base folder to the repository.
+   ```bash
+   cd /var/www/html/wp-content/plugins/
+   ln -s ~/hoaplugin-calendar/ hoaplugin-calendar
+   ```
+
+### 3. Full UI regression tests
+## 🧪 Testing and Sandbox Bridge
+This plugin features a built-in automated regression battery powered by a Playwright environment. 
+* The sandbox scripts will enable the `fsb_test_mode` cookie to isolate operations inside temporary `_test` tables to avoid risking live database corruption.
+
+---
 
 ## 1.  Terminology
 The calendar relies on a parent-child record structure to handle the complexities of recurring events without data duplication. Understanding these definitions is critical for working on the codebase.
@@ -21,46 +94,16 @@ The calendar relies on a parent-child record structure to handle the complexitie
 
 ---
 
-## 2. User Interface & Display Modes
-The front-end application offers three distinct display modes, automatically selected based on screen size or user preference.
+Third-Party Engine Infrastructure
+The scheduling backend architecture integrates the rlanvin/php-rrule library via Composer to guarantee absolute compliance with the iCalendar RFC 5545 international recurrence specification.
 
-### A. Monthly Grid Mode (Default for Desktop)
-* **Layout:** A 7x5 grid displaying day cells, designed to maintain a strict **11x17 aspect ratio**. The grid and header are engineered to fit entirely within the browser viewport without vertical scrolling.
-* **Backgrounds:** The month title and grid frame use custom graphical backgrounds designed in Canva. These backgrounds are imported via a ZIP file and maintain a 14% heading ratio.
-* **Cell Behavior:** 
-    * Events are ordered chronologically by start time.
-    * Event backgrounds are color-coded based on their assigned Category.
-    * Categories with assigned icons will display the icon in the day header instead of a text title in the cell body.
-* **Split Cells:** To accommodate 30/31 day months within a 5-row grid, specific cells are diagonally split (bottom-left to top-right):
-    * 31-day months starting on Friday: Split the last Sunday.
-    * 30-day months starting on Saturday: Split the last Sunday.
-    * 31-day months starting on Saturday: Split the first Saturday.
-* **Interactivity:**
-    * Hovering over a day cell triggers a **Magnifier**, expanding the cell to reveal truncated titles or hidden overflowing instances.
-    * Clicking an event opens the associated Flyer (in a new tab) or a Detail Modal if no flyer exists.
-    * Clicking the day header opens a Day Modal (a focused list view of that day's events).
-    * Left/Right navigation arrows allow month-to-month traversal.
+Primary Matrix Computation: The dependency is leveraged directly by Compiler.php during the caching pipeline. It parses complex RRule constraints to generate discrete event instances within your timeline window, flattening the output into the ultra-fast public snapshot file: wp-content/uploads/hoapg-calendar/calendar-events.json.
 
-### B. Agenda Mode (Default for Mobile)
-* **Layout:** A vertical, scrolling list of event instances grouped by day.
-* **Structure:** Features a sticky month header. Each day begins with a header row (Date + Icons) followed by individual event cards detailing start times and locations.
-* **Interactivity:** Clicking an event card opens the Flyer or Detail Modal.
+Personal Device Syndication: The engine uses this data structure to format and stream standard .ics data payloads via the Webcal loop, enabling residents to subscribe to community sequences directly through native device clients (e.g., Apple Calendar, Google Calendar, Outlook).
 
-### C. Print Layout Mode
-* **Purpose:** Generates a clean, static version of the Monthly Grid specifically for the HOA's tabloid sized newsletter.
-* **Layout:** Strictly enforced 11x17 landscape format. Strips away all interactive UI elements (navigation arrows, toolbars, hover states) so it can be cleanly exported to PDF and imported back into Canva as a centerfold.
-
-
-### D. Roles & Permissions (The Gatekeeper)
-The calendar utilizes a dual-tier permission system. The UI dynamically loads the editing scripts (`calendar-editor.js`) and renders the "Edit Pencils" based on these two tiers:
-
-1. **Global Administrators:** Users with the WordPress `manage_options` capability. Admins see edit pencils and add + icons for all events and can assign delegates.
-2. **Event Delegates:** Targeted, event-level ownership. If a resident's logged-in WordPress email matches the `owner_email` column of an event, they are granted permission to edit *only* that specific event lineage.
-
-*Security Note:* All edit requests are routed through the `fsb_save_calendar_event` AJAX endpoint, which strictly enforces Nonce verification and WordPress capability checks before invoking the database repository.
 ---
 
-## E. The Editing Operations
+## E. The Behaviors
 When an Admin or Delegate interacts with the calendar, the JavaScript packages the payload with a specific `edit_mode` and sends it to the PHP Controller. The `Repository.php` class then executes the precise database mutations.
 
 After any edit action the compiler is called to regenerate the .json file containing all events to be displayed.  The javascript code then re-renders the calendar using the new .json file.
@@ -125,47 +168,3 @@ Edge cases:
 
 
 ---
-
-## 3. Environment & Tooling
-* **Platform:** WordPress Plugin.
-* **Global Toolbar:** Present in both Monthly and Agenda modes, anchored to the bottom of the screen.
-    * *Today:* Centers the view on the current date.
-    * *Fullscreen:* Expands the application to occupy the entire monitor.
-    * *Print:* Triggers the Print Layout Mode.
-    * *Magnifier:* A toggle checkbox to enable/disable the hover magnification feature.
-    * *Monthly <> Agenda:* A toggle switch to manually override the responsive display mode.
-
-## 4. Project Metadata
-* **Author:** David Keeney
-* **Role:** Chairperson, IT/Website Committee
-* **Version:** 1.0.10 (Development)
-* **License:** Open Source, GNU v3.
-* **Design Tool:** Gemini Pro 2.5.
-
-## 5. Prerequisites & Tech Stack
-* **Environment:** WordPress 6.x+
-* **Backend:** PHP 8.x+ 
-* **Frontend:** Vanilla JavaScript, CSS3, HTML5
-* **Testing:** Playwright (Node.js) for UI testing
-* **Assets:** Canva (used for generating monthly background zip files)
-
-## 6. Installation & Deployment
-Because this repository does not include external dependencies (like Composer packages or Node modules), you must build the project locally before installing it on the live website.
-
-### Phase 1: Local Setup & Dependencies
-1. Clone the repository to your local machine or testbed environment.
-2. **Install PHP Dependencies:** Run the following command in the plugin root to install the `rlanvin/php-rrule` package and generate the `vendor/` folder:
-   ```bash
-   composer install
-   ```
-### Phase 2: Packaging for Production
-To install the plugin on the live WordPress website, you must package it manually:
-1. Run `./make-zip.sh` in the plugin root. This script will automatically create the `.zip` archive while safely excluding testing libraries (`node_modules/`), local Git data, and Aider chat history.
-2. In the WordPress Admin dashboard, go to **Plugins > Add New Plugin > Upload Plugin**.
-3. Upload the `.zip` file, click **Install Now**, and then click **Activate**.
-
-### Phase 3: Frontend Configuration
-The plugin relies on shortcodes to render the UI on the front end. Create or edit a WordPress Page and insert the desired shortcode(s):
-* `[fsbhoa_calendar]` : Renders the responsive monthly grid (defaults to desktop view).
-* `[fsbhoa_agenda]` : Renders the vertical, mobile-friendly list view.
-*(Note: Both shortcodes can be utilized on the same page depending on your page layout and responsive design strategy).*
