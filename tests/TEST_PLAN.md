@@ -1,7 +1,7 @@
-FSBHOA Calendar: Frontend E2E Test Specification
+HOAplugin Calendar: Frontend E2E Test Specification
 
 ## 1. Overview: The Hybrid Testing Pyramid
-The FSBHOA Calendar uses a custom "Hybrid" testing architecture. Because recurrence logic (Pivots, Holes, Moves) is highly complex, we test it at two distinct layers using a single unified test engine (`TestRunner.php`).
+The HOAplugin Calendar uses a custom "Hybrid" testing architecture. Because recurrence logic (Pivots, Holes, Moves) is highly complex, we test it at two distinct layers using a single unified test engine (`TestRunner.php`).
 
 1. **Backend Integration Tests (PHP):** Lightning-fast tests that verify the `Repository` and `Compiler` can correctly generate, move, pivot, and bake complex event sequences into JSON without a browser.
 2. **End-to-End (E2E) UI Tests (Playwright):** Automated browser tests that verify the JavaScript drag-and-drop UI, hover states, and modal forms interact correctly with the backend APIs.
@@ -13,7 +13,7 @@ Both layers share the exact same sandbox environment and Fixture Engine.
 ## 2. The Sandbox Environment (Safety First)
 To ensure production community data is **never** touched during testing, the engine employs a strict sandboxing protocol:
 
-* **Prefixing:** All tests run against tables prefixed with `wp_test_fsbhoa_` rather than the live prefix.
+* **Prefixing:** All tests run against tables prefixed with `wp_test_` rather than the live prefix.
 * **Schema Cloning:** `Repository->prepare_test_tables()` automatically clones the live table schema so tests always run against the current production structure.
 * **Isolated JSON:** The compiler bakes test output to a dedicated `test_calendar-events.json` file in the WP uploads directory, leaving the live frontend untouched.
 * **Auto-Teardown:** `TestRunner->cleanup()` safely truncates the `test_` tables and deletes the test JSON file when tests complete.
@@ -27,7 +27,7 @@ Setting up complex repeating calendar states manually is brittle. We use a custo
 * **Reference Mapping (`_ref`):** Records can be assigned a temporary `_ref` (e.g., `'_ref' => 'master'`). The engine tracks MySQL insert IDs and automatically maps them to foreign keys (`'parent_ref' => 'master'`), eliminating ID guessing.
 * **Schema Complete:** Automatically handles metadata fields like `color_hex`, `flyer_url`, `setup_notes`, and `visibility`.
 
-We can query the database to make sure that the fixture data is there (and later we can use this to confirm that edits worked). To do that, use the wp_ajax_fsb_run_regression_step API. "load_fixture" case populates the database and returns the ids. "get_db_state" case will get you the master and child records, given the master's id.
+We can query the database to make sure that the fixture data is there (and later we can use this to confirm that edits worked). To do that, use the wp_ajax_hoa_run_regression_step API. "load_fixture" case populates the database and returns the ids. "get_db_state" case will get you the master and child records, given the master's id.
 
 We can confirm that the compiler is doing it right by checking the .json file which is loaded into the js.
 ---
@@ -44,7 +44,7 @@ There are three conditions that can cause a split.
 1) Starts Friday and has 31 days (contains days 24/31)
 2) Starts Saturday and has 30 days (contains days 23/30
 3) Starts Saturday and has 31 days  (contains days 1/8)
-And we want it to be within our nav range. window.fsbMinTime to window.fsbMaxTime .
+And we want it to be within our nav range. window.hoaMinTime to window.hoaMaxTime .
 
 So this can reduce down to a test that can evaluate the render of both upper and lower days for each of the three conditions.
 ---
@@ -72,7 +72,7 @@ So this can reduce down to a test that can evaluate the render of both upper and
     3.  The absolute last day of the month.
     4.  The top half of a split cell (requires a month with a split first Saturday).
     5.  The bottom half of a split cell (requires a month with a split last Sunday).
-*   **Assertions:** Confirm `#fsb-day-modal` gains `.is-visible` and strictly renders only the instances mapped to that exact date.
+*   **Assertions:** Confirm `#hoa-day-modal` gains `.is-visible` and strictly renders only the instances mapped to that exact date.
 
 ### TEST 4: Detail Modal & Flyer Routing
 *   **Scenario:** Access event details by clicking an instance title or category icon in the magnified cell.
@@ -80,7 +80,7 @@ So this can reduce down to a test that can evaluate the render of both upper and
     *   *Icon Click:* Clicking an event icon in the day header triggers the detail flow.
     *   *Title Click:* Clicking the text title in the cell body triggers the detail flow.
     *   *Flyer Bypass:* If `flyer_url` exists, the click must bypass the modal and open the asset in a new tab.
-    *   *Modal Fallback:* If no flyer exists, the `#fsb-detail-modal` opens and accurately displays metadata from the master record.
+    *   *Modal Fallback:* If no flyer exists, the `#hoa-detail-modal` opens and accurately displays metadata from the master record.
 
 ### TEST 5: Administrative Context UI (Edit Pencils)
 *   **Scenario:** Verify contextual UI decorations match user capabilities (Admin vs. Delegate vs. Guest).
@@ -93,7 +93,7 @@ So this can reduce down to a test that can evaluate the render of both upper and
 *   **Scenario:** Deep-test form population, lookup relationships, state switches, and the RRule compiler.
 *   **Assertions:**
     *   **Data Integrity:** Fields auto-populate with metadata from the Master and DNA data from the most recent `pivot_id`.
-    *   **Dropdowns:** *Location* and *Category* dropdowns accurately populate from `fsbhoa_locations` and `fsbhoa_categories`.
+    *   **Dropdowns:** *Location* and *Category* dropdowns accurately populate from `hoaplugin_locations` and `hoaplugin_categories`.
     *   **State Toggles:** Toggling *Public/Residents Only* updates the visibility attribute. Toggling *Requires Tickets* contextually displays the pricing input.
     *   **RRule Bi-Directional Parsing:**
         *   Toggling from repeating to single-instance entirely clears the RRule string.
@@ -119,7 +119,7 @@ So this can reduce down to a test that can evaluate the render of both upper and
     4.  `DELETE ENTIRE SERIES & HISTORY` (Purges Master and all children).
 
 ### TEST 9: Reschedule Modal Interface
-*   **Scenario:** Interact with the manual `#fsb-reschedule-modal` frame.
+*   **Scenario:** Interact with the manual `#hoa-reschedule-modal` frame.
 *   **Assertions:**
     *   *Single Event:* Submitting new Date/Time directly modifies the Master.
     *   *Repeating Event:* Submitting prompts the user to select `Only this specific instance` (Move) or `This and all future instances` (Pivot). Verify both selections alter the generated JSON output appropriately.

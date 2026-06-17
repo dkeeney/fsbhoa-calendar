@@ -1,7 +1,7 @@
 /* --- Agenda Specific Styles  --- */
 
 
-#fsb-agenda-wrapper {
+#hoa-agenda-wrapper {
     display: none;  /* Stays hidden unless the JS specifically wakes it up */
     width: 100% !important;
     flex-direction: column !important;
@@ -12,7 +12,7 @@
 }
 
 /* 1. The Main Column */
-#fsb-agenda-app {
+#hoa-agenda-app {
     display: block !important;
     width: 95% !important;
     max-width: 600px !important;
@@ -84,7 +84,7 @@
 
 /* 6. The Toolbar at the Bottom */
 /* Specifically target the toolbar ONLY when it's inside the Agenda app */
-#fsb-agenda-app .calendar-footer-toolbar {
+#hoa-agenda-app .calendar-footer-toolbar {
     position: relative !important; /* Switch from absolute to relative */
     bottom: 0 !important;
     margin-top: 30px !important; /* Space after the last event */
@@ -108,7 +108,7 @@
     display: inline-block !important;
 }
 
-#fsb-agenda-app .nav-arrow {
+#hoa-agenda-app .nav-arrow {
     display: flex !important;
     position: fixed !important; /* Lock to the browser window */
     top: 50% !important;
@@ -120,11 +120,11 @@
     height: 70px;
 }
 
-#fsb-agenda-app .nav-arrow.prev {
+#hoa-agenda-app .nav-arrow.prev {
     left: 20px !important;
 }
 
-#fsb-agenda-app .nav-arrow.next {
+#hoa-agenda-app .nav-arrow.next {
     right: 20px !important;
 }
 
@@ -148,14 +148,14 @@
 
 @media (max-width: 768px) {
     /* Shrink the arrows for mobile thumbs */
-    #fsb-agenda-app .nav-arrow {
+    #hoa-agenda-app .nav-arrow {
         width: 40px !important;
         height: 50px !important;
         font-size: 1.5rem !important;
     }
 
-    #fsb-agenda-app .nav-arrow.prev { left: 5px !important; }
-    #fsb-agenda-app .nav-arrow.next { right: 5px !important; }
+    #hoa-agenda-app .nav-arrow.prev { left: 5px !important; }
+    #hoa-agenda-app .nav-arrow.next { right: 5px !important; }
 
     /* Make the Month Header slightly smaller so it doesn't eat the screen */
     #agenda-sticky-header {

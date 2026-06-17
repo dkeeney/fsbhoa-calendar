@@ -2,7 +2,7 @@ const { test, expect } = require('@playwright/test');
 
 const CALENDAR_URL = 'https://testbed.fsbhoa.com/calendar/';
 
-test.describe('FSBHOA Calendar UI', () => {
+test.describe('HOAplugin Calendar UI', () => {
 
   test.beforeEach(async ({ page }) => {
     // 1. Go to the standard WordPress login page
@@ -34,7 +34,7 @@ test.describe('FSBHOA Calendar UI', () => {
     await page.goto(CALENDAR_URL);
 
     // Wait for the main app container to be visible to ensure the page is ready
-    await expect(page.locator('#fsb-calendar-app')).toBeVisible();
+    await expect(page.locator('#hoa-calendar-app')).toBeVisible();
   });
 
   test('should load the calendar and navigate months', async ({ page }) => {
@@ -54,7 +54,7 @@ test.describe('FSBHOA Calendar UI', () => {
   });
 
   test('should open the day modal when a day cell is clicked', async ({ page }) => {
-    const dayModal = page.locator('#fsb-day-modal');
+    const dayModal = page.locator('#hoa-day-modal');
     await expect(dayModal).not.toHaveClass(/is-visible/);
 
     // Click the first non-empty calendar day
@@ -65,7 +65,7 @@ test.describe('FSBHOA Calendar UI', () => {
   });
 
   test('should open the edit modal when an edit pencil is clicked', async ({ page }) => {
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).not.toHaveClass(/is-visible/);
 
     // Click the first available edit pencil icon on an event
@@ -81,7 +81,7 @@ test.describe('FSBHOA Calendar UI', () => {
   test('should toggle the recurrence panel in the edit modal', async ({ page }) => {
     // Open the edit modal first by clicking a pencil
     await page.locator('.edit-pencil').first().click();
-    await expect(page.locator('#fsb-edit-modal')).toBeVisible();
+    await expect(page.locator('#hoa-edit-modal')).toBeVisible();
 
     const recurrenceCheckbox = page.locator('#is_repeating');
     const recurrencePanel = page.locator('#rr-builder-panel');

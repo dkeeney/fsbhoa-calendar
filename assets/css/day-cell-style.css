@@ -1,4 +1,4 @@
-/* --- FSBHOA CALENDAR: THE DAY CELL ENGINE --- */
+/* --- HOAplugin CALENDAR: THE DAY CELL ENGINE --- */
 /*  
  *  The calendar-day is the base.
  *  All cells will have a background that is transparent so the Canva 
@@ -79,7 +79,7 @@
  */
 
 /* --- Section 1. GLOBAL BASE ARCHITECTURE --- */
-#fsb-calendar-app, #fsb-calendar-app * {
+#hoa-calendar-app, #hoa-calendar-app * {
     box-sizing: border-box !important;
 }
 
@@ -207,7 +207,7 @@
     container-type: size;
 }
 /* Normal Day Events (The Standard Pill) */
-.calendar-day:not(.split-cell):not(.fsb-ghost-shard) .event-item {
+.calendar-day:not(.split-cell):not(.hoa-ghost-shard) .event-item {
     display: inline-block !important;
     width: auto !important;
     max-width: 100% !important;
@@ -449,13 +449,13 @@
 /* 5.5. SHARED TRUNCATION LOGIC */
 
 /* Hide pencils in standard view */
-.calendar-day:not(.fsb-ghost-shard) .edit-pencil {
+.calendar-day:not(.hoa-ghost-shard) .edit-pencil {
     display: none !important;
 }
 
 .split-half-top .event-item,
 .split-half-bottom .event-item,
-.fsb-ghost-shard .event-item {
+.hoa-ghost-shard .event-item {
     /* Uses the exact same scaling logic as your normal day cells */
     font-size: clamp(7px, 0.6vw, 11px) !important;
     line-height: 1.0 !important;
@@ -646,9 +646,9 @@
 }
 
 /* If the grid has the disabled class, kill all shards immediately */
-#calendar-grid.magnifier-disabled .fsb-ghost-shard,
-#calendar-grid.magnifier-disabled + .fsb-ghost-shard,
-#fsb-monthly-wrapper:has(#calendar-grid.magnifier-disabled) .fsb-ghost-shard {
+#calendar-grid.magnifier-disabled .hoa-ghost-shard,
+#calendar-grid.magnifier-disabled + .hoa-ghost-shard,
+#hoa-monthly-wrapper:has(#calendar-grid.magnifier-disabled) .hoa-ghost-shard {
     display: none !important;
     pointer-events: none !important;
 }
@@ -659,7 +659,7 @@
 }
 
 /* 10.1. THE SHARD CONTAINER: Ensure it doesn't clip the shadow */
-.fsb-ghost-shard {
+.hoa-ghost-shard {
     position: fixed !important;
     background: transparent !important;
     transform: scale(1.4) !important;
@@ -674,24 +674,24 @@
 }
 
 /* Ensure items within the shard remain interactive */
-.fsb-ghost-shard .event-item {
+.hoa-ghost-shard .event-item {
     pointer-events: auto !important;
 }
 
-.fsb-ghost-shard .add-event-plus,
-.fsb-ghost-shard .edit-pencil {
+.hoa-ghost-shard .add-event-plus,
+.hoa-ghost-shard .edit-pencil {
     pointer-events: auto !important;
     position: relative;
     z-index: 100; /* Ensure they are 'on top' of the white triangle */
 }
 
 /* Add a slight transition so the shard 'pops' instead of flickering */
-.fsb-ghost-shard::before {
+.hoa-ghost-shard::before {
     transition: opacity 0.1s ease-in-out;
 }
 
 /* 10.2. THE WHITE TRIANGLE PLATE: The Shadow Host */
-.fsb-ghost-shard::before {
+.hoa-ghost-shard::before {
     content: '';
     position: absolute;
     top: 0; left: 0; width: 100%; height: 100%;
@@ -713,13 +713,13 @@
 }
 
 /* Apply the filter to the shard to ensure it 'sees' the clipped triangle */
-.fsb-ghost-shard {
+.hoa-ghost-shard {
     filter: drop-shadow(0px 10px 15px rgba(0,0,0,0.5)) !important;
 }
 
 /* 10.4. THE "HARD SYNC" LAYERING */
-.fsb-ghost-shard .layer-bg,
-.fsb-ghost-shard .layer-text {
+.hoa-ghost-shard .layer-bg,
+.hoa-ghost-shard .layer-text {
     position: absolute !important;
     top: 0 !important;
     left: 0 !important;
@@ -751,13 +751,13 @@
 .shard-top .layer-bg { clip-path: polygon(0 0, 100% 0, 0 100%) !important; }
 .shard-bottom .layer-bg { clip-path: polygon(100% 0, 100% 100%, 0 100%) !important; }
 
-.fsb-ghost-shard .layer-bg {
+.hoa-ghost-shard .layer-bg {
     z-index: 1;
     pointer-events: none !important;
 }
 
 /* 10.8. SYNCED WRAPPING & HEIGHT */
-.fsb-ghost-shard .event-item {
+.hoa-ghost-shard .event-item {
     display: flex !important; /* Flex allows the pencil/text alignment */
     width: auto !important;
     max-width: 85% !important; /* Wraps text at 85% of shard width */
@@ -789,16 +789,16 @@
 }
 
 /* Clickable Items */
-.fsb-ghost-shard .event-item,
-.fsb-ghost-shard .edit-pencil,
-.fsb-ghost-shard .add-event-plus {
+.hoa-ghost-shard .event-item,
+.hoa-ghost-shard .edit-pencil,
+.hoa-ghost-shard .add-event-plus {
     pointer-events: auto !important;
     cursor: pointer !important;
 }
 
 
 /* --- 10.9. THE TETHERED PENCIL --- */
-.fsb-ghost-shard .edit-pencil {
+.hoa-ghost-shard .edit-pencil {
     display: inline-block !important;
     visibility: visible !important;
     color: #000 !important;
@@ -824,15 +824,15 @@
 }
 
 /* Cleanup: Standardize visibility across layers */
-.fsb-ghost-shard .layer-bg .edit-pencil {
+.hoa-ghost-shard .layer-bg .edit-pencil {
     display: none !important;
 }
-.fsb-ghost-shard .layer-text .edit-pencil {
+.hoa-ghost-shard .layer-text .edit-pencil {
     display: inline-block !important;
 }
 
 /* 10.10. THE HEADERS */
-.fsb-ghost-shard .day-top {
+.hoa-ghost-shard .day-top {
     position: absolute !important;
     top: 0;
     width: 100%;
@@ -840,7 +840,7 @@
     z-index: 100;
     padding-right: 18px !important;
 }
-.fsb-ghost-shard .day-bottom {
+.hoa-ghost-shard .day-bottom {
     position: absolute !important;
     bottom: 0;
     width: 100%;
@@ -849,18 +849,18 @@
     padding-left: 18px !important;
 }
 
-.fsb-ghost-shard .add-event-plus {
+.hoa-ghost-shard .add-event-plus {
     display: inline-block !important;
     visibility: visible !important;
     cursor: pointer;
 }
 /* Allow icons to grow in the Magnifier/Shard view */
-.fsb-ghost-shard .day-icons-corner svg {
+.hoa-ghost-shard .day-icons-corner svg {
     height: 22px !important; /* Larger icon for the zoomed view */
 }
 
 /* Neutralize 'pill' styling for icons inside the magnified shards */
-.fsb-ghost-shard .corner-unit.event-item {
+.hoa-ghost-shard .corner-unit.event-item {
     background: transparent !important;
     background-color: transparent !important;
     border: none !important;
@@ -868,7 +868,7 @@
 }
 
 /* Maintain pencil clickability in the shard */
-.fsb-ghost-shard .corner-unit.event-item .edit-pencil-mini {
+.hoa-ghost-shard .corner-unit.event-item .edit-pencil-mini {
     pointer-events: auto !important;
 }
 

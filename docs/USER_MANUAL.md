@@ -1,13 +1,10 @@
 <h1 align="center">HOAplugin Calendar User Manual</h1>
 <p align="center"><small>June 14, 2026</small></p>
-
----
-
 # Chapter 1: Getting Started
 
 Welcome to the complete website calendar tailored specifically for HOA communities. This guide will walk you through the initial setup, ensuring your calendar is perfectly configured for your residents.
 
-![HOAplugin Calendar Dashboard Workspace Layout](assets/images/screenshot-pro-license.png)
+![Calendar Monthly](./CalendarMonthly.png)
 
 ---
 
@@ -71,7 +68,6 @@ By default, the calendar prioritizes data protection. If you temporarily deactiv
 
 * **Erase all calendar data upon plugin deletion:** Check this box *only* if you are deliberately performing a permanent system wipe on your server and wish to completely destroy all associated event history, uploaded assets, and custom database tables.
 
----
 ---
 
 # Chapter 2: Locations, Categories, and Permissions
@@ -200,11 +196,12 @@ The filename in the upper-left corner of your design page must follow this stric
 The background processing engine will instantly unpack your file structure, and your live community events will now be dynamically drawn perfectly on top of your artwork!
 
 ---
----
 
 # Chapter 4: Adding, Editing, and Managing Events
 
 The HOAplugin Calendar allows administrators and delegated committee volunteers to smoothly coordinate one-off community events or complex recurring activity series.
+
+![Edit screen](./EditScreenshot.png)
 
 ---
 
@@ -234,6 +231,8 @@ There are two primary methods to access the event creation interface:
 ## 4.2 Setting Up Repeating (Recurring) Events
 
 For activities that run on a set cycle, the calendar features an advanced recurrence builder to automate your scheduling.
+
+![Edit Repeating Events](./EditRepeating.png)
 
 1.  Check the box labeled **This is a Repeating Event** to unlock the **Recurrence Rules Builder**. All sub-fields below are optional.
 2.  **Days of Week:** Check the specific days your event occurs (e.g., check `MO`, `WE`, `FR` for a Monday-Wednesday-Friday aerobics class).
@@ -323,7 +322,6 @@ Residents do not need to manually copy event details into their personal devices
 Clicking this link automatically bridges the event data directly into the resident's personal device calendar (such as Apple Calendar, Google Calendar, or Microsoft Outlook) via the secure **Webcal** subscription protocol. If the activity is part of a recurring series, their device will subscribe to the entire sequence—automatically syncing any future time modifications, room changes, or weather cancellations seamlessly without requiring manual action.
 
 ---
----
 
 # Chapter 6: Advanced Drag-and-Drop Rescheduling (Pro Feature)
 
@@ -356,7 +354,6 @@ You can cancel or purge events by dragging them off the grid matrix completely a
 * **End a Series Permanently:** Hold down the **Shift key** and drag a repeating event bar up into the header. The alert shifts to read **"DROP TO END SERIES"**, letting you clean out the schedule from today forward.
 * **Delete One-Time Events:** Dragging an isolated, non-repeating single event into the header zone displays **"DROP TO DELETE EVENT"**, completely purging the record from your site server.
 
----
 ---
 
 # Chapter 7: 11x17 Newsletter Printing (Pro Feature)
@@ -392,7 +389,6 @@ Because this system prints a large 11x17 sheet, you must adjust your local devic
 3.  **Margins:** Set your margins dropdown strictly to **None** or **Default**.
 4.  **Critical Background Switch:** Look for the checkbox labeled **Background Graphics** (frequently found under "More Settings" or "Options") and make sure it is checked **ON**. If this remains unchecked, your computer will strip out your monthly background graphics and output a blank white grid.
 
----
 ---
 
 # Chapter 8: System Troubleshooting and Support
@@ -448,6 +444,9 @@ If you need to temporarily deactivate the plugin, run a manual file refresh, or 
 
 The Event Audit Log is a centralized administrative control matrix located inside your WordPress dashboard. It allows managers to inspect the calendar database row-by-row and instantly fix scheduling or structural mistakes.
 
+![Event Audit Screen](./EventAuditScreen.png)
+
+
 ## 9.1 Reading the Audit Log Data Table
 
 To view the log, log into your dashboard as an administrator, click **HOAplugin Calendar**, and select the **Event Audit Log** tab.
@@ -470,7 +469,6 @@ The Audit Log serves as a master control panel for clearing out administrative e
 * **Undoing a Series Pivot:** If you accidentally pivoted a weekly series or set an incorrect time boundary, find the corresponding Pivot row and click its red delete button to instantly restore the original structural pattern.
 * **The Global Mass-Purge Button:** If you accidentally created an entire recurring event series incorrectly, do not spend time deleting sessions day-by-day on the grid. Find the bold blue **Master Series** row for that event inside the Audit Log and click its red **× (Delete)** icon. This single click will clean out the master rules, all history logs, and all overrides across the entire life of that event from the database.
 
----
 ---
 
 # Chapter 10: Frequently Asked Questions (FAQ)
@@ -505,7 +503,7 @@ To protect your community schedule against accidental database deletions, server
 
 The calendar splits your data into two separate locations on your web server:
 1.  **The Event Registry (The Database Master):** Every custom category, room location, individual event entry, cancellation hole, and repeating rule is recorded directly into three custom tables inside your WordPress database: `wp_hoapg_events`, `wp_hoapg_categories`, and `wp_hoapg_locations`. This is your permanent master data.
-2.  **The Compiled Snapshot (The JSON Cache):** Every time you save an entry or click "Re-Bake", the system flattens your schedule into a fast-loading file named `calendar-events.json` located inside your server's `wp-content/uploads/fsbhoa-calendar/` directory. This file is temporary and automatically regenerates itself on the fly, meaning it does not need to be backed up manually.
+2.  **The Compiled Snapshot (The JSON Cache):** Every time you save an entry or click "Re-Bake", the system flattens your schedule into a fast-loading file named `calendar-events.json` located inside your server's `wp-content/uploads/hoaplugin-calendar/` directory. This file is temporary and automatically regenerates itself on the fly, meaning it does not need to be backed up manually.
 
 ---
 

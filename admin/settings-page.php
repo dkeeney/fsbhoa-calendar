@@ -4,48 +4,48 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 
 add_action('admin_menu', function() {
     add_menu_page(
-        'FSBHOA Calendar',
-        'FSBHOA Calendar',
+        'HOAPLUGIN Calendar',
+        'HOAPLUGIN Calendar',
         'manage_options',
-        'fsb-cal-settings',
-        'fsb_render_settings_tabs',
+        'hoa-cal-settings',
+        'hoa_render_settings_tabs',
         'dashicons-calendar-alt'
     );
 
 });
 
-function fsb_render_settings_tabs() {
+function hoa_render_settings_tabs() {
     $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
     ?>
     <div class="wrap">
-        <h1>FSBHOA Calendar Configuration</h1>
+        <h1>HOAPLUGIN Calendar Configuration</h1>
         <h2 class="nav-tab-wrapper">
-            <a href="?page=fsb-cal-settings&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
-            <a href="?page=fsb-cal-settings&tab=backgrounds" class="nav-tab <?php echo $active_tab == 'backgrounds' ? 'nav-tab-active' : ''; ?>">Monthly Backgrounds</a>
-            <a href="?page=fsb-cal-settings&tab=locations" class="nav-tab <?php echo $active_tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
-            <a href="?page=fsb-cal-settings&tab=categories" class="nav-tab <?php echo $active_tab == 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
-            <a href="?page=fsb-cal-settings&tab=audit" class="nav-tab <?php echo $active_tab == 'audit' ? 'nav-tab-active' : ''; ?>">Event Audit Log</a>
-            <a href="?page=fsb-cal-settings&tab=regression" class="nav-tab <?php echo $active_tab == 'regression' ? 'nav-tab-active' : ''; ?>">Regression Test</a>
-            <a href="?page=fsb-cal-settings&tab=license" class="nav-tab <?php echo $active_tab == 'license' ? 'nav-tab-active' : ''; ?>" style="color: #d63638;">Pro License</a>
+            <a href="?page=hoa-cal-settings&tab=settings" class="nav-tab <?php echo $active_tab == 'settings' ? 'nav-tab-active' : ''; ?>">Settings</a>
+            <a href="?page=hoa-cal-settings&tab=backgrounds" class="nav-tab <?php echo $active_tab == 'backgrounds' ? 'nav-tab-active' : ''; ?>">Monthly Backgrounds</a>
+            <a href="?page=hoa-cal-settings&tab=locations" class="nav-tab <?php echo $active_tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
+            <a href="?page=hoa-cal-settings&tab=categories" class="nav-tab <?php echo $active_tab == 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
+            <a href="?page=hoa-cal-settings&tab=audit" class="nav-tab <?php echo $active_tab == 'audit' ? 'nav-tab-active' : ''; ?>">Event Audit Log</a>
+            <a href="?page=hoa-cal-settings&tab=regression" class="nav-tab <?php echo $active_tab == 'regression' ? 'nav-tab-active' : ''; ?>">Regression Test</a>
+            <a href="?page=hoa-cal-settings&tab=license" class="nav-tab <?php echo $active_tab == 'license' ? 'nav-tab-active' : ''; ?>" style="color: #d63638;">Pro License</a>
             <?php 
             // Allow external plugins (like Pro) to inject their own tabs here
-            do_action('fsb_calendar_extra_tabs', $active_tab); 
+            do_action('hoa_calendar_extra_tabs', $active_tab); 
             ?>
         </h2>
 
         <div style="margin-top: 20px;">
             <?php
             switch($active_tab) {
-                case 'settings':   fsb_render_settings_manager(); break;
-                case 'locations':  fsb_render_location_manager(); break;
-                case 'backgrounds':fsb_render_bg_manager(); break;
-                case 'categories': fsb_render_category_manager(); break;
-                case 'audit':      fsb_render_event_audit(); break;
-                case 'regression': fsb_render_regression_test(); break;
-                case 'license':     fsb_render_pro_license_installer(); break;
+                case 'settings':   hoa_render_settings_manager(); break;
+                case 'locations':  hoa_render_location_manager(); break;
+                case 'backgrounds':hoa_render_bg_manager(); break;
+                case 'categories': hoa_render_category_manager(); break;
+                case 'audit':      hoa_render_event_audit(); break;
+                case 'regression': hoa_render_regression_test(); break;
+                case 'license':     hoa_render_pro_license_installer(); break;
                 default:
                     // If it's not a core tab, fire a hook so external plugins can render content
-                    do_action('fsb_calendar_extra_tab_content', $active_tab);
+                    do_action('hoa_calendar_extra_tab_content', $active_tab);
                     break;
             }
             ?>
@@ -54,28 +54,28 @@ function fsb_render_settings_tabs() {
     <?php
 }
 add_action('admin_init', function() {
-    register_setting('fsb_cal_settings_group', 'fsb_cal_past_months');
-    register_setting('fsb_cal_settings_group', 'fsb_cal_future_months');
-    register_setting('fsb_cal_settings_group', 'fsb_time_position');
-    register_setting('fsb_cal_settings_group', 'fsb_time_format');
-    register_setting('fsb_cal_settings_group', 'fsb_start_day');
-    register_setting( 'fsbhoa_calendar_settings', 'fsbhoa_nuke_on_delete' );
+    register_setting('hoa_cal_settings_group', 'hoa_cal_past_months');
+    register_setting('hoa_cal_settings_group', 'hoa_cal_future_months');
+    register_setting('hoa_cal_settings_group', 'hoa_time_position');
+    register_setting('hoa_cal_settings_group', 'hoa_time_format');
+    register_setting('hoa_cal_settings_group', 'hoa_start_day');
+    register_setting( 'hoaplugin_calendar_settings', 'hoaplugin_nuke_on_delete' );
 });
 
 // Ensure scripts and modal styles are loaded for the settings page
 add_action('admin_enqueue_scripts', function($hook) {
-    if ($hook !== 'toplevel_page_fsb-cal-settings') return;
+    if ($hook !== 'toplevel_page_hoa-cal-settings') return;
 
     // Load the main plugin enqueuer
-    if (function_exists('fsb_enqueue_calendar_scripts')) {
-        fsb_enqueue_calendar_scripts();
+    if (function_exists('hoa_enqueue_calendar_scripts')) {
+        hoa_enqueue_calendar_scripts();
     }
 
     // Force Admin-specific overrides for modals and scrolling
-    wp_add_inline_style('fsb-cal-style', "
-        .fsb-modal { z-index: 99999 !important; display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
-        .fsb-modal.is-visible { display: flex !important; align-items: center; justify-content: center; }
-        body.fsb-admin-scroll-fix { overflow: auto !important; height: auto !important; }
+    wp_add_inline_style('hoa-cal-style', "
+        .hoa-modal { z-index: 99999 !important; display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); }
+        .hoa-modal.is-visible { display: flex !important; align-items: center; justify-content: center; }
+        body.hoa-admin-scroll-fix { overflow: auto !important; height: auto !important; }
         #dz-preview svg {
             max-height: 100px; /* Large but contained */
             width: auto;
@@ -89,10 +89,10 @@ add_action('admin_enqueue_scripts', function($hook) {
 // Inject variables into the <head> before external JS files load
 add_action('admin_head', function() {
     $screen = get_current_screen();
-    if ( ! $screen || $screen->id !== 'toplevel_page_fsb-cal-settings' ) return;
+    if ( ! $screen || $screen->id !== 'toplevel_page_hoa-cal-settings' ) return;
 
     $upload = wp_upload_dir();
-    $json_url = $upload['baseurl'] . '/fsbhoa-calendar/calendar.json';
+    $json_url = $upload['baseurl'] . '/hoaplugin-calendar/calendar.json';
     ?>
     <script>
         window.config = window.config || {};
@@ -104,29 +104,29 @@ add_action('admin_head', function() {
     <?php
 }, 1);
 
-function fsb_render_settings_manager() {
-    $past_val    = get_option('fsb_cal_past_months', 1);
-    $future_val  = get_option('fsb_cal_future_months', 12);
-    $time_pos    = get_option('fsb_time_position', 'prepend');
-    $time_format = get_option('fsb_time_format', '12hr');
-    $start_day   = get_option('fsb_start_day', '0');
+function hoa_render_settings_manager() {
+    $past_val    = get_option('hoa_cal_past_months', 1);
+    $future_val  = get_option('hoa_cal_future_months', 12);
+    $time_pos    = get_option('hoa_time_position', 'prepend');
+    $time_format = get_option('hoa_time_format', '12hr');
+    $start_day   = get_option('hoa_start_day', '0');
     ?>
     <div class="wrap">
         <form method="post" action="options.php">
             <?php
-                settings_fields('fsb_cal_settings_group');
-                do_settings_sections('fsb_cal_settings_group');
+                settings_fields('hoa_cal_settings_group');
+                do_settings_sections('hoa_cal_settings_group');
             ?>
             <div style="background:#fff; padding:20px; border:1px solid #ccc; margin-top:20px; border-radius:4px;">
                 <h3 style="margin-top:0;">Baking & Data Configuration</h3>
                 <table class="form-table">
                     <tr>
                         <th scope="row">Past Months:</th>
-                        <td><input type="number" name="fsb_cal_past_months" value="<?php echo esc_attr($past_val); ?>" style="width:70px;"></td>
+                        <td><input type="number" name="hoa_cal_past_months" value="<?php echo esc_attr($past_val); ?>" style="width:70px;"></td>
                     </tr>
                     <tr>
                         <th scope="row">Future Months:</th>
-                        <td><input type="number" name="fsb_cal_future_months" value="<?php echo esc_attr($future_val); ?>" style="width:70px;"></td>
+                        <td><input type="number" name="hoa_cal_future_months" value="<?php echo esc_attr($future_val); ?>" style="width:70px;"></td>
                     </tr>
                 </table>
             </div>
@@ -136,7 +136,7 @@ function fsb_render_settings_manager() {
                     <tr>
                         <th scope="row">Calendar Start Day:</th>
                         <td>
-                            <select name="fsb_start_day">
+                            <select name="hoa_start_day">
                                 <option value="0" <?php selected($start_day, '0'); ?>>Sunday</option>
                                 <option value="1" <?php selected($start_day, '1'); ?>>Monday</option>
                             </select>
@@ -146,7 +146,7 @@ function fsb_render_settings_manager() {
                     <tr>
                         <th scope="row">Time Format:</th>
                         <td>
-                            <select name="fsb_time_format">
+                            <select name="hoa_time_format">
                                 <option value="12hr" <?php selected($time_format, '12hr'); ?>>12-Hour (e.g. 1:00 PM)</option>
                                 <option value="24hr" <?php selected($time_format, '24hr'); ?>>24-Hour (e.g. 13:00)</option>
                             </select>
@@ -155,7 +155,7 @@ function fsb_render_settings_manager() {
                     <tr>
                         <th scope="row">Time Placement:</th>
                         <td>
-                            <select name="fsb_time_position">
+                            <select name="hoa_time_position">
                                 <option value="prepend" <?php selected($time_pos, 'prepend'); ?>>Time First</option>
                                 <option value="append" <?php selected($time_pos, 'append'); ?>>Title First</option>
                                 <option value="hidden" <?php selected($time_pos, 'hidden'); ?>>Hide Time</option>
@@ -171,7 +171,7 @@ function fsb_render_settings_manager() {
                         <th scope="row">Uninstall Behavior:</th>
                         <td>
                             <label>
-                                <input type="checkbox" name="fsbhoa_nuke_on_delete" value="1" <?php checked( 1, get_option( 'fsbhoa_nuke_on_delete' ), true ); ?> />
+                                <input type="checkbox" name="hoaplugin_nuke_on_delete" value="1" <?php checked( 1, get_option( 'hoaplugin_nuke_on_delete' ), true ); ?> />
                                 <strong style="color: #d63638;">Erase all calendar data upon plugin deletion</strong>
                             </label>
                             <p class="description">
@@ -189,14 +189,14 @@ function fsb_render_settings_manager() {
 }
 
 
-function fsb_render_bg_manager() {
-    if (isset($_POST['fsb_upload_zip'])) {
-        fsb_handle_zip_upload();
+function hoa_render_bg_manager() {
+    if (isset($_POST['hoa_upload_zip'])) {
+        hoa_handle_zip_upload();
     }
 
     $upload_dir = wp_upload_dir();
-    $bg_url_base = $upload_dir['baseurl'] . '/fsbhoa-calendar/backgrounds/';
-    $bg_path_base = $upload_dir['basedir'] . '/fsbhoa-calendar/backgrounds/';
+    $bg_url_base = $upload_dir['baseurl'] . '/hoaplugin-calendar/backgrounds/';
+    $bg_path_base = $upload_dir['basedir'] . '/hoaplugin-calendar/backgrounds/';
     $current_file = "cal-" . date('Y-m') . ".png";
 
     ?>
@@ -206,7 +206,7 @@ function fsb_render_bg_manager() {
     </div>
     <form method="post" enctype="multipart/form-data" style="background:#fff; padding:20px; border:1px solid #ccc; display:inline-block;">
         <input type="file" name="cal_zip" accept=".zip" required>
-        <input type="submit" name="fsb_upload_zip" class="button-primary" value="Upload and Process ZIP">
+        <input type="submit" name="hoa_upload_zip" class="button-primary" value="Upload and Process ZIP">
     </form>
 
     <hr>
@@ -219,16 +219,16 @@ function fsb_render_bg_manager() {
         echo '<p style="color:red;">No background found for ' . date('F Y') . ' (Expected: ' . $current_file . ')</p>';
     }
     ?>
-    <a href="<?php echo admin_url('admin-ajax.php?action=fsb_generate_fallback_bg&template_only=1'); ?>" class="button" target="_blank" download>
+    <a href="<?php echo admin_url('admin-ajax.php?action=hoa_generate_fallback_bg&template_only=1'); ?>" class="button" target="_blank" download>
             <span class="dashicons dashicons-download" style="margin-top:4px;"></span> Download 11x17 Canva Grid Seed (SVG)
     </a>
     <?php
 }
 
 
-function fsb_render_location_manager() {
+function hoa_render_location_manager() {
     global $wpdb;
-    $table = $wpdb->prefix . 'fsbhoa_locations';
+    $table = $wpdb->prefix . 'hoaplugin_locations';
     $edit_loc = null;
 
     // 1. Handle "Edit" Mode Detection
@@ -239,7 +239,7 @@ function fsb_render_location_manager() {
 
     // 2. Handle Form Submission (Add or Update)
     if (isset($_POST['save_location'])) {
-        check_admin_referer('fsb_location_action', 'fsb_loc_nonce');
+        check_admin_referer('hoa_location_action', 'hoa_loc_nonce');
 
         $loc_name = sanitize_text_field($_POST['loc_name']);
 
@@ -254,7 +254,7 @@ function fsb_render_location_manager() {
                 echo '<div class="updated"><p>Location added.</p></div>';
             }
 
-            $compiler = new FSBHOA\Cal\Compiler();
+            $compiler = new HOAPLUGIN\Cal\Compiler();
             $compiler->bake();
 
             // Clear edit mode
@@ -266,7 +266,7 @@ function fsb_render_location_manager() {
     if (isset($_GET['delete_loc']) && isset($_GET['_wpnonce'])) {
         if (wp_verify_nonce($_GET['_wpnonce'], 'delete_loc_' . $_GET['delete_loc'])) {
             $wpdb->delete($table, ['id' => intval($_GET['delete_loc'])]);
-            $compiler = new FSBHOA\Cal\Compiler();
+            $compiler = new HOAPLUGIN\Cal\Compiler();
             $compiler->bake();
             echo '<div class="updated"><p>Location deleted.</p></div>';
         }
@@ -290,8 +290,8 @@ function fsb_render_location_manager() {
                     <tr><td colspan="2">No locations defined.</td></tr>
                 <?php else : ?>
                     <?php foreach ($results as $loc):
-                        $delete_url = wp_nonce_url("?page=fsb-cal-settings&tab=locations&delete_loc=" . $loc->id, 'delete_loc_' . $loc->id);
-                        $edit_url = "?page=fsb-cal-settings&tab=locations&edit_loc=" . $loc->id;
+                        $delete_url = wp_nonce_url("?page=hoa-cal-settings&tab=locations&delete_loc=" . $loc->id, 'delete_loc_' . $loc->id);
+                        $edit_url = "?page=hoa-cal-settings&tab=locations&edit_loc=" . $loc->id;
                     ?>
                         <tr>
                             <td><strong><?php echo esc_html($loc->name); ?></strong></td>
@@ -310,8 +310,8 @@ function fsb_render_location_manager() {
 
         <div style="margin-top:30px; background:#f9f9f9; padding:20px; border:1px solid #ccc; border-radius: 4px;">
             <h4><?php echo $edit_loc ? 'Edit Location: ' . esc_html($edit_loc->name) : 'Add New Location'; ?></h4>
-            <form method="post" action="?page=fsb-cal-settings&tab=locations">
-                <?php wp_nonce_field('fsb_location_action', 'fsb_loc_nonce'); ?>
+            <form method="post" action="?page=hoa-cal-settings&tab=locations">
+                <?php wp_nonce_field('hoa_location_action', 'hoa_loc_nonce'); ?>
                 <input type="hidden" name="loc_id" value="<?php echo $edit_loc ? $edit_loc->id : ''; ?>">
 
                 <div style="margin-bottom: 15px;">
@@ -322,7 +322,7 @@ function fsb_render_location_manager() {
 
                 <input type="submit" name="save_location" class="button-primary" value="<?php echo $edit_loc ? 'Update Location' : 'Add Location'; ?>">
                 <?php if ($edit_loc) : ?>
-                    <a href="?page=fsb-cal-settings&tab=locations" class="button">Cancel</a>
+                    <a href="?page=hoa-cal-settings&tab=locations" class="button">Cancel</a>
                 <?php endif; ?>
             </form>
         </div>
@@ -331,9 +331,9 @@ function fsb_render_location_manager() {
 }
 
 
-function fsb_render_category_manager() {
+function hoa_render_category_manager() {
     global $wpdb;
-    $table = $wpdb->prefix . 'fsbhoa_categories';
+    $table = $wpdb->prefix . 'hoaplugin_categories';
     $edit_cat = null;
 
     // 1. Handle "Edit" Mode Detection
@@ -344,12 +344,12 @@ function fsb_render_category_manager() {
 
     // 2. Handle Form Submission (Add or Update)
     if (isset($_POST['save_cat'])) {
-        check_admin_referer('fsb_category_action', 'fsb_cat_nonce');
+        check_admin_referer('hoa_category_action', 'hoa_cat_nonce');
 
         $data = [
             'name'      => sanitize_text_field($_POST['cat_name']),
             'color_hex' => sanitize_hex_color($_POST['cat_color']),
-            'svg_path'  => fsb_sanitize_svg($_POST['svg_path']),
+            'svg_path'  => hoa_sanitize_svg($_POST['svg_path']),
             'delegate_emails' => sanitize_textarea_field($_POST['delegate_emails'] ?? '')
         ];
 
@@ -363,7 +363,7 @@ function fsb_render_category_manager() {
             echo '<div class="updated"><p>Category added.</p></div>';
         }
 
-        $compiler = new FSBHOA\Cal\Compiler();
+        $compiler = new HOAPLUGIN\Cal\Compiler();
         $compiler->bake();
 
         // Clear edit mode after save
@@ -374,7 +374,7 @@ function fsb_render_category_manager() {
     if (isset($_GET['delete_cat']) && isset($_GET['_wpnonce'])) {
         if (wp_verify_nonce($_GET['_wpnonce'], 'delete_cat_' . $_GET['delete_cat'])) {
             $wpdb->delete($table, ['id' => intval($_GET['delete_cat'])]);
-            $compiler = new FSBHOA\Cal\Compiler();
+            $compiler = new HOAPLUGIN\Cal\Compiler();
             $compiler->bake();
             echo '<div class="updated"><p>Category deleted.</p></div>';
         }
@@ -400,8 +400,8 @@ function fsb_render_category_manager() {
                     <tr><td colspan="4">No categories defined.</td></tr>
                 <?php else : ?>
                     <?php foreach ($results as $cat):
-                        $delete_url = wp_nonce_url("?page=fsb-cal-settings&tab=categories&delete_cat=" . $cat->id, 'delete_cat_' . $cat->id);
-                        $edit_url = "?page=fsb-cal-settings&tab=categories&edit_cat=" . $cat->id;
+                        $delete_url = wp_nonce_url("?page=hoa-cal-settings&tab=categories&delete_cat=" . $cat->id, 'delete_cat_' . $cat->id);
+                        $edit_url = "?page=hoa-cal-settings&tab=categories&edit_cat=" . $cat->id;
                     ?>
                         <tr>
                             <td><strong><?php echo esc_html($cat->name); ?></strong></td>
@@ -442,8 +442,8 @@ function fsb_render_category_manager() {
 
         <div style="margin-top:30px; background:#f9f9f9; padding:20px; border:1px solid #ccc; border-radius: 4px;">
             <h4><?php echo $edit_cat ? 'Edit Category: ' . esc_html($edit_cat->name) : 'Add New Category'; ?></h4>
-            <form method="post" action="?page=fsb-cal-settings&tab=categories">
-                <?php wp_nonce_field('fsb_category_action', 'fsb_cat_nonce'); ?>
+            <form method="post" action="?page=hoa-cal-settings&tab=categories">
+                <?php wp_nonce_field('hoa_category_action', 'hoa_cat_nonce'); ?>
                 <input type="hidden" name="cat_id" value="<?php echo $edit_cat ? $edit_cat->id : ''; ?>">
 
                 <div style="margin-bottom: 15px;">
@@ -457,14 +457,14 @@ function fsb_render_category_manager() {
                 </div>
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; font-weight:bold;">Category Delegates (Emails):</label>
-                    <textarea name="delegate_emails" rows="2" class="large-text" placeholder="social_committe@fsbhoa.com, resident@email.com"><?php echo $edit_cat ? esc_textarea($edit_cat->delegate_emails) : ''; ?></textarea>
+                    <textarea name="delegate_emails" rows="2" class="large-text" placeholder="social_committe@hoaplugin.com, resident@email.com"><?php echo $edit_cat ? esc_textarea($edit_cat->delegate_emails) : ''; ?></textarea>
                     <p class="description">Comma-separated list of emails. These residents can create and manage events within this category.</p>
                 </div>
 
                 <div style="margin-bottom: 15px;">
                     <label style="display:block; font-weight:bold; margin-bottom:5px;">Category Icon (SVG):</label>
     
-                    <div id="fsb-dropzone" style="border: 2px dashed #ccc; padding: 20px; text-align: center; background: #fff; cursor: pointer; border-radius: 4px; transition: border 0.2s;">
+                    <div id="hoa-dropzone" style="border: 2px dashed #ccc; padding: 20px; text-align: center; background: #fff; cursor: pointer; border-radius: 4px; transition: border 0.2s;">
                         <p id="dz-instruction" style="margin:0;">Drag an SVG file here, or <strong>click to browse</strong></p>
                         <div id="dz-preview" style="margin-top: 10px; display: <?php echo $edit_cat && $edit_cat->svg_path ? 'block' : 'none'; ?>;">
                              <?php
@@ -489,14 +489,14 @@ function fsb_render_category_manager() {
 
                 <input type="submit" name="save_cat" class="button-primary" value="<?php echo $edit_cat ? 'Update Category' : 'Add Category'; ?>">
                 <?php if ($edit_cat) : ?>
-                    <a href="?page=fsb-cal-settings&tab=categories" class="button">Cancel</a>
+                    <a href="?page=hoa-cal-settings&tab=categories" class="button">Cancel</a>
                 <?php endif; ?>
             </form>
         </div>
     </div>
     <script>
 (function() {
-    const dz = document.getElementById('fsb-dropzone');
+    const dz = document.getElementById('hoa-dropzone');
     const fileInput = document.getElementById('svg_file_input');
     const hiddenInput = document.getElementById('svg_path_hidden');
     const preview = document.getElementById('dz-preview');
@@ -596,7 +596,7 @@ function fsb_render_category_manager() {
     <?php
 }
 
-function fsb_sanitize_svg($svg_str) {
+function hoa_sanitize_svg($svg_str) {
     return wp_kses($svg_str, [
         'svg'  => [
             'xmlns'   => true,
@@ -615,10 +615,10 @@ function fsb_sanitize_svg($svg_str) {
     ]);
 }
 
-function fsb_render_event_audit() {
+function hoa_render_event_audit() {
     global $wpdb;
-    $table_events = $wpdb->prefix . 'fsbhoa_events';
-    $table_cats   = $wpdb->prefix . 'fsbhoa_categories';
+    $table_events = $wpdb->prefix . 'hoaplugin_events';
+    $table_cats   = $wpdb->prefix . 'hoaplugin_categories';
 
     $results = $wpdb->get_results("
         SELECT e.*, c.name as cat_name 
@@ -632,14 +632,14 @@ function fsb_render_event_audit() {
     ?>
     <style>
         /* 1. Make all individual rows less high by overriding WP defaults */
-        .fsb-audit-table td {
+        .hoa-audit-table td {
             padding: 5px 10px !important;
             vertical-align: middle !important;
             line-height: 1.3 !important;
         }
 
         /* 2. Half-height styling for Holes and Pivots */
-        tr.fsb-audit-child td {
+        tr.hoa-audit-child td {
             padding-top: 0px !important;
             padding-bottom: 0px !important;
             line-height: 1 !important;  /* Squashes WP default text spacing */
@@ -648,13 +648,13 @@ function fsb_render_event_audit() {
         }
 
         /* slightly shrink the DB ID size on children so it doesn't crowd */
-        tr.fsb-audit-child td code {
+        tr.hoa-audit-child td code {
             margin-top: 0px !important;
             margin-bottom: 0px !important;
             line-height: 1 !important;
         }
         /* 3. Push master/single row content to the floor to meet the children */
-        tr.fsb-audit-master td {
+        tr.hoa-audit-master td {
             padding-bottom: 2px !important;    /* Strip out the bottom breathing room */
             vertical-align: bottom !important; /* Drop the text to the bottom edge */
         }
@@ -678,11 +678,11 @@ function fsb_render_event_audit() {
             </thead>
             <tbody>
                 <?php 
-                $repo = fsb_get_repo();
+                $repo = hoa_get_repo();
                 foreach ($results as $e) : 
                     $is_child = !empty($e->parent_id);
                     $is_hole = ($e->status === 'cancelled');
-                    $row_class = $is_child ? 'fsb-audit-child' : 'fsb-audit-master';
+                    $row_class = $is_child ? 'hoa-audit-child' : 'hoa-audit-master';
                     $row_style = $is_child ? 'background: #fcfcfc;' : 'background: #f0f6fb; font-weight: 600;';
                     if ($is_hole) $row_style .= ' opacity: 0.6;';
                     $target_date = $repo->get_first_instance_date($e->start_datetime, $e->rrule);  // first instance
@@ -750,26 +750,26 @@ function fsb_render_event_audit() {
     </div>
 
 
-    <div id="fsb-edit-modal" class="fsb-modal">
+    <div id="hoa-edit-modal" class="hoa-modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeAdminModals()">&times;</span>
             <div id="edit-form-container"></div>
         </div>
     </div>
 
-    <div id="fsb-day-modal" class="fsb-modal">
+    <div id="hoa-day-modal" class="hoa-modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeAdminModals()">&times;</span>
-            <div id="fsb-modal-content"></div>
+            <div id="hoa-modal-content"></div>
         </div>
     </div>
 
     <script>
         function closeAdminModals() {
-            document.querySelectorAll('.fsb-modal').forEach(m => m.classList.remove('is-visible'));
+            document.querySelectorAll('.hoa-modal').forEach(m => m.classList.remove('is-visible'));
             document.body.style.removeProperty('overflow');
             document.documentElement.style.removeProperty('overflow');
-            document.body.classList.add('fsb-admin-scroll-fix');
+            document.body.classList.add('hoa-admin-scroll-fix');
             document.body.classList.remove('modal-open');
         }
 
@@ -785,10 +785,10 @@ function fsb_render_event_audit() {
         async function handleAuditDelete(id) {
             if(confirm('Permanently delete record #' + id + '?')) {
                 const params = new URLSearchParams({
-                    action: 'fsb_save_calendar_event',
+                    action: 'hoa_save_calendar_event',
                     edit_mode: 'master_delete',
                     event_id: id,
-                    nonce: '<?php echo wp_create_nonce('fsb_cal_nonce'); ?>'
+                    nonce: '<?php echo wp_create_nonce('hoa_cal_nonce'); ?>'
                 });
                 const response = await fetch('<?php echo admin_url('admin-ajax.php'); ?>', {
                     method: 'POST',
@@ -813,9 +813,9 @@ function fsb_render_event_audit() {
 
                     // Check if it's our save event (handles FormData, URLSearchParams, and raw Strings)
                     if (body.get && typeof body.get === 'function') {
-                        isSaveAction = body.get('action') === 'fsb_save_calendar_event';
+                        isSaveAction = body.get('action') === 'hoa_save_calendar_event';
                     } else if (typeof body === 'string') {
-                        isSaveAction = body.includes('action=fsb_save_calendar_event');
+                        isSaveAction = body.includes('action=hoa_save_calendar_event');
                     }
 
                     // If it was a save, check if the server said it was successful
@@ -842,7 +842,7 @@ function fsb_render_event_audit() {
 }
 
 
-function fsb_render_regression_test() {
+function hoa_render_regression_test() {
     ?>
     <div class="card" style="max-width: 800px;">
         <h3>Automated Logic Regression</h3>
@@ -876,7 +876,7 @@ function fsb_render_regression_test() {
 
         try {
             // Step 1: Create Sandbox & Seed
-            const initRes = await fetch(ajaxurl + '?action=fsb_run_regression_step&step=init&nonce=<?php echo wp_create_nonce('fsb_reg_nonce'); ?>');
+            const initRes = await fetch(ajaxurl + '?action=hoa_run_regression_step&step=init&nonce=<?php echo wp_create_nonce('hoa_reg_nonce'); ?>');
             const initData = await initRes.json();
             if(!initData.success) throw new Error(initData.data);
             log(initData.data.message);
@@ -885,7 +885,7 @@ function fsb_render_regression_test() {
             const scenarios = initData.data.scenarios;
             for(const slug of scenarios) {
                 log(`TESTING SCENARIO: [${slug}]...`, "#3498db");
-                const res = await fetch(ajaxurl + `?action=fsb_run_regression_step&step=run_scenario&slug=${slug}&prefix=${initData.data.prefix}&nonce=<?php echo wp_create_nonce('fsb_reg_nonce'); ?>`);
+                const res = await fetch(ajaxurl + `?action=hoa_run_regression_step&step=run_scenario&slug=${slug}&prefix=${initData.data.prefix}&nonce=<?php echo wp_create_nonce('hoa_reg_nonce'); ?>`);
                 const result = await res.json();
                 
                 if(result.success) {
@@ -896,7 +896,7 @@ function fsb_render_regression_test() {
             }
 
             log("CLEANING UP SANDBOX...", "#aaa");
-            await fetch(ajaxurl + `?action=fsb_run_regression_step&step=cleanup&prefix=${initData.data.prefix}&nonce=<?php echo wp_create_nonce('fsb_reg_nonce'); ?>`);
+            await fetch(ajaxurl + `?action=hoa_run_regression_step&step=cleanup&prefix=${initData.data.prefix}&nonce=<?php echo wp_create_nonce('hoa_reg_nonce'); ?>`);
             
             log("REGRESSION COMPLETE.", "#fff");
         } catch (e) {
@@ -909,7 +909,7 @@ function fsb_render_regression_test() {
     <?php
 }
 
-function fsb_handle_zip_upload() {
+function hoa_handle_zip_upload() {
     // 1. Security Check
     if ( ! current_user_can( 'manage_options' ) ) return;
 
@@ -933,7 +933,7 @@ function fsb_handle_zip_upload() {
     
     // 4. Set target directory and ensure it exists
     $upload_dir = wp_upload_dir();
-    $target_dir = $upload_dir['basedir'] . '/fsbhoa-calendar/backgrounds/';
+    $target_dir = $upload_dir['basedir'] . '/hoaplugin-calendar/backgrounds/';
 
     if ( ! wp_mkdir_p( $target_dir ) ) {
         echo '<div class="notice notice-error"><p>Failed to create the backgrounds directory in your uploads folder.</p></div>';

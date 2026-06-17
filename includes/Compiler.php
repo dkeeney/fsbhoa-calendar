@@ -1,5 +1,5 @@
 <?php
-namespace FSBHOA\Cal;
+namespace HOAPLUGIN\Cal;
 
 use RRule\RRule;
 use DateTime;
@@ -18,7 +18,7 @@ class Compiler {
         } else {
             // 2. Otherwise, check the DB option or use the WP default
             $upload_dir = wp_upload_dir();
-            $this->json_path = FSBHOA_CALENDAR_DIR . '/calendar-events.json';
+            $this->json_path = HOAPLUGIN_CALENDAR_DIR . '/calendar-events.json';
         }
     }
 
@@ -27,9 +27,9 @@ class Compiler {
      */
     public function bake() {
         global $wpdb;
-        $table = $this->prefix . 'fsbhoa_events';
-        $cat_table = $this->prefix . 'fsbhoa_categories';
-        $loc_table = $this->prefix . 'fsbhoa_locations';
+        $table = $this->prefix . 'hoaplugin_events';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
+        $loc_table = $this->prefix . 'hoaplugin_locations';
 
         // ---  Sync PHP with WordPress Timezone Settings ---
         $tz_string = get_option('timezone_string');
@@ -43,8 +43,8 @@ class Compiler {
         }
 
         // 1. Setup Environment & Range
-        $past_months   = get_option('fsb_cal_past_months', 1);
-        $future_months = get_option('fsb_cal_future_months', 12);
+        $past_months   = get_option('hoa_cal_past_months', 1);
+        $future_months = get_option('hoa_cal_future_months', 12);
 
         $range_start = date('Y-m-01', strtotime("-{$past_months} months"));
         $range_end   = date('Y-m-t',  strtotime("+{$future_months} months"));
@@ -52,7 +52,7 @@ class Compiler {
         $upload_dir   = wp_upload_dir();
 
         // 2. Fetch Category Icons
-        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
         // We grab all categories. Even if svg_path is empty, we want the ID
         // so the JS doesn't crash looking for an undefined index.
         $categories = $wpdb->get_results("SELECT id, svg_path FROM $cat_table");
@@ -65,7 +65,7 @@ class Compiler {
             }
         }
         // Log this to the PHP error log so you can verify the 'bake' is working
-        error_log("FSBHOA BAKE: Icon Library built with " . count($icon_library) . " icons.");
+        error_log("HOAPLUGIN BAKE: Icon Library built with " . count($icon_library) . " icons.");
 
         // 3. Fetch Root Events & Lineage Map
         // We only start with 'active' roots.
@@ -76,7 +76,7 @@ class Compiler {
             LEFT JOIN $loc_table l ON e.location_id = l.id
             WHERE e.parent_id IS NULL AND e.status = 'active'
         ");
-        error_log("FSBHOA BAKE: Found " . count($roots) . " root events.");
+        error_log("HOAPLUGIN BAKE: Found " . count($roots) . " root events.");
         $lineage_map = $this->build_lineage_map();
 
         $final_manifest = [];
@@ -95,7 +95,7 @@ class Compiler {
                 }
             }
         }
-        error_log("FSBHOA BAKE: Final manifest has " . count($final_manifest) . " instances.");
+        error_log("HOAPLUGIN BAKE: Final manifest has " . count($final_manifest) . " instances.");
 
         // 5. Final Chronological Sort
         usort($final_manifest, function($a, $b) {
@@ -126,7 +126,7 @@ class Compiler {
     // build a map of a parent and associated holes, moves, and pivots in time order.
     private function build_lineage_map() {
         global $wpdb;
-        $table = $this->prefix . 'fsbhoa_events';
+        $table = $this->prefix . 'hoaplugin_events';
 
         // Fetch all exceptions (anything with a parent_id)
         $results = $wpdb->get_results("SELECT * FROM $table WHERE parent_id IS NOT NULL ORDER BY start_datetime ASC");
@@ -146,8 +146,8 @@ class Compiler {
         $end_dt   = new \DateTime($event->end_datetime);
 
         // Get the range boundaries from the bake() scope or re-calculate
-        $past_months   = get_option('fsb_cal_past_months', 1);
-        $future_months = get_option('fsb_cal_future_months', 12);
+        $past_months   = get_option('hoa_cal_past_months', 1);
+        $future_months = get_option('hoa_cal_future_months', 12);
         $range_start   = new \DateTime(date('Y-m-01', strtotime("-{$past_months} months")));
         $range_end     = new \DateTime(date('Y-m-t',  strtotime("+{$future_months} months")));
 
@@ -251,7 +251,7 @@ class Compiler {
     private function newRRule($rrule_str, $anchor) {
         // 1. Clean the string to get JUST the parts (FREQ=WEEKLY;BYDAY=MO...)
         $clean_rule = trim(str_ireplace('RRULE:', '', $rrule_str));
-        $start_day_setting = get_option('fsb_start_day', '0');
+        $start_day_setting = get_option('hoa_start_day', '0');
         $wkst = ($start_day_setting === '1') ? 'WKST=MO' : 'WKST=SU';
 
         if (strpos($clean_rule, 'WKST=') === false) {
@@ -274,7 +274,7 @@ class Compiler {
             // Passing an array is 100% immune to newline/prefix issues
             return new \RRule\RRule($parts);
         } catch (\Exception $e) {
-            error_log("FSBHOA CRITICAL: RRule Array Parse Failed: " . $e->getMessage());
+            error_log("HOAPLUGIN CRITICAL: RRule Array Parse Failed: " . $e->getMessage());
             return new \RRule\RRule(['COUNT' => 1, 'DTSTART' => $anchor]);
         }
     }
@@ -292,11 +292,11 @@ class Compiler {
     private function format_instance($master, $start_dt, $end_dt, $pivot_id = null, $move_id = null) {
 
         if (!($start_dt instanceof \DateTime) || !($end_dt instanceof \DateTime)) {
-            error_log("FSBHOA COMPILE: format_instance() received invalid object.");
+            error_log("HOAPLUGIN COMPILE: format_instance() received invalid object.");
             return [];
         }
         $title =  $master->title;
-        $time_format = get_option('fsb_time_format', '12hr');
+        $time_format = get_option('hoa_time_format', '12hr');
         $php_time_str = ($time_format === '24hr') ? 'H:i' : 'g:i A';
 
         $instance = [

@@ -1,6 +1,6 @@
 //   -- calendar-view.js  --
 window.config = window.config || {};
-// note: fsb_config is injected by PHP and is not the same as window.config.  
+// note: hoa_config is injected by PHP and is not the same as window.config.  
 window.allEvents = [];
 window.grid; 
 window.agendaContainer = null;
@@ -24,8 +24,8 @@ if (urlDateStr) {
 
 
 document.addEventListener('DOMContentLoaded', function() {
-    const monthlyApp = document.getElementById('fsb-calendar-app');
-    const agendaApp = document.getElementById('fsb-agenda-app');
+    const monthlyApp = document.getElementById('hoa-calendar-app');
+    const agendaApp = document.getElementById('hoa-agenda-app');
 
     // 1. EXIT if nothing is found
     if (!monthlyApp && !agendaApp) return;
@@ -65,7 +65,7 @@ document.addEventListener('DOMContentLoaded', function() {
         jsonUrl: activeApp.dataset.jsonUrl,
         userEmail: activeApp.dataset.userEmail,
         isAdmin: activeApp.dataset.isAdmin === 'true',
-        printJsUrl: fsb_config.print_js_url
+        printJsUrl: hoa_config.print_js_url
     };
 
     // Calculate the min and max allowed dates
@@ -73,13 +73,13 @@ document.addEventListener('DOMContentLoaded', function() {
     // We use parseInt to ensure "1" becomes 1, and window. prefix to make them globally accessible
     window.fsbMinTime = new Date(
         today.getFullYear(),
-        today.getMonth() - parseInt(fsb_config.past_limit),
+        today.getMonth() - parseInt(hoa_config.past_limit),
         1
     ).getTime();
 
     window.fsbMaxTime = new Date(
         today.getFullYear(),
-        today.getMonth() + parseInt(fsb_config.future_limit),
+        today.getMonth() + parseInt(hoa_config.future_limit),
         1
     ).getTime();
 
@@ -90,7 +90,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.close-modal, .modal-close').forEach(btn => {
         btn.onclick = function() {
             // This finds the closest parent container that is a modal and hides it
-            const modal = this.closest('.fsb-modal, .fsb-full-modal');
+            const modal = this.closest('.hoa-modal, .hoa-full-modal');
             if (modal) {
                 modal.classList.remove('is-visible');
                 document.body.classList.remove('modal-open');
@@ -109,7 +109,7 @@ document.addEventListener('DOMContentLoaded', function() {
             let testDate = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth() - 1, 1).getTime();
             if (testDate >= window.fsbMinTime) {
                 // STRIP FLAG BEFORE RE-RENDER
-                document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
+                document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
                 currentViewDate.setMonth(currentViewDate.getMonth() - 1);
                 render();
             } else {
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function() {
             let testDate = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth() + 1, 1).getTime();
             if (testDate <= window.fsbMaxTime) {
                 // STRIP FLAG BEFORE RE-RENDER
-                document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
+                document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
                 currentViewDate.setMonth(currentViewDate.getMonth() + 1);
                 render();
             } else {
@@ -139,7 +139,7 @@ document.addEventListener('DOMContentLoaded', function() {
     todayBtns.forEach(btn => {
         btn.onclick = () => {
             // STRIP FLAG BEFORE RE-RENDER
-            document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
+            document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
             currentViewDate = new Date();
             render();
         };
@@ -149,7 +149,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const fsBtn = document.getElementById('toggleFullScreen');
     if (fsBtn) {
         fsBtn.onclick = () => {
-            const app = document.getElementById('fsb-monthly-wrapper');
+            const app = document.getElementById('hoa-monthly-wrapper');
             if (!document.fullscreenElement) {
                 app.requestFullscreen().catch(err => {
                     alert(`Error attempting to enable full-screen mode: ${err.message}`);
@@ -161,7 +161,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     document.addEventListener('fullscreenchange', () => {
         // STRIP FLAG BEFORE RE-RENDER
-        document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
+        document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
         // Re-run render to snap the background and grid back into place
         render();
     });
@@ -176,7 +176,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 t.checked = e.target.checked;
             });
             // STRIP FLAG BEFORE RE-RENDER
-            document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
+            document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
             render();
         };
     });
@@ -216,8 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
     if (printBtn) {
       printBtn.onclick = function() {
 
-        if (!fsb_config.is_pro) {
-            alert("🖨️ 11x17 Newsletter Export is a Premium feature.\n\nUpgrade to FSBHOA Calendar Pro to instantly generate, tabloid-ready PDFs of your monthly calendar for your community newsletter!");
+        if (!hoa_config.is_pro) {
+            alert("🖨️ 11x17 Newsletter Export is a Premium feature.\n\nUpgrade to HOAplugin Calendar Pro to instantly generate, tabloid-ready PDFs of your monthly calendar for your community newsletter!");
             return;
         }
         // Check if the script is already loaded
@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function() {
             initPrintModule(window.currentYear, window.currentMonth, allEvents, window.currentBackgroundUrl);
         } else {
                 const printScript = document.createElement('script');
-                printScript.src = fsb_config.print_js_url + '?v=' + fsb_config.version;
+                printScript.src = hoa_config.print_js_url + '?v=' + hoa_config.version;
                 printScript.onerror = () => alert("Error loading Pro Print Engine.");
                 printScript.onload = () => {
                     initPrintModule(window.currentYear, window.currentMonth, allEvents, window.currentBackgroundUrl);
@@ -246,7 +246,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 currentView = newView;
                 document.querySelectorAll('.viewToggle').forEach(t => t.checked = (currentView === 'agenda'));
                 // STRIP FLAG BEFORE RE-RENDER
-                document.getElementById('fsb-calendar-app')?.removeAttribute('data-render-complete');
+                document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
                 render();
             }
         }
@@ -281,14 +281,14 @@ document.addEventListener('DOMContentLoaded', function() {
         // --- ANCHOR EXCEPTION FOR MAGNIFY ---
         // Check if the mouse is currently over the magnified shard or its children
         const isOverShard = elements.some(el =>
-            el.classList.contains('fsb-ghost-shard') ||
-            el.closest('.fsb-ghost-shard')
+            el.classList.contains('hoa-ghost-shard') ||
+            el.closest('.hoa-ghost-shard')
         );
 
         // 2. DETECTION: Look for the underlying split-cell
         const hoveredCell = elements.find(el =>
             el.classList.contains('split-cell') &&
-            !el.classList.contains('fsb-ghost-shard')
+            !el.classList.contains('hoa-ghost-shard')
         );
 
         // 3. EXIT CONDITION: If no cell is hovered, kill the shard and reset state
@@ -330,7 +330,7 @@ document.addEventListener('DOMContentLoaded', function() {
         // 7. CREATE NEW SHARD
         lastTargetKey = currentKey;
         activeShard = document.createElement('div');
-        activeShard.className = `fsb-ghost-shard shard-${newShardType}`;
+        activeShard.className = `hoa-ghost-shard shard-${newShardType}`;
         activeShard.dataset.type = newShardType;
         activeShard.dataset.cellDate = hoveredCell.dataset.date;
 
@@ -357,7 +357,7 @@ document.addEventListener('DOMContentLoaded', function() {
             pointerEvents: 'none'
         });
 
-        const wrapper = document.getElementById('fsb-monthly-wrapper');
+        const wrapper = document.getElementById('hoa-monthly-wrapper');
         if (wrapper) {
             wrapper.appendChild(activeShard);
 
@@ -389,7 +389,7 @@ async function loadData() {
             iconLibrary = { ...iconLibrary, ...(data.icons || {}) };
             render();
         } catch (e) {
-            console.error("FSBHOA Calendar Error:", e);
+            console.error("HOAplugin Calendar Error:", e);
             grid.innerHTML = '<div style="padding:20px; color:red;">Failed to load calendar data.</div>';
         }
 }
@@ -398,8 +398,8 @@ async function loadData() {
 
 
 function render() {
-    const monthlyWrapper = document.getElementById('fsb-monthly-wrapper');
-    const agendaWrapper = document.getElementById('fsb-agenda-wrapper');
+    const monthlyWrapper = document.getElementById('hoa-monthly-wrapper');
+    const agendaWrapper = document.getElementById('hoa-agenda-wrapper');
 
     // 1. RESPONSIVE AUTO-SWITCH (Only if both exist and user hasn't touched the toggle)
     if (monthlyWrapper && agendaWrapper && !window.hasManuallyToggled) {
@@ -429,11 +429,11 @@ function render() {
         if (agendaWrapper) agendaWrapper.style.display = 'none';
 
         // Re-enable page scrolling
-        document.body.classList.remove('fsb-agenda-mode');
-        document.documentElement.classList.remove('fsb-agenda-mode');
+        document.body.classList.remove('hoa-agenda-mode');
+        document.documentElement.classList.remove('hoa-agenda-mode');
 
         // Update Background & Grid (Passing the actual App div inside the wrapper)
-        const monthlyApp = monthlyWrapper.querySelector('#fsb-calendar-app');
+        const monthlyApp = monthlyWrapper.querySelector('#hoa-calendar-app');
         updateBackground(monthlyApp, year, month);
         renderMonthGrid(monthlyApp);
     } 
@@ -443,11 +443,11 @@ function render() {
         if (monthlyWrapper) monthlyWrapper.style.display = 'none';
 
         // Disable page scrolling, let the agenda scroll
-        document.body.classList.add('fsb-agenda-mode');
-        document.documentElement.classList.add('fsb-agenda-mode');
+        document.body.classList.add('hoa-agenda-mode');
+        document.documentElement.classList.add('hoa-agenda-mode');
 
 
-        const agendaApp = agendaWrapper.querySelector('#fsb-agenda-app');
+        const agendaApp = agendaWrapper.querySelector('#hoa-agenda-app');
         renderAgendaView(agendaApp);
 
     }
@@ -488,7 +488,7 @@ function renderMonthGrid(monthlyApp) {
 
     const rawFirstDay = new Date(year, month, 1).getDay(); // 0-6 (Sun-Sat)
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const startOffset = parseInt(window.fsb_config.start_day) || 0; // 0=Sun, 1=Mon
+    const startOffset = parseInt(window.hoa_config.start_day) || 0; // 0=Sun, 1=Mon
 
     // 1. DETERMINE THE CALENDAR STATE
     let mode = 'standard';
@@ -546,7 +546,7 @@ function renderMonthGrid(monthlyApp) {
     }
 
     // 3. RENDER THE BLUEPRINT
-    const appEl = document.getElementById('fsb-calendar-app');
+    const appEl = document.getElementById('hoa-calendar-app');
     if (appEl) {
         appEl.setAttribute('data-view-year', year);
         appEl.setAttribute('data-view-month', month + 1);
@@ -554,7 +554,7 @@ function renderMonthGrid(monthlyApp) {
         else appEl.removeAttribute('data-has-split-cell');
     }
 
-    const canCreate = config.isAdmin || (fsb_config.delegated_categories && fsb_config.delegated_categories.length > 0);
+    const canCreate = config.isAdmin || (hoa_config.delegated_categories && hoa_config.delegated_categories.length > 0);
     grid.innerHTML = '';
 
     for (let i = 0; i < 35; i++) {
@@ -626,7 +626,7 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 
     const evtsA = allEvents.filter(e => e.date === dateA);
     const evtsB = allEvents.filter(e => e.date === dateB);
-    const canCreate = config.isAdmin || (fsb_config.delegated_categories && fsb_config.delegated_categories.length > 0);
+    const canCreate = config.isAdmin || (hoa_config.delegated_categories && hoa_config.delegated_categories.length > 0);
 
     return `
     <div class="calendar-day split-cell ${splitStateClass}"
@@ -690,7 +690,7 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 function renderIcons(icons, dateStr) {
     return icons.map(e => {
         //  Only show the pencil if they have permission AND we aren't in the agenda
-        const isCatDelegate = fsb_config.delegated_categories && fsb_config.delegated_categories.includes(parseInt(e.category_id));
+        const isCatDelegate = hoa_config.delegated_categories && hoa_config.delegated_categories.includes(parseInt(e.category_id));
         const canEdit =
             window.handleAddEventFromModal &&
             ((config.isAdmin || isCatDelegate || (e.owner_email && config.userEmail && e.owner_email.toLowerCase() === config.userEmail.toLowerCase()))
@@ -706,7 +706,7 @@ function renderIcons(icons, dateStr) {
         return `
             <div class="corner-unit event-item"
                  title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
-                 draggable="${(canEdit && fsb_config.is_pro) ? 'true' : 'false'}"
+                 draggable="${(canEdit && hoa_config.is_pro) ? 'true' : 'false'}"
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${e.move_id || ''}"
@@ -880,7 +880,7 @@ function renderFlyerThumb(eventObj) {
 
     // CASE 2 — PDF flyer
     else if (/\.pdf$/i.test(url)) {
-        thumbSrc = fsb_config.pdf_icon || "/wp-content/plugins/fsbhoa-calendar/assets/img/pdf-icon.png";
+        thumbSrc = hoa_config.pdf_icon || "/wp-content/plugins/hoaplugin-calendar/assets/img/pdf-icon.png";
     }
 
     // CASE 3 — Website URL → use favicon
@@ -896,7 +896,7 @@ function renderFlyerThumb(eventObj) {
 
     // CASE 4 — Unknown type → fallback icon
     else {
-        thumbSrc = fsb_config.flyer_fallback || "/wp-content/plugins/fsbhoa-calendar/assets/img/flyer-icon.png";
+        thumbSrc = hoa_config.flyer_fallback || "/wp-content/plugins/hoaplugin-calendar/assets/img/flyer-icon.png";
     }
 
     // Return safe, non-navigating HTML
@@ -932,8 +932,8 @@ function activateEventDetailClick(e, instanceId) {
 
 
 function openDayModal(dateStr) {
-    const modal = document.getElementById('fsb-day-modal');
-    const content = document.getElementById('fsb-modal-content');
+    const modal = document.getElementById('hoa-day-modal');
+    const content = document.getElementById('hoa-modal-content');
 
     // Find the events for this date from our global array
     const events = allEvents.filter(e => e.date === dateStr);
@@ -941,7 +941,7 @@ function openDayModal(dateStr) {
     const dateObj = new Date(dateStr + 'T00:00:00');
     const title = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     const dayIcons = events;
-    const canCreate = config.isAdmin || (fsb_config.delegated_categories && fsb_config.delegated_categories.length > 0);
+    const canCreate = config.isAdmin || (hoa_config.delegated_categories && hoa_config.delegated_categories.length > 0);
 
     // heading
     let html = `
@@ -1037,17 +1037,17 @@ function renderEvents(events) {
         if (e.visibility && e.visibility === 'resident' && !config.userEmail) {
             return '';
         }
-        const isCatDelegate = fsb_config.delegated_categories && fsb_config.delegated_categories.includes(parseInt(e.category_id));
+        const isCatDelegate = hoa_config.delegated_categories && hoa_config.delegated_categories.includes(parseInt(e.category_id));
         const canEdit = config.isAdmin || isCatDelegate || (e.owner_email && config.userEmail && e.owner_email.toLowerCase() === config.userEmail.toLowerCase());
 
         // Smart Time Logic (e.g., "9a" or "9:30p")
         let timeStr = e.start_fmt || '';
-        if (timeStr && window.fsb_config.time_format !== '24hr') {
+        if (timeStr && window.hoa_config.time_format !== '24hr') {
             timeStr = timeStr.toLowerCase().replace(':00', '').replace(' ', '');
         }
 
         let combinedTitle = '';
-        const pos = fsb_config.time_position;
+        const pos = hoa_config.time_position;
 
         if (pos === 'prepend') {
             combinedTitle = `<span style="font-weight:900;">${timeStr}</span> ${e.title}`;
@@ -1062,7 +1062,7 @@ function renderEvents(events) {
 
         return `
             <div class="event-item"
-                 draggable="${(canEdit && fsb_config.is_pro) ? 'true' : 'false'}"
+                 draggable="${(canEdit && hoa_config.is_pro) ? 'true' : 'false'}"
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${moveId || ''}"
@@ -1088,11 +1088,11 @@ function renderEvents(events) {
 // be sure to access Modal and content by class rather than id.
 function showEventDetail(ev) {
     // 1. Identify which "Room" we are standing in
-    const activeAppId = (currentView === 'month') ? 'fsb-calendar-app' : 'fsb-agenda-app';
+    const activeAppId = (currentView === 'month') ? 'hoa-calendar-app' : 'hoa-agenda-app';
     const activeApp = document.getElementById(activeAppId);
 
     // 2. Find the modal and content area INSIDE that active app
-    const activeModal = activeApp.querySelector('.fsb-detail-modal');
+    const activeModal = activeApp.querySelector('.hoa-detail-modal');
     const activeContent = activeApp.querySelector('.modal-content-area');
 
     if (!activeModal || !activeContent) {
@@ -1101,7 +1101,7 @@ function showEventDetail(ev) {
     }
 
     // Close the Day Modal (if it is open) to clear the screen
-    const dayModal = document.getElementById('fsb-day-modal');
+    const dayModal = document.getElementById('hoa-day-modal');
     if (dayModal) {
         dayModal.classList.remove('is-visible');
     }
@@ -1119,7 +1119,7 @@ function showEventDetail(ev) {
                 const urlObj = new URL(ev.flyer_url);
                 thumbSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
             } catch(err) {
-                thumbSrc = `https://www.google.com/s2/favicons?domain=fsbhoa.com&sz=128`;
+                thumbSrc = `https://www.google.com/s2/favicons?domain=hoaplugin.com&sz=128`;
             }
         }
 
@@ -1190,7 +1190,7 @@ function showEventDetail(ev) {
 
 function closeDetailModal() {
     // Select all potential modals and hide them
-    const modals = document.querySelectorAll('.fsb-full-modal, .fsb-detail-modal, .fsb-modal');
+    const modals = document.querySelectorAll('.hoa-full-modal, .hoa-detail-modal, .hoa-modal');
     modals.forEach(m => m.classList.remove('is-visible'));
 
     // Unlock background scrolling.
@@ -1205,10 +1205,10 @@ function updateBackground(appContainer, year, month) {
     // Standardize the filename: cal-2026-03.png
     const monthPad = String(month + 1).padStart(2, '0');
     const fileName = `cal-${year}-${monthPad}.png`;
-    const bgUrl = `${fsb_config.bg_base_url}${fileName}?v=${fsb_config.version}`;
+    const bgUrl = `${hoa_config.bg_base_url}${fileName}?v=${hoa_config.version}`;
 
     // The dynamic fallback endpoint
-    const fallbackUrl = `${fsb_config.ajax_url}?action=fsb_generate_fallback_bg&year=${year}&month=${month + 1}`;
+    const fallbackUrl = `${hoa_config.ajax_url}?action=hoa_generate_fallback_bg&year=${year}&month=${month + 1}`;
 
     // Create a temporary image object to test if the Canva file exists
     const imgTest = new Image();
@@ -1221,7 +1221,7 @@ function updateBackground(appContainer, year, month) {
 
     imgTest.onerror = function() {
         // Image missing (404)! Fallback to the generated SVG
-        console.warn(`[FSBHOA Calendar] Background image missing for ${year}-${monthPad}. Using SVG fallback.`);
+        console.warn(`[HOAPLUGIN Calendar] Background image missing for ${year}-${monthPad}. Using SVG fallback.`);
         window.currentBackgroundUrl = fallbackUrl;
         applyBackgroundStyles(appContainer, fallbackUrl);
     };
@@ -1268,11 +1268,11 @@ function updateFlyerHint() {
  */
 function getWebcalBtn(eventId) {
     // Swap http/https for webcal protocol
-    const baseUrl = window.fsb_config.ajax_url.replace(/^https?:\/\//i, 'webcal://');
-    const exportUrl = `${baseUrl}?action=fsb_export_event&event_id=${eventId}`;
+    const baseUrl = window.hoa_config.ajax_url.replace(/^https?:\/\//i, 'webcal://');
+    const exportUrl = `${baseUrl}?action=hoa_export_event&event_id=${eventId}`;
 
     // ADDED onclick="event.stopPropagation()" so it doesn't trigger the row click!
-    const exportBtn = `<a href="${exportUrl}" class="fsb-export-btn" title="Subscribe to Calendar" onclick="event.stopPropagation()">📅 Add to your Calendar</a>`;
+    const exportBtn = `<a href="${exportUrl}" class="hoa-export-btn" title="Subscribe to Calendar" onclick="event.stopPropagation()">📅 Add to your Calendar</a>`;
 
     return exportBtn;
 }

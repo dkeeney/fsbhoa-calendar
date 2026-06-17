@@ -60,6 +60,7 @@ To setup the development and build environment on a Linux system running WordPre
  Run the following command in the plugin root to install the `rlanvin/php-rrule` package and generate the `vendor/` folder:
    ```bash
    composer install
+   composer dump-autoload
    ```
 
 ### 3. Initialize the frontend automation testing drivers via npm:

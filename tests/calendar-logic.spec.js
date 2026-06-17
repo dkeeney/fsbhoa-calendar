@@ -16,12 +16,12 @@ test('Run Logic Regression Suite with Deep Logging', async ({ page }, testInfo) 
   fs.writeFileSync(logFilePath, `DEEP REGRESSION LOG: ${new Date().toLocaleString()}\n` + '='.repeat(40) + '\n');
 
   // 2. Navigate to the regression tab
-  await page.goto('/wp-admin/admin.php?page=fsb-cal-settings&tab=regression');
+  await page.goto('/wp-admin/admin.php?page=hoa-cal-settings&tab=regression');
 
   // 3. The "Deep Log" Listener
   // This intercepts the AJAX data coming back from PHP to get the technical details
   page.on('response', async (response) => {
-    if (response.url().includes('action=fsb_run_regression_step&step=run_scenario')) {
+    if (response.url().includes('action=hoa_run_regression_step&step=run_scenario')) {
       try {
         const result = await response.json();
         const url = new URL(response.url());

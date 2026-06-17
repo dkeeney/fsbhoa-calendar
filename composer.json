@@ -1,13 +1,13 @@
 {
-    "name": "david-keeney/fsbhoa-calendar",
-    "description": "Modular HOA Event Calendar System",
+    "name": "david-keeney/hoaplugin-calendar",
+    "description": "Modular HOAplugin Calendar System",
     "require": {
         "php": ">=7.4",
         "rlanvin/php-rrule": "^2.4"
     },
     "autoload": {
         "psr-4": {
-            "FSBHOA\\Cal\\": "includes/"
+            "HOAPLUGIN\\Cal\\": "includes/"
         }
-    },
+    }
 }

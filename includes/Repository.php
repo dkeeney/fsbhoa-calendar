@@ -1,5 +1,5 @@
 <?php
-namespace FSBHOA\Cal;
+namespace HOAPLUGIN\Cal;
 
 class Repository {
     private $prefix;
@@ -17,9 +17,9 @@ class Repository {
     public function create_table() {
         global $wpdb;
         $charset_collate = $wpdb->get_charset_collate();
-        $events_table = $this->prefix . 'fsbhoa_events';
-        $loc_table = $this->prefix . 'fsbhoa_locations';
-        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $events_table = $this->prefix . 'hoaplugin_events';
+        $loc_table = $this->prefix . 'hoaplugin_locations';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
 
 
         $sql = "CREATE TABLE {$events_table} (
@@ -108,13 +108,13 @@ class Repository {
             return;
         }
 
-        $live_events = $wpdb->prefix . 'fsbhoa_events';
-        $live_cats   = $wpdb->prefix . 'fsbhoa_categories';
-        $live_locs   = $wpdb->prefix . 'fsbhoa_locations';
+        $live_events = $wpdb->prefix . 'hoaplugin_events';
+        $live_cats   = $wpdb->prefix . 'hoaplugin_categories';
+        $live_locs   = $wpdb->prefix . 'hoaplugin_locations';
 
-        $test_events = $this->prefix . 'fsbhoa_events';
-        $test_cats   = $this->prefix . 'fsbhoa_categories';
-        $test_locs   = $this->prefix . 'fsbhoa_locations';
+        $test_events = $this->prefix . 'hoaplugin_events';
+        $test_cats   = $this->prefix . 'hoaplugin_categories';
+        $test_locs   = $this->prefix . 'hoaplugin_locations';
 
         // Clone the table structures
         $wpdb->query("CREATE TABLE IF NOT EXISTS $test_events LIKE $live_events");
@@ -128,12 +128,12 @@ class Repository {
      */
     public function save($data) {
         global $wpdb;
-        $event_table = $this->prefix . 'fsbhoa_events';
+        $event_table = $this->prefix . 'hoaplugin_events';
 
         // get a static whitelist of valid column names.
         static $columns = null;
         if ($columns === null) {
-            $table = $this->prefix . 'fsbhoa_events';
+            $table = $this->prefix . 'hoaplugin_events';
             // This query returns just the names of the columns
             $columns = $wpdb->get_col("DESCRIBE $table");
         }
@@ -162,7 +162,7 @@ class Repository {
 
         $result = $wpdb->insert($event_table, $filtered_data);
         if ($result === false) {
-            error_log("FSBHOA_CALENDAR FATAL: Database INSERT failed!");
+            error_log("HOAPLUGIN_CALENDAR FATAL: Database INSERT failed!");
             error_log("Table: " . $event_table);
             error_log("WPDB Error: " . $wpdb->last_error);
             error_log("Attempted Data: " . print_r($filtered_data, true));
@@ -177,9 +177,9 @@ class Repository {
      */
     public function get($id) {
         global $wpdb;
-        $event_table = $this->prefix . 'fsbhoa_events';
-        $cat_table = $this->prefix . 'fsbhoa_categories';
-        $loc_table = $this->prefix . 'fsbhoa_locations';
+        $event_table = $this->prefix . 'hoaplugin_events';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
+        $loc_table = $this->prefix . 'hoaplugin_locations';
 
         return $wpdb->get_row(
             $wpdb->prepare("
@@ -197,7 +197,7 @@ class Repository {
      */
     public function get_event_family($master_id) {
         global $wpdb;
-        $table = $this->prefix . 'fsbhoa_events';
+        $table = $this->prefix . 'hoaplugin_events';
 
         $master = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $master_id));
 
@@ -214,9 +214,9 @@ class Repository {
 
     public function get_all_active() {
         global $wpdb;
-        $event_table = $this->prefix . 'fsbhoa_events';
-        $cat_table = $this->prefix . 'fsbhoa_categories';
-        $loc_table = $this->prefix . 'fsbhoa_locations';
+        $event_table = $this->prefix . 'hoaplugin_events';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
+        $loc_table = $this->prefix . 'hoaplugin_locations';
 
         $results = $wpdb->get_results("
             SELECT e.*, c.name as cat_name, c.color_hex, l.name as location_name
@@ -235,13 +235,13 @@ class Repository {
 
     public function get_locations() {
         global $wpdb;
-        $locations = $wpdb->get_results("SELECT id, name FROM {$this->prefix}fsbhoa_locations");
+        $locations = $wpdb->get_results("SELECT id, name FROM {$this->prefix}hoaplugin_locations");
         return $locations;
     }
 
     public function get_categories() {
         global $wpdb;
-        $categories = $wpdb->get_results("SELECT id, name, color_hex, svg_path, delegate_emails FROM {$this->prefix}fsbhoa_categories");
+        $categories = $wpdb->get_results("SELECT id, name, color_hex, svg_path, delegate_emails FROM {$this->prefix}hoaplugin_categories");
         return $categories;
     }
 
@@ -249,7 +249,7 @@ class Repository {
     public function cancel_series($master_id) {
         global $wpdb;
         $wpdb->update(
-                    $this->prefix . 'fsbhoa_events',
+                    $this->prefix . 'hoaplugin_events',
                     ['status' => 'cancelled'],
                     ['id' => $master_id]
                 );
@@ -257,8 +257,8 @@ class Repository {
 
     public function delete_series($master_id) {
         global $wpdb;
-        $wpdb->delete($this->prefix . 'fsbhoa_events', ['id' => $master_id]);
-        $wpdb->delete($this->prefix . 'fsbhoa_events', ['parent_id' => $master_id]);
+        $wpdb->delete($this->prefix . 'hoaplugin_events', ['id' => $master_id]);
+        $wpdb->delete($this->prefix . 'hoaplugin_events', ['parent_id' => $master_id]);
     }
 
 
@@ -268,7 +268,7 @@ class Repository {
         // $target_date is the date of the cell clicked.
         // We look for the first record >= that date that is 'cancelled'.
         $hole_to_remove = $wpdb->get_var($wpdb->prepare(
-             "SELECT id FROM {$this->prefix}fsbhoa_events
+             "SELECT id FROM {$this->prefix}hoaplugin_events
                     WHERE parent_id = %d
                     AND status = 'cancelled'
                     AND start_datetime >= %s
@@ -279,10 +279,10 @@ class Repository {
         ));
 
         if ($hole_to_remove) {
-            $wpdb->delete($this->prefix . 'fsbhoa_events', ['id' => $hole_to_remove]);
-            error_log("FSBHOA REPO: Undeleted instance. Removed hole ID: $hole_to_remove");
+            $wpdb->delete($this->prefix . 'hoaplugin_events', ['id' => $hole_to_remove]);
+            error_log("HOAPLUGIN REPO: Undeleted instance. Removed hole ID: $hole_to_remove");
         } else {
-             error_log("FSBHOA REPO: No future holes found to undelete for Master ID: $master_id");
+             error_log("HOAPLUGIN REPO: No future holes found to undelete for Master ID: $master_id");
         }
     }
 
@@ -291,7 +291,7 @@ class Repository {
      */
     public function end_series($pivot_id, $until_date_str) {
         global $wpdb;
-        $table = $this->prefix . 'fsbhoa_events';
+        $table = $this->prefix . 'hoaplugin_events';
 
         $existing = $this->get($pivot_id);
         if (!$existing || empty($existing->rrule)) return false;
@@ -313,11 +313,11 @@ class Repository {
 
             // Strip UNTIL and COUNT to make it infinite again
             $new_rrule = preg_replace('/;(UNTIL|COUNT)=[^;]+/', '', $existing_pivot->rrule);
-            $wpdb->update($this->prefix . 'fsbhoa_events',
+            $wpdb->update($this->prefix . 'hoaplugin_events',
                 ['rrule' => $new_rrule],
                 ['id' => $pivot_id]
             );
-            error_log("FSBHOA REPO: Series resumed. RRule updated for ID: $pivot_id");
+            error_log("HOAPLUGIN REPO: Series resumed. RRule updated for ID: $pivot_id");
         }
 
         // 2. Clean up all future pivots, holes and moves for this lineage
@@ -329,10 +329,10 @@ class Repository {
      * Handles the complex logic of reschedualing an event instance.
      */
     public function move_event_instance($master_id, $pivot_id, $move_id, $original_date, $target_date, $target_start_time, $target_end_time, $scope = 'instance') {
-        error_log("FSBHOA move_event_instance master: $master_id, pivot: $pivot_id, move: $move_id");
+        error_log("HOAPLUGIN move_event_instance master: $master_id, pivot: $pivot_id, move: $move_id");
 
         global $wpdb;
-        $event_table = $this->prefix . 'fsbhoa_events';
+        $event_table = $this->prefix . 'hoaplugin_events';
     
         // Fetch the Master record, for all meta data
         $current = $this->get($master_id);
@@ -365,7 +365,7 @@ class Repository {
 
         // --- SCOPE: REMAINING INSTANCES (THE PIVOT) ---
         if ($scope === 'remaining') {
-            error_log("FSBHOA REPO: Pivoting series from $original_date to $target_date");
+            error_log("HOAPLUGIN REPO: Pivoting series from $original_date to $target_date");
 
             // 1. Calculate the shifted RRule
             $old_rrule = $pivot->rrule;
@@ -388,7 +388,7 @@ class Repository {
 
         // --- SCOPE: SINGLE INSTANCE ---
         if ($is_single) {
-            error_log("FSBHOA REPO: Moving Single Event $master_id to $target_start");
+            error_log("HOAPLUGIN REPO: Moving Single Event $master_id to $target_start");
             // just change the master record.
             $result = $wpdb->update($event_table,
                 [
@@ -397,7 +397,7 @@ class Repository {
                 ],
                 ['id' => $master_id]
             );
-            error_log("FSBHOA REPO: Update result (rows affected): " . var_export($result, true));
+            error_log("HOAPLUGIN REPO: Update result (rows affected): " . var_export($result, true));
             return ($result !== false);
         }
     
@@ -411,11 +411,11 @@ class Repository {
             $natural_end    = "$original_date $dna_end_time";
             if ($target_start === $natural_start) {
                 // date/time did not actually change, so ignore.
-                error_log("FSBHOA REPO: Reschedule to same date/time so ignore.");
+                error_log("HOAPLUGIN REPO: Reschedule to same date/time so ignore.");
                 return true;
             }
 
-            error_log("FSBHOA REPO: Reschedule a natural instance from " . $natural_start . " to " . $target_start);
+            error_log("HOAPLUGIN REPO: Reschedule a natural instance from " . $natural_start . " to " . $target_start);
 
             // Create Hole where natural element is.
             $hole = [
@@ -491,7 +491,7 @@ class Repository {
         global $wpdb;
         $active_rule = $this->get($pivot_id);
         if (!$active_rule) {
-            error_log("FSBHOA PIVOT: Could not find Pivot record $pivot_id");
+            error_log("HOAPLUGIN PIVOT: Could not find Pivot record $pivot_id");
             return; // Should not happen if Master exists
         }
         $master_id = !empty($active_rule->parent_id) ? $active_rule->parent_id : $active_rule->id;
@@ -521,15 +521,15 @@ class Repository {
 
         if (!$dna_changed) {
             // nothing to do.
-            error_log("FSBHOA PIVOT: No DNA change detected. Skipping.");
+            error_log("HOAPLUGIN PIVOT: No DNA change detected. Skipping.");
             return;
         }
 
-        error_log("FSBHOA PIVOT check: DNA changed id=$pivot_id");
+        error_log("HOAPLUGIN PIVOT check: DNA changed id=$pivot_id");
 
         if ($first_instance_date === $pivot_date) {
             // CASE: Update In-Place (editing the first instance)
-            error_log("FSBHOA PIVOT: Updating existing record ID {$active_rule->id} in-place.");
+            error_log("HOAPLUGIN PIVOT: Updating existing record ID {$active_rule->id} in-place.");
 
             // update pivot record (or master)
             $this->save([
@@ -544,7 +544,7 @@ class Repository {
         } else {
             // CASE: Create New Pivot
             // We are branching off from an older rule.
-            error_log("FSBHOA PIVOT: Creating new pivot era starting $pivot_date.");
+            error_log("HOAPLUGIN PIVOT: Creating new pivot era starting $pivot_date.");
 
             // 1. Nuke downstream first to clear the path
             $this->delete_downstream($master_id, $pivot_date, $old_start_time_full);
@@ -567,7 +567,7 @@ class Repository {
      */
     public function delete_downstream($master_id, $pivot_date, $time_slot, $exclude_id = null) {
         global $wpdb;
-        $table = $this->prefix . 'fsbhoa_events';
+        $table = $this->prefix . 'hoaplugin_events';
 
         // We use a complex WHERE clause to handle the "Same day later" and "Future days"
         $sql = "DELETE FROM $table
@@ -606,7 +606,7 @@ class Repository {
         if (empty($email)) return false;
 
         // 1. Check Event-level delegation
-        $event_table = $this->prefix . 'fsbhoa_events';
+        $event_table = $this->prefix . 'hoaplugin_events';
         $count = $wpdb->get_var($wpdb->prepare(
             "SELECT COUNT(*) FROM $event_table WHERE owner_email = %s",
             $email
@@ -614,7 +614,7 @@ class Repository {
         if ($count > 0) return true;
 
         // 2. Check Category-level delegation
-        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
         $cats = $wpdb->get_results("SELECT delegate_emails FROM $cat_table WHERE delegate_emails IS NOT NULL AND delegate_emails != ''");
         foreach ($cats as $cat) {
             $emails = array_map('trim', explode(',', strtolower($cat->delegate_emails)));
@@ -630,7 +630,7 @@ class Repository {
         $allowed_cats = [];
         if (empty($email)) return $allowed_cats;
 
-        $cat_table = $this->prefix . 'fsbhoa_categories';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
         $cats = $wpdb->get_results("SELECT id, delegate_emails FROM $cat_table WHERE delegate_emails IS NOT NULL AND delegate_emails != ''");
         foreach ($cats as $cat) {
             $emails = array_map('trim', explode(',', strtolower($cat->delegate_emails)));
@@ -646,7 +646,7 @@ class Repository {
         global $wpdb;
         if (empty($email) || empty($category_id)) return false;
 
-        $table = $this->prefix . 'fsbhoa_categories';
+        $table = $this->prefix . 'hoaplugin_categories';
         $cat = $wpdb->get_row($wpdb->prepare("SELECT delegate_emails FROM $table WHERE id = %d", $category_id));
 
         if ($cat && !empty($cat->delegate_emails)) {
@@ -671,9 +671,9 @@ class Repository {
         // CREATE THE TABLES FIRST!
         $this->prepare_test_tables();
 
-        $event_table = $this->prefix . 'fsbhoa_events';
-        $cat_table   = $this->prefix . 'fsbhoa_categories';
-        $loc_table   = $this->prefix . 'fsbhoa_locations';
+        $event_table = $this->prefix . 'hoaplugin_events';
+        $cat_table   = $this->prefix . 'hoaplugin_categories';
+        $loc_table   = $this->prefix . 'hoaplugin_locations';
 
         // 1. Wipe the test slate cleanly
         $wpdb->query("TRUNCATE TABLE $event_table");
@@ -758,9 +758,9 @@ class Repository {
         }
 
         // Nuke the test schemas completely
-        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_events");
-        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_categories");
-        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}fsbhoa_locations");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}hoaplugin_events");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}hoaplugin_categories");
+        $wpdb->query("DROP TABLE IF EXISTS {$this->prefix}hoaplugin_locations");
 
     }
 
@@ -857,7 +857,7 @@ class Repository {
                 $first_date = $occurrences[0]->format('Y-m-d');
             }
         } catch (\Exception $e) {
-            error_log("FSBHOA RRULE HELPER ERROR: " . $e->getMessage());
+            error_log("HOAPLUGIN RRULE HELPER ERROR: " . $e->getMessage());
         }
 
         return $first_date;

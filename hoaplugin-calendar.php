@@ -1,47 +1,46 @@
 <?php
 /**
- * Plugin Name: FSBHOA Calendar
- * Plugin URI:        https://github.com/dkeeney/fsbhoa-calendar
+ * Plugin Name: HOAplugin Calendar
+ * Plugin URI:        https://hoaplugin.com
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.1.18
+ * Version:           1.1.21
  * Author:            David Keeney
  * AI Tool:           Gemini Pro 2.5 and 3.1
- * Company:           Four Seasons at Bakersfield, (fsbhoa.com)
+ * Company:           HOAplugin.com
  * Requires at least: 5.8
  * Requires PHP:      7.4
- * Author URI:        https://github.com/dkeeney
- * License:           MIT
- * License URI:       https://opensource.org/licenses/MIT
- * Text Domain:       fsbhoa-calendar
+ * License: GPL-3.0+
+ * License URI: https://www.gnu.org/licenses/gpl-3.0.html
+ * Text Domain:       hoaplugin-calendar
  *
  * Shortcodes:     
- *    [fsbhoa_calendar]
+ *    [hoaplugin-calendar]
  * This is the master entry point for the plugin. When used without parameters, 
  * it defaults to the hybrid layout, loading both the monthly grid workspace 
  * and the agenda stream workspace into the container.
  *
- *     [fsbhoa_calendar 'layout' => 'month'] 
+ *     [hoaplugin-calendar 'layout' => 'month'] 
  * Skips the agenda module and exclusively loads the monthly grid.
  *
- *     [fsbhoa_calendar 'layout' => 'agenda'] 
+ *     [hoaplugin-calendar 'layout' => 'agenda'] 
  * Skips the monthly grid and shows only the agenda view.
  *     
  */
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-if ( ! defined( 'FSB_LICENSE_SERVER_URL' ) ) {
-    define( 'FSB_LICENSE_SERVER_URL', 'https://HOAplugin.com' );
+if ( ! defined( 'HOAPLUGN_LICENSE_SERVER_URL' ) ) {
+    define( 'HOAPLUGIN_LICENSE_SERVER_URL', 'https://HOAplugin.com' );
 }
 // Define fixed file paths dynamically based on the server's environment
-if ( ! defined( 'FSBHOA_CALENDAR_DIR' ) ) {
+if ( ! defined( 'HOAPLUGIN_CALENDAR_DIR' ) ) {
     $upload_dir = wp_upload_dir();
-    define( 'FSBHOA_CALENDAR_DIR', $upload_dir['basedir'] . '/fsbhoa-calendar' );
+    define( 'HOAPLUGIN_CALENDAR_DIR', $upload_dir['basedir'] . '/hoaplugin-calendar' );
 }
 
 
-use FSBHOA\Cal\Repository;
-use FSBHOA\Cal\Compiler;
+use HOAPLUGIN\Cal\Repository;
+use HOAPLUGIN\Cal\Compiler;
 
 require_once __DIR__ . '/vendor/autoload.php';
 if ( is_admin() ) {
@@ -49,9 +48,9 @@ if ( is_admin() ) {
 }
 
 
-register_activation_hook( __FILE__, 'fsb_core_network_activation' );
+register_activation_hook( __FILE__, 'hoa_core_network_activation' );
 
-function fsb_core_network_activation( $network_wide ) {
+function hoa_core_network_activation( $network_wide ) {
     // If it's a multisite and the PMC clicked "Network Activate"
     if ( is_multisite() && $network_wide ) {
         // Fetch all sub-sites in the network
@@ -59,14 +58,14 @@ function fsb_core_network_activation( $network_wide ) {
         foreach ( $site_ids as $site_id ) {
             switch_to_blog( $site_id );
 
-            $repo = new FSBHOA\Cal\Repository();
+            $repo = new HOAPLUGIN\Cal\Repository();
             $repo->create_table();
 
             restore_current_blog(); // Crucial: Always switch back!
         }
     } else {
         // Standard single-site activation
-        $repo = new FSBHOA\Cal\Repository();
+        $repo = new HOAPLUGIN\Cal\Repository();
         $repo->create_table();
     }
 }
@@ -77,7 +76,7 @@ add_action( 'wp_insert_site', function( $new_site ) {
     if ( is_plugin_active_for_network( plugin_basename( __FILE__ ) ) ) {
         switch_to_blog( $new_site->blog_id );
 
-        $repo = new FSBHOA\Cal\Repository();
+        $repo = new HOAPLUGIN\Cal\Repository();
         $repo->create_table();
 
         restore_current_blog();
@@ -86,24 +85,24 @@ add_action( 'wp_insert_site', function( $new_site ) {
 
 
 // --- SANDBOX BRIDGE HELPERS ---
-function fsb_get_repo() {
+function hoa_get_repo() {
     global $wpdb;
     // If the Playwright cookie is present, use the test prefix!
-    if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
-        return new \FSBHOA\Cal\Repository($wpdb->prefix . 'test_');
+    if (isset($_COOKIE['hoa_test_mode']) && $_COOKIE['hoa_test_mode'] === '1') {
+        return new \HOAPLUGIN\Cal\Repository($wpdb->prefix . 'test_');
     }
-    return new \FSBHOA\Cal\Repository();
+    return new \HOAPLUGIN\Cal\Repository();
 }
 
-function fsb_get_compiler() {
+function hoa_get_compiler() {
     global $wpdb;
     // If the Playwright cookie is present, use test prefix AND test JSON path!
-    if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
+    if (isset($_COOKIE['hoa_test_mode']) && $_COOKIE['hoa_test_mode'] === '1') {
         $upload_dir = wp_upload_dir();
-        $test_json_path = FSBHOA_CALENDAR_DIR . '/test_calendar-events.json';
-        return new \FSBHOA\Cal\Compiler($wpdb->prefix . 'test_', $test_json_path);
+        $test_json_path = HOAPLUGIN_CALENDAR_DIR . '/test_calendar-events.json';
+        return new \HOAPLUGIN\Cal\Compiler($wpdb->prefix . 'test_', $test_json_path);
     }
-    return new \FSBHOA\Cal\Compiler();
+    return new \HOAPLUGIN\Cal\Compiler();
 }
 // ------------------------------
 
@@ -116,43 +115,43 @@ register_activation_hook( __FILE__, function() {
 
 // Register the uninstall hook
 // This will also remove monthly calendar backgrounds.
-register_uninstall_hook(__FILE__, 'fsb_cal_cleanup');
+register_uninstall_hook(__FILE__, 'hoa_cal_cleanup');
 
-function fsb_cal_cleanup() {
+function hoa_cal_cleanup() {
     // 1. Remove the settings from the database
-    delete_option('fsb_calendar_bgs');
+    delete_option('hoa_calendar_bgs');
 
     // 2. Locate and delete the upload folder
     $upload_dir = wp_upload_dir();
-    $fsb_dir = $upload_dir['basedir'] . '/fsbhoa-calendar';
+    $hoa_dir = $upload_dir['basedir'] . '/hoaplugin-calendar';
 
-    if (file_exists($fsb_dir)) {
+    if (file_exists($hoa_dir)) {
         // Simple recursive delete function
-        array_map('unlink', glob("$fsb_dir/*.*"));
-        rmdir($fsb_dir);
+        array_map('unlink', glob("$hoa_dir/*.*"));
+        rmdir($hoa_dir);
     }
 }
 
 
 add_action('admin_enqueue_scripts', function($hook) {
     // Only load on our settings page to keep admin clean
-    if ($hook !== 'toplevel_page_fsb-cal-settings') return;
+    if ($hook !== 'toplevel_page_hoa-cal-settings') return;
 
     // Load the CSS
-    wp_enqueue_style('fsb-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
-    wp_enqueue_style('fsb-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
+    wp_enqueue_style('hoa-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
+    wp_enqueue_style('hoa-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
 
     // Enqueue the same scripts used for the front-end
-    fsb_enqueue_calendar_scripts();
+    hoa_enqueue_calendar_scripts();
 
     // Force a specific Admin fix for the scrollbar and modal layering
-    wp_add_inline_style('fsb-cal-style', "
+    wp_add_inline_style('hoa-cal-style', "
         /* Prevent the modal from being hidden behind the WP Admin Menu */
-        .fsb-modal {
+        .hoa-modal {
             z-index: 99999 !important;
         }
         /* Override any 'overflow: hidden' that might get stuck on the admin body */
-        body.fsb-admin-scroll-fix {
+        body.hoa-admin-scroll-fix {
             overflow: auto !important;
             height: auto !important;
         }
@@ -166,8 +165,8 @@ add_action('wp_enqueue_scripts', function() {
 
 
 
-function fsb_enqueue_calendar_scripts() {
-    //error_log("FSB CALENDAR: fsb_enqueue_calender_scripts() called");
+function hoa_enqueue_calendar_scripts() {
+    //error_log("HOAPLUGIN CALENDAR: hoa_enqueue_calender_scripts() called");
     $ver = '1.1';
     $current_user = wp_get_current_user();
     $user_email = !empty($current_user->user_email) ? $current_user->user_email : '';
@@ -175,7 +174,7 @@ function fsb_enqueue_calendar_scripts() {
 
     // Load the View logic
     wp_enqueue_script(
-        'fsb-cal-view', 
+        'hoa-cal-view', 
         plugins_url('assets/js/calendar-view.js', __FILE__), 
         $ver, 
         true
@@ -183,9 +182,9 @@ function fsb_enqueue_calendar_scripts() {
 
     // 1. ALWAYS register the script so WordPress knows it exists and what its dependencies are
     wp_register_script(
-        'fsb-cal-editor',
+        'hoa-cal-editor',
         plugins_url('assets/js/calendar-editor.js', __FILE__),
-        array('fsb-cal-view'),
+        array('hoa-cal-view'),
         $ver,
         true
     );
@@ -194,7 +193,7 @@ function fsb_enqueue_calendar_scripts() {
     $is_admin = current_user_can('manage_options');
 
     // Quick check: Is this user an owner of ANY event?
-    $repo = fsb_get_repo();
+    $repo = hoa_get_repo();
     $is_delegate = false;
     $delegated_categories = [];
     if ( is_user_logged_in() && !$is_admin && !empty($user_email) ) {
@@ -207,13 +206,13 @@ function fsb_enqueue_calendar_scripts() {
         wp_enqueue_media();
 
         // Load the Editor logic (For this pass, load for everyone to test the split)
-        wp_enqueue_script('fsb-cal-editor');
+        wp_enqueue_script('hoa-cal-editor');
     }
 
 
-    wp_enqueue_style('fsb-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
-    wp_enqueue_style('fsb-agenda-style', plugins_url('assets/css/agenda-style.css', __FILE__));
-    wp_enqueue_style('fsb-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
+    wp_enqueue_style('hoa-cal-style', plugins_url('assets/css/calendar-style.css', __FILE__));
+    wp_enqueue_style('hoa-agenda-style', plugins_url('assets/css/agenda-style.css', __FILE__));
+    wp_enqueue_style('hoa-cell-style', plugins_url('assets/css/day-cell-style.css', __FILE__));
     
     // Fetch data for the JS
     $locations = $repo->get_locations();
@@ -221,42 +220,42 @@ function fsb_enqueue_calendar_scripts() {
     $upload_dir = wp_upload_dir();
 
     // 3. Localize ONE TIME with all data
-    wp_localize_script('fsb-cal-view', 'fsb_config', array(
+    wp_localize_script('hoa-cal-view', 'hoa_config', array(
         'ajax_url'      => admin_url('admin-ajax.php'),
-        'nonce'         => wp_create_nonce('fsb_cal_nonce'),
-        'bg_base_url'   => $upload_dir['baseurl'] . '/fsbhoa-calendar/backgrounds/',
-        'past_limit'    => (int)get_option('fsb_cal_past_months', 1),
-        'future_limit'  => (int)get_option('fsb_cal_future_months', 12),
+        'nonce'         => wp_create_nonce('hoa_cal_nonce'),
+        'bg_base_url'   => $upload_dir['baseurl'] . '/hoaplugin-calendar/backgrounds/',
+        'past_limit'    => (int)get_option('hoa_cal_past_months', 1),
+        'future_limit'  => (int)get_option('hoa_cal_future_months', 12),
         'locations'     => $locations,
         'categories'    => $categories,
-        'time_position' => get_option('fsb_time_position', 'prepend'),
-        'time_format'   => get_option('fsb_time_format', '12hr'),
-        'start_day'     => get_option('fsb_start_day', '0'),
+        'time_position' => get_option('hoa_time_position', 'prepend'),
+        'time_format'   => get_option('hoa_time_format', '12hr'),
+        'start_day'     => get_option('hoa_start_day', '0'),
         'is_admin'      => $is_admin,
         'user_email'    => $user_email,
         'delegated_categories' => $delegated_categories,
         'version'       => time(),
-        'is_pro'        => apply_filters('fsb_is_pro_active', false),
-        'print_js_url'  => apply_filters('fsb_pro_print_js_url', ''),
-        'print_data_url' => apply_filters('fsb_pro_print_data_url', '')
+        'is_pro'        => apply_filters('hoa_is_pro_active', false),
+        'print_js_url'  => apply_filters('hoa_pro_print_js_url', ''),
+        'print_data_url' => apply_filters('hoa_pro_print_data_url', '')
     ));
 
-   do_action('fsb_enqueue_pro_scripts');
+   do_action('hoa_enqueue_pro_scripts');
 }
 
 // --- THE SHADOW STATE: INTERCEPT OPTIONS FOR SANDBOX ---
 //  While running a regression test, use the options from the sandbox.
-add_action('init', 'fsb_apply_sandbox_options');
-function fsb_apply_sandbox_options() {
+add_action('init', 'hoa_apply_sandbox_options');
+function hoa_apply_sandbox_options() {
     // Only intercept if the browser has the Playwright test cookie
-    if (isset($_COOKIE['fsb_test_mode'])) {
-        $sandbox_options = get_transient('fsb_sandbox_options') ?: [];
+    if (isset($_COOKIE['hoa_test_mode'])) {
+        $sandbox_options = get_transient('hoa_sandbox_options') ?: [];
 
         // Map the allowed overrides to their absolute baseline defaults
         $allowed_overrides = [
-            'fsb_start_day'     => '0',      // Sunday
-            'fsb_time_format'   => '12hr',
-            'fsb_time_position' => 'prepend'
+            'hoa_start_day'     => '0',      // Sunday
+            'hoa_time_format'   => '12hr',
+            'hoa_time_position' => 'prepend'
         ];
 
         foreach ($allowed_overrides as $opt => $default_val) {
@@ -273,15 +272,15 @@ function fsb_apply_sandbox_options() {
     }
 }
 
-add_action('wp_ajax_fsb_run_regression_step', function() {
+add_action('wp_ajax_hoa_run_regression_step', function() {
     $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? $_SERVER['HTTP_X_WP_NONCE'] : ($_REQUEST['nonce'] ?? '');
-    if ( ! wp_verify_nonce( $nonce, 'fsb_reg_nonce' ) && ! wp_verify_nonce( $nonce, 'fsb_cal_nonce' ) ) {
+    if ( ! wp_verify_nonce( $nonce, 'hoa_reg_nonce' ) && ! wp_verify_nonce( $nonce, 'hoa_cal_nonce' ) ) {
         wp_send_json_error( 'Invalid Security Nonce' );
         wp_die();
     }
 
     $step = sanitize_text_field($_REQUEST['step']);
-    $runner = new \FSBHOA\Cal\TestRunner();
+    $runner = new \HOAPLUGIN\Cal\TestRunner();
 
     switch($step) {
         case 'init':
@@ -296,15 +295,15 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
             break;
 
         case 'set_option':   // Sandbox the options for regression tests
-            $allowed_options = ['fsb_start_day', 'fsb_time_format', 'fsb_time_position'];
+            $allowed_options = ['hoa_start_day', 'hoa_time_format', 'hoa_time_position'];
             $opt_name = sanitize_text_field($_POST['opt_name'] ?? '');
             $opt_val = sanitize_text_field($_POST['opt_val'] ?? '');
 
             if (in_array($opt_name, $allowed_options)) {
                 // Write to a temporary transient, NOT the real wp_options table!
-                $sandbox_opts = get_transient('fsb_sandbox_options') ?: [];
+                $sandbox_opts = get_transient('hoa_sandbox_options') ?: [];
                 $sandbox_opts[$opt_name] = $opt_val;
-                set_transient('fsb_sandbox_options', $sandbox_opts, HOUR_IN_SECONDS);
+                set_transient('hoa_sandbox_options', $sandbox_opts, HOUR_IN_SECONDS);
 
                 wp_send_json_success("Sandbox Shadow Option {$opt_name} set to {$opt_val}");
             } else {
@@ -334,7 +333,7 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
             $mapped_ids = $runner->load_fixture($fixture_data);
 
             // BUST THE BROWSER CACHE: Playwright executes too fast for standard time()
-            update_option('fsb_cal_version', time() . rand(100, 999));
+            update_option('hoa_cal_version', time() . rand(100, 999));
             
             wp_send_json_success([
                 'message' => 'Fixture loaded successfully.',
@@ -358,7 +357,7 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
             if (!$pivot_id) wp_send_json_error('Missing pivot_id');
 
             // Grab the repo using your existing sandbox helper
-            $repo = fsb_get_repo();
+            $repo = hoa_get_repo();
             $pivot = $repo->get($pivot_id);
 
             if (!$pivot || empty($pivot->rrule)) {
@@ -403,7 +402,7 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
         case 'cleanup':
             $runner->cleanup();
 
-            delete_transient('fsb_sandbox_options');
+            delete_transient('hoa_sandbox_options');
 
             wp_send_json_success();
             break;
@@ -414,18 +413,18 @@ add_action('wp_ajax_fsb_run_regression_step', function() {
 // =========================================================================
 // THE UNIFIED CALENDAR SYSTEM SHORTCODE
 // =========================================================================
-function fsb_calendar_master_shortcode( $atts ) {
+function hoa_calendar_master_shortcode( $atts ) {
     // Provide an option parameter so admins can still force a single view if desired
     $args = shortcode_atts( array(
         'layout' => 'hybrid', // Options: 'hybrid' (both), 'month', 'agenda'
     ), $atts );
 
     // FORCE LOAD CALENDAR ASSETS STRICTLY WHEN THIS SHORTCODE IS PRESENT
-    fsb_enqueue_calendar_scripts();
+    hoa_enqueue_calendar_scripts();
 
     // Determine the JSON path with cache-buster
-    $json_url = admin_url('admin-ajax.php') . '?action=fsb_get_calendar_json';
-    $json_url .= '&v=' . get_option('fsb_cal_version', time());
+    $json_url = admin_url('admin-ajax.php') . '?action=hoa_get_calendar_json';
+    $json_url .= '&v=' . get_option('hoa_cal_version', time());
 
     // Get WP User Data
     $current_user = wp_get_current_user();
@@ -433,15 +432,15 @@ function fsb_calendar_master_shortcode( $atts ) {
     $is_admin     = current_user_can('manage_options') ? 'true' : 'false';
 
     ob_start();
-    echo '<div class="fsb-unified-calendar-container">';
+    echo '<div class="hoa-unified-calendar-container">';
 
     // ----------------=========================================
     // MODULE A: THE MONTHLY GRID WORKSPACE
     // ----------------=========================================
     if ( $args['layout'] === 'hybrid' || $args['layout'] === 'month' ) {
         ?>
-        <div id="fsb-monthly-wrapper">
-            <div id="fsb-calendar-app"
+        <div id="hoa-monthly-wrapper">
+            <div id="hoa-calendar-app"
                 data-json-url="<?php echo esc_url($json_url); ?>"
                 data-user-email="<?php echo esc_attr($user_email); ?>"
                 data-is-admin="<?php echo $is_admin; ?>">
@@ -451,7 +450,7 @@ function fsb_calendar_master_shortcode( $atts ) {
 
                 <div id="calendar-grid" class="calendar-grid"></div>
                 
-                <div class="fsb-detail-modal fsb-full-modal">
+                <div class="hoa-detail-modal hoa-full-modal">
                     <div class="modal-backdrop"></div>
                     <div class="modal-window">
                         <button class="modal-close" onclick="closeDetailModal()">&times;</button>
@@ -459,46 +458,46 @@ function fsb_calendar_master_shortcode( $atts ) {
                     </div>
                 </div>
                 
-                <div id="fsb-edit-modal" class="fsb-modal">
+                <div id="hoa-edit-modal" class="hoa-modal">
                     <div class="modal-content">
                         <span class="close-modal">&times;</span>
                         <div id="edit-form-container"></div>
                     </div>
                 </div>
-                <div id="fsb-reschedule-modal" class="fsb-modal">
+                <div id="hoa-reschedule-modal" class="hoa-modal">
                     <div class="modal-content" style="max-width: 400px;">
                         <span class="close-modal" onclick="closeRescheduleModal()">&times;</span>
                         <div id="reschedule-form-container"></div>
                     </div>
                 </div>
-                <div id="fsb-day-modal" class="fsb-modal">
+                <div id="hoa-day-modal" class="hoa-modal">
                     <div class="modal-content">
                         <span class="close-modal">&times;</span>
-                        <div id="fsb-modal-content"></div>
+                        <div id="hoa-modal-content"></div>
                     </div>
                 </div>
             </div>
             
-            <div id="fsb-manage-modal" class="fsb-modal">
+            <div id="hoa-manage-modal" class="hoa-modal">
                 <div class="modal-content" style="max-width: 450px;">
                     <span class="close-modal">&times;</span>
                     <div id="manage-form-container"></div>
                 </div>
             </div>
             
-            <div id="fsb-monthly-toolbar" class="calendar-footer-toolbar">
+            <div id="hoa-monthly-toolbar" class="calendar-footer-toolbar">
                 <div class="toolbar-left">
-                    <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
-                    <button type="button" id="toggleFullScreen" class="fsb-mini-btn">⛶ Fullscreen</button>
+                    <button type="button" id="jumpToday" class="hoa-mini-btn">Today</button>
+                    <button type="button" id="toggleFullScreen" class="hoa-mini-btn">⛶ Fullscreen</button>
                 </div>
                 <div class="toolbar-right">
-                    <button type="button" id="printCal" class="fsb-mini-btn">Print (PDF)</button>
+                    <button type="button" id="printCal" class="hoa-mini-btn">Print (PDF)</button>
                     <label class="mini-label">
                         <input type="checkbox" id="toggle-magnifier" checked> Magnifier
                     </label>
                     <div class="view-toggle-container">
                         <span class="toggle-label">Monthly</span>
-                        <label class="fsb-switch">
+                        <label class="hoa-switch">
                             <input type="checkbox" id="viewToggle">
                             <span class="slider round"></span>
                         </label>
@@ -515,8 +514,8 @@ function fsb_calendar_master_shortcode( $atts ) {
     // ----------------=========================================
     if ( $args['layout'] === 'hybrid' || $args['layout'] === 'agenda' ) {
         ?>
-        <div id="fsb-agenda-wrapper">
-             <div id="fsb-agenda-app"
+        <div id="hoa-agenda-wrapper">
+             <div id="hoa-agenda-app"
                   class="agenda-mode-only"
                   data-json-url="<?php echo esc_url($json_url); ?>"
                   data-user-email="<?php echo esc_attr($user_email); ?>"
@@ -531,7 +530,7 @@ function fsb_calendar_master_shortcode( $atts ) {
                        <div id="agenda-content-area"></div>
                   </div>
 
-                  <div class="fsb-detail-modal fsb-full-modal">
+                  <div class="hoa-detail-modal hoa-full-modal">
                        <div class="modal-backdrop"></div>
                        <div class="modal-window">
                             <button class="modal-close" onclick="closeDetailModal()">&times;</button>
@@ -539,14 +538,14 @@ function fsb_calendar_master_shortcode( $atts ) {
                        </div>
                   </div>
              </div>
-             <div id="fsb-agenda-toolbar" class="calendar-footer-toolbar">
+             <div id="hoa-agenda-toolbar" class="calendar-footer-toolbar">
                   <div class="toolbar-left">
-                       <button type="button" id="jumpToday" class="fsb-mini-btn">Today</button>
+                       <button type="button" id="jumpToday" class="hoa-mini-btn">Today</button>
                   </div>
                   <div class="toolbar-right">
                        <div class="view-toggle-container">
                             <span class="toggle-label">Monthly</span>
-                            <label class="fsb-switch">
+                            <label class="hoa-switch">
                                  <input type="checkbox" id="viewToggle">
                                  <span class="slider round"></span>
                             </label>
@@ -563,11 +562,11 @@ function fsb_calendar_master_shortcode( $atts ) {
 }
 
 // 1. Register the  master entry point shortcode
-add_shortcode( 'fsbhoa_calendar', 'fsb_calendar_master_shortcode' );
+add_shortcode( 'hoaplugin_calendar', 'hoa_calendar_master_shortcode' );
 
 // 2. Map old shortcode endpoints as backwards-compatible aliases so your existing pages don't break!
-add_shortcode( 'fsbhoa_monthly_calendar', function() { return fsb_calendar_master_shortcode(['layout' => 'month']); });
-add_shortcode( 'fsbhoa_agenda_calendar', function() { return fsb_calendar_master_shortcode(['layout' => 'agenda']); });
+add_shortcode( 'hoaplugin_monthly_calendar', function() { return hoa_calendar_master_shortcode(['layout' => 'month']); });
+add_shortcode( 'hoaplugin_agenda_calendar', function() { return hoa_calendar_master_shortcode(['layout' => 'agenda']); });
 
 
 
@@ -576,8 +575,8 @@ add_shortcode( 'fsbhoa_agenda_calendar', function() { return fsb_calendar_master
 // Use 'admin_init' to catch the redirect back from options.php
 add_action('admin_init', function() {
     // Check if we just came back from saving our specific settings group
-    if (isset($_GET['page']) && $_GET['page'] === 'fsb-cal-settings' && isset($_GET['settings-updated'])) {
-        $compiler = fsb_get_compiler();
+    if (isset($_GET['page']) && $_GET['page'] === 'hoa-cal-settings' && isset($_GET['settings-updated'])) {
+        $compiler = hoa_get_compiler();
         $compiler->bake();
     }
 });
@@ -585,18 +584,18 @@ add_action('admin_init', function() {
 
 // Listen for the "Get Details" call
 // We wait until an edit screen is requested before getting the details.
-add_action('wp_ajax_fsb_get_event_details', 'fsb_handle_get_event_details');
+add_action('wp_ajax_hoa_get_event_details', 'hoa_handle_get_event_details');
 
-function fsb_handle_get_event_details() {
+function hoa_handle_get_event_details() {
     $tz = get_option('timezone_string') ?: timezone_name_from_abbr('', get_option('gmt_offset') * 3600, false);
     if ($tz) date_default_timezone_set($tz);
 
-    check_ajax_referer('fsb_cal_nonce', 'nonce');
+    check_ajax_referer('hoa_cal_nonce', 'nonce');
 
     $event_id = isset($_GET['event_id']) ? intval($_GET['event_id']) : 0;
     if (!$event_id) wp_send_json_error('Invalid ID');
 
-    $repo = fsb_get_repo();
+    $repo = hoa_get_repo();
     $event = $repo->get($event_id); // This uses your JOINed get() method
 
     if ($event) {
@@ -611,25 +610,25 @@ function fsb_handle_get_event_details() {
     }
 }
 
-// We hook into 'save_post_fsbhoa_event' or a custom action
-add_action('fsbhoa_event_updated', function($event_id) {
-    $compiler = fsb_get_compiler();
+// We hook into 'save_post_hoaplugin_event' or a custom action
+add_action('hoaplugin_event_updated', function($event_id) {
+    $compiler = hoa_get_compiler();
     
     // 1. Get all active events for the next 12 months
     // 2. Compile them to the flat array
     // 3. Write to the JSON file in /wp-content/uploads/
     
     // For now, let's just trigger a log to prove it works on your Pi
-    error_log("FSBHOA Calendar: Event $event_id changed. Re-baking JSON...");
+    error_log("HOAPLUGIN Calendar: Event $event_id changed. Re-baking JSON...");
     $compiler->bake();
 });
 
 // Listen for the AJAX call from the JS "Save Changes" button
-add_action('wp_ajax_fsb_save_calendar_event', 'fsb_handle_save_event');
+add_action('wp_ajax_hoa_save_calendar_event', 'hoa_handle_save_event');
 
 
 
-function fsb_handle_save_event() {
+function hoa_handle_save_event() {
     $tz = get_option('timezone_string') ?: timezone_name_from_abbr('', get_option('gmt_offset') * 3600, false);
     if ($tz) date_default_timezone_set($tz);
 
@@ -638,20 +637,20 @@ function fsb_handle_save_event() {
     $master_id   = isset($_POST['event_id']) ? intval($_POST['event_id']) : null;
     $pivot_id   = isset($_POST['pivot_id']) ? intval($_POST['pivot_id']) : $master_id;
     $move_id   = isset($_POST['move_id']) ? intval($_POST['move_id']) : null;
-    $repo = fsb_get_repo();
-    $compiler = fsb_get_compiler();
+    $repo = hoa_get_repo();
+    $compiler = hoa_get_compiler();
 
-    if ( $is_drag_drop && !defined('FSB_CALENDAR_PRO_VERSION') ) {
-        error_log("FSBHOA SECURITY: Blocked unauthorized drag-and-drop attempt.");
-        wp_send_json_error('Drag-and-drop features require FSBHOA Calendar Pro.');
+    if ( $is_drag_drop && !defined('HOAPLUGIN_CALENDAR_PRO_VERSION') ) {
+        error_log("HOAPLUGIN SECURITY: Blocked unauthorized drag-and-drop attempt.");
+        wp_send_json_error('Drag-and-drop features require HOAplugin Calendar Pro.');
         wp_die();
     }
-    error_log("FSBHOA AJAX TRIGGERED: Mode=" . $edit_mode . 
+    error_log("HOAPLUGIN AJAX TRIGGERED: Mode=" . $edit_mode . 
               " ID=$master_id move_id=$move_id pivot_id=$pivot_id");
 
     
     // 1. Security & Permission Check
-    check_ajax_referer('fsb_cal_nonce', 'nonce');
+    check_ajax_referer('hoa_cal_nonce', 'nonce');
     error_log("PHP DEBUG: Nonce Check Passed");
 
 
@@ -759,12 +758,12 @@ function fsb_handle_save_event() {
                 $new_start    = sanitize_text_field($_POST['move_to_start_time']);
                 $scope        = sanitize_text_field($_POST['reschedule_scope'] ?? 'instance');
 
-                error_log("FSBHOA DEBUG: Entering move logic for ID $master_id, pivot_id: $pivot_id, move_id: $move_id");
+                error_log("HOAPLUGIN DEBUG: Entering move logic for ID $master_id, pivot_id: $pivot_id, move_id: $move_id");
 
                 // Calculate end time based on the original duration
                 $existing_pivot = $repo->get($pivot_id);   // pivot or master
                 if (!$existing_pivot) {
-                    error_log("FSBHOA DEBUG: active pivot $pivot_id not found");
+                    error_log("HOAPLUGIN DEBUG: active pivot $pivot_id not found");
                     wp_send_json_error('Event not found');
                 }
                 $duration_seconds = strtotime($existing_pivot->end_datetime) - strtotime($existing_pivot->start_datetime);
@@ -782,10 +781,10 @@ function fsb_handle_save_event() {
                 );
 
                 if (is_wp_error($result)) {
-                    error_log("FSBHOA DEBUG: Repo error: " . $result->get_error_message());
+                    error_log("HOAPLUGIN DEBUG: Repo error: " . $result->get_error_message());
                     wp_send_json_error($result->get_error_message());
                 }
-                error_log("FSBHOA DEBUG: Move call finished successfully");
+                error_log("HOAPLUGIN DEBUG: Move call finished successfully");
                 break;
 
 
@@ -798,11 +797,11 @@ function fsb_handle_save_event() {
                 // GUARDRAIL: make sure there is a title.
                 // If there is no title, assume we just want to do a bake.
                 if (empty($title)) {
-                    error_log("FSBHOA DEBUG: title empty, just doing a bake.");
+                    error_log("HOAPLUGIN DEBUG: title empty, just doing a bake.");
                     break;
                 }
 
-                error_log("FSBHOA DEBUG: taking default case.");
+                error_log("HOAPLUGIN DEBUG: taking default case.");
 
                 // Standard data payload used add/edit.
                 $start_time = sanitize_text_field($_POST['start_time']); 
@@ -828,7 +827,7 @@ function fsb_handle_save_event() {
                     // Just update the metadata on the Master record
                     $data['id'] = $master_id;
                     $repo->save($data);
-                    // Note: We EXPLICITLY do not call fsb_maybe_pivot_series here.
+                    // Note: We EXPLICITLY do not call hoa_maybe_pivot_series here.
                     break;
                 }
 
@@ -838,7 +837,7 @@ function fsb_handle_save_event() {
 
                 if (!$master_id) {
                     // this is an Add
-                    error_log("FSBHOA Doing a master add");
+                    error_log("HOAPLUGIN Doing a master add");
                     $data['rrule']          = $new_rrule;
                     $data['start_datetime'] = $new_start_datetime;
                     $data['end_datetime']   = $new_end_datetime;
@@ -846,7 +845,7 @@ function fsb_handle_save_event() {
 
                 } else {
                     // this is an update
-                    error_log("FSBHOA Doing an update on $pivot_id.");
+                    error_log("HOAPLUGIN Doing an update on $pivot_id.");
                     $data['id'] = $master_id;
                     $repo->save($data);
 
@@ -863,11 +862,11 @@ function fsb_handle_save_event() {
 
         // 3. THE BAKE: Refresh the JSON file
         $compiler->bake();
-        update_option('fsb_cal_version', time());
+        update_option('hoa_cal_version', time());
         wp_send_json_success(['message' => 'Success! Calendar baked.', 'mode' => $edit_mode]);
 
     } catch (\Exception $e) {
-        error_log("FSBHOA CRITICAL ERROR: in save logic. " . $e->getMessage());
+        error_log("HOAPLUGIN CRITICAL ERROR: in save logic. " . $e->getMessage());
         wp_send_json_error('Database error: ' . $e->getMessage());
     }
 
@@ -875,11 +874,11 @@ function fsb_handle_save_event() {
 }
 
 
-function fsb_handle_bg_upload($file_input_name, $month_index) {
+function hoa_handle_bg_upload($file_input_name, $month_index) {
     if (empty($_FILES[$file_input_name]['name'])) return;
 
     $upload_dir = wp_upload_dir();
-    $target_dir = $upload_dir['basedir'] . '/fsbhoa-calendar';
+    $target_dir = $upload_dir['basedir'] . '/hoaplugin-calendar';
 
     // Ensure directory exists
     if (!file_exists($target_dir)) {
@@ -892,24 +891,24 @@ function fsb_handle_bg_upload($file_input_name, $month_index) {
 
     if (move_uploaded_file($_FILES[$file_input_name]['tmp_id'], $target_file)) {
         // Return the URL for storage in options
-        return $upload_dir['baseurl'] . '/fsbhoa-calendar/' . $filename;
+        return $upload_dir['baseurl'] . '/hoaplugin-calendar/' . $filename;
     }
     return false;
 }
 
 
 // Standard WP AJAX endpoint (Works for logged-in and logged-out users)
-add_action('wp_ajax_fsb_get_calendar_json', 'fsb_serve_calendar_json');
-add_action('wp_ajax_nopriv_fsb_get_calendar_json', 'fsb_serve_calendar_json');
+add_action('wp_ajax_hoa_get_calendar_json', 'hoa_serve_calendar_json');
+add_action('wp_ajax_nopriv_hoa_get_calendar_json', 'hoa_serve_calendar_json');
 
-function fsb_serve_calendar_json() {
+function hoa_serve_calendar_json() {
     $upload_dir = wp_upload_dir();
     // 1. Check for Sandbox Bridge
-    if (isset($_COOKIE['fsb_test_mode']) && $_COOKIE['fsb_test_mode'] === '1') {
-        $path = FSBHOA_CALENDAR_DIR . '/test_calendar-events.json';
+    if (isset($_COOKIE['hoa_test_mode']) && $_COOKIE['hoa_test_mode'] === '1') {
+        $path = HOAPLUGIN_CALENDAR_DIR . '/test_calendar-events.json';
     } else {
         // Normal live operation
-        $path = FSBHOA_CALENDAR_DIR . '/calendar-events.json';
+        $path = HOAPLUGIN_CALENDAR_DIR . '/calendar-events.json';
     }
 
     // 3. Check if the file actually exists on the Pi
@@ -927,15 +926,15 @@ function fsb_serve_calendar_json() {
 }
 
 // Allow both logged-in users and guests to export events
-add_action('wp_ajax_fsb_export_event', 'fsb_ajax_export_event');
-add_action('wp_ajax_nopriv_fsb_export_event', 'fsb_ajax_export_event');
+add_action('wp_ajax_hoa_export_event', 'hoa_ajax_export_event');
+add_action('wp_ajax_nopriv_hoa_export_event', 'hoa_ajax_export_event');
 
-function fsb_ajax_export_event() {
+function hoa_ajax_export_event() {
     $event_id = intval($_GET['event_id'] ?? 0);
     if (!$event_id) wp_die('Invalid Event ID');
     $site_domain = wp_parse_url(home_url(), PHP_URL_HOST);
 
-    $repo = fsb_get_repo();
+    $repo = hoa_get_repo();
     $target_event = $repo->get($event_id);
     if (!$target_event) wp_die('Event not found');
 
@@ -963,7 +962,7 @@ function fsb_ajax_export_event() {
     $ics = [];
     $ics[] = "BEGIN:VCALENDAR";
     $ics[] = "VERSION:2.0";
-    $ics[] = "PRODID:-//FSBHOA//Calendar Engine//EN";
+    $ics[] = "PRODID:-//HOAPLUGIN//Calendar Engine//EN";
     $ics[] = "CALSCALE:GREGORIAN";
     $ics[] = "X-WR-CALNAME:" . escape_ics_text($master_event->title); // Names the subscription
 
@@ -975,7 +974,7 @@ function fsb_ajax_export_event() {
         $block = [];
         $block[] = "BEGIN:VEVENT";
         // Link all family members to the same core UID so the calendar knows they are related
-        $block[] = "UID:fsbhoa-family-{$ev->id}@{$site_domain}";
+        $block[] = "UID:hoaplugin-family-{$ev->id}@{$site_domain}";
         $block[] = "DTSTAMP:{$now}";
         $block[] = "DTSTART:{$dtstart}";
         $block[] = "DTEND:{$dtend}";
@@ -1023,7 +1022,7 @@ function fsb_ajax_export_event() {
     $ics[] = "END:VCALENDAR";
 
     header('Content-Type: text/calendar; charset=utf-8');
-    header('Content-Disposition: attachment; filename="fsbhoa-events.ics"');
+    header('Content-Disposition: attachment; filename="hoaplugin-events.ics"');
     
     // iCalendar spec requires CRLF line endings
     echo implode("\r\n", $ics);
@@ -1037,17 +1036,17 @@ function escape_ics_text($string) {
 
 
 // --- THE BACKGROUND SVG GENERATOR (TEMPLATE & FALLBACK) ---
-add_action('wp_ajax_fsb_generate_fallback_bg', 'fsb_serve_svg_background');
-add_action('wp_ajax_nopriv_fsb_generate_fallback_bg', 'fsb_serve_svg_background');
+add_action('wp_ajax_hoa_generate_fallback_bg', 'hoa_serve_svg_background');
+add_action('wp_ajax_nopriv_hoa_generate_fallback_bg', 'hoa_serve_svg_background');
 
 
-function fsb_serve_svg_background() {
+function hoa_serve_svg_background() {
     $year = isset($_GET['year']) ? intval($_GET['year']) : date('Y');
     $month = isset($_GET['month']) ? intval($_GET['month']) : date('n');
     $is_template = isset($_GET['template_only']) && $_GET['template_only'] === '1';
 
     $month_name = date('F', mktime(0, 0, 0, $month, 10));
-    $start_day = get_option('fsb_start_day', '0'); // 0=Sun, 1=Mon
+    $start_day = get_option('hoa_start_day', '0'); // 0=Sun, 1=Mon
 
     // Title case
     $days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -1140,4 +1139,32 @@ function fsb_serve_svg_background() {
     </svg>
     <?php
     exit;
+}
+
+
+/**
+ * Add "User Manual" and "Upgrade to Pro" links to the plugin meta row.
+ */
+add_filter( 'plugin_row_meta', 'hoa_calendar_add_custom_meta_links', 10, 2 );
+
+function hoa_calendar_add_custom_meta_links( $plugin_meta, $plugin_file ) {
+    // Ensure this matches your exact folder and main file name
+    if ( 'hoaplugin-calendar/hoaplugin-calendar.php' === $plugin_file ) {
+
+        // 1. The User Manual Link
+        $docs_url = 'https://hoaplugin.com/documentation/?hoa_doc=12&zip=hoaplugin-calendar.zip';
+        $docs_link = '<a href="' . esc_url( $docs_url ) . '" target="_blank" style="font-weight: bold; color: #2271b1;">📖 User Manual</a>';
+        $plugin_meta[] = $docs_link;
+
+        // 2. The Pro Upsell Link
+        / Check if the Pro version is physically installed on the server
+        $pro_plugin_path = WP_PLUGIN_DIR . '/hoaplugin-calendar-pro/hoaplugin-calendar-pro.php';
+        if ( ! file_exists( $pro_plugin_path ) ) {
+           $pro_url = 'https://hoaplugin.com/';
+           $pro_link = '<a href="' . esc_url( $pro_url ) . '" target="_blank" style="font-weight: bold; color: #d63638;">⭐ Upgrade to Pro</a>';
+           $plugin_meta[] = $pro_link;
+        }
+    }
+
+    return $plugin_meta;
 }

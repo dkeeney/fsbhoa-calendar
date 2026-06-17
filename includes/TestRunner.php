@@ -1,5 +1,5 @@
 <?php
-namespace FSBHOA\Cal;
+namespace HOAPLUGIN\Cal;
 
 class TestRunner {
     private $test_prefix;
@@ -7,14 +7,14 @@ class TestRunner {
     private $json_url;
     private $repo;
 
-    public function __construct($test_prefix = 'wp_test_fsb_') {
+    public function __construct($test_prefix = 'wp_test_hoa_') {
         global $wpdb;
         $this->test_prefix = $wpdb->prefix . 'test_';
         // Set the test JSON path to the uploads folder for easy debugging
         $upload_dir = wp_upload_dir();
-        $this->json_path = $upload_dir['basedir'] . '/fsbhoa-calendar/test_calendar-events.json';
+        $this->json_path = $upload_dir['basedir'] . '/hoaplugin-calendar/test_calendar-events.json';
         // The HTTP URL for Playwright/Frontend to fetch the file.
-        $this->json_url = $upload_dir['baseurl'] . '/fsbhoa-calendar/test_calendar-events.json';
+        $this->json_url = $upload_dir['baseurl'] . '/hoaplugin-calendar/test_calendar-events.json';
         $this->repo = new Repository($this->test_prefix);
     }
 
@@ -65,7 +65,7 @@ class TestRunner {
         $id_map = $this->repo->load_fixture($fixture_data);
 
         // 2. Bake the JSON file for the frontend to consume
-        $compiler = new \FSBHOA\Cal\Compiler($this->test_prefix, $this->json_path);
+        $compiler = new \HOAPLUGIN\Cal\Compiler($this->test_prefix, $this->json_path);
         $compiler->bake();
 
         return $id_map;

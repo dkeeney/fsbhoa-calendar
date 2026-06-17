@@ -21,7 +21,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
 function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = null, move_id = null, fetchedData = null, isAuditLog = false) {
-    const modal = document.getElementById('fsb-edit-modal');
+    const modal = document.getElementById('hoa-edit-modal');
     const container = document.getElementById('edit-form-container');
 
     // Use fetchedData if we are editing, otherwise empty object for new events
@@ -56,7 +56,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
     const hasDelegate = !!(eventData.owner_email && eventData.owner_email.trim() !== '');
     // Only render the input if the current user is a full Admin
     let delegateSection = '';
-    if (window.fsb_config && window.fsb_config.is_admin) {
+    if (window.hoa_config && window.hoa_config.is_admin) {
         delegateSection = `
         <div class="form-group" style="margin-top:15px; padding:10px; background:#f0f4f8; border-radius:4px; border:1px solid #d1d9e0;">
             <label style="display:flex; align-items:center; cursor:pointer; margin-bottom:0;">
@@ -93,7 +93,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
     const typeLabel = isRecurring ? "📅 Recurring Series" : "📍 One-Time Event";
 
     container.innerHTML = `
-        <form id="fsb-edit-form">
+        <form id="hoa-edit-form">
             <div style="background: #fdfdfd; border-left: 5px solid ${headerColor}; padding: 10px 15px; margin-bottom: 15px; border: 1px solid #eee; border-left-width: 5px; border-radius: 4px;">
                 <div style="font-size: 0.7rem; text-transform: uppercase; color: ${headerColor}; font-weight: 800; margin-bottom: 2px;">
                     ${typeLabel}
@@ -157,7 +157,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                     <label>Location (Room)</label>
                     <select name="location_id" style="width:100%;">
                         <option value="">-- Select --</option>
-                        ${fsb_config.locations.map(loc =>
+                        ${hoa_config.locations.map(loc =>
                             `<option value="${loc.id}" ${eventData.location_id == loc.id ? 'selected' : ''}>${loc.name}</option>`
                         ).join('')}
                     </select>
@@ -166,10 +166,10 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                     <label>Category</label>
                     <select name="category_id" style="width:100%;">
                         ${(() => {
-                            let availableCategories = fsb_config.categories;
+                            let availableCategories = hoa_config.categories;
                             if (!config.isAdmin) {
-                                availableCategories = fsb_config.categories.filter(cat => 
-                                    (fsb_config.delegated_categories && fsb_config.delegated_categories.includes(parseInt(cat.id))) ||
+                                availableCategories = hoa_config.categories.filter(cat => 
+                                    (hoa_config.delegated_categories && hoa_config.delegated_categories.includes(parseInt(cat.id))) ||
                                     (eventData.category_id && eventData.category_id == cat.id) // Always show the current category if editing
                                 );
                             }
@@ -294,7 +294,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
             </div>
 
             <div class="form-actions" style="margin-top:25px; display:flex; gap:10px; flex-wrap:wrap;">
-                <button type="button" class="fsb-save-btn" onclick="saveEventChanges()" style="background:#0288d1; color:#fff; padding:10px 20px; border:none; border-radius:4px; cursor:pointer;">Save</button>
+                <button type="button" class="hoa-save-btn" onclick="saveEventChanges()" style="background:#0288d1; color:#fff; padding:10px 20px; border:none; border-radius:4px; cursor:pointer;">Save</button>
 
                 ${(eventId && !isAuditLog) ? `
                     <button type="button" onclick="handleCancelBtn(${JSON.stringify(eventData).replace(/"/g, '&quot;')}, '${selectedDate}')" style="background:#ef5350; color:#fff; padding:10px; border:none; border-radius:4px; cursor:pointer;">Cancel Event</button>
@@ -347,8 +347,8 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
 function toggleRRPanel() {
     const panel = document.getElementById('rr-builder-panel');
     const isChecked = document.getElementById('is_repeating').checked;
-    const headerLabel = document.querySelector('#fsb-edit-form [style*="text-transform: uppercase"]');
-    const headerBorder = document.querySelector('#fsb-edit-form [style*="border-left: 5px solid"]');
+    const headerLabel = document.querySelector('#hoa-edit-form [style*="text-transform: uppercase"]');
+    const headerBorder = document.querySelector('#hoa-edit-form [style*="border-left: 5px solid"]');
     const warningDiv = document.getElementById('rr-warning');
 
     // 1. Handle the Builder Panel visibility
@@ -448,7 +448,7 @@ function toggleDelegateField() {
 }
 
 async function handleRescheduleBtn() {
-    const form = document.getElementById('fsb-edit-form');
+    const form = document.getElementById('hoa-edit-form');
     const eventId = form.querySelector('input[name="event_id"]').value;
     const pivotId = form.querySelector('input[name="pivot_id"]').value;
     const moveId = form.querySelector('input[name="move_id"]').value;
@@ -463,10 +463,10 @@ async function handleRescheduleBtn() {
 
     if (saved) {
         // 2. Close the Edit Modal and save only the meda data.
-        document.getElementById('fsb-edit-modal').classList.remove('is-visible');
+        document.getElementById('hoa-edit-modal').classList.remove('is-visible');
 
         // 3. Fetch fresh data for the reschedule (to ensure we have the latest)
-        const response = await fetch(`${fsb_config.ajax_url}?action=fsb_get_event_details&event_id=${eventId}&nonce=${fsb_config.nonce}`);
+        const response = await fetch(`${hoa_config.ajax_url}?action=hoa_get_event_details&event_id=${eventId}&nonce=${hoa_config.nonce}`);
         const result = await response.json();
 
         if (result.success) {
@@ -476,7 +476,7 @@ async function handleRescheduleBtn() {
 }
 
 function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = null, originalTime = '09:00') {
-    const modal = document.getElementById('fsb-reschedule-modal');
+    const modal = document.getElementById('hoa-reschedule-modal');
     const container = document.getElementById('reschedule-form-container');
 
     console.log(`Reschedule Dialog OPEN: Receiving Pivot: ${pivotId}, Move: ${moveId}`);
@@ -519,7 +519,7 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
             ${scopeOptionsHtml}
 
             <div style="margin-top:20px; display:flex; gap:10px;">
-                <button type="button" class="fsb-save-btn" onclick="
+                <button type="button" class="hoa-save-btn" onclick="
                     const newDate = document.getElementById('res_date').value;
                     const newTime = document.getElementById('res_time').value;
                     const isShift = document.getElementById('scope_remaining') ? document.getElementById('scope_remaining').checked : false;
@@ -533,10 +533,10 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
 
 // Helper to convert 24h DB time to the correct display format based on HOA settings
 function formatTimeAMPM(time24) {
-    if (!time24) return (window.fsb_config.time_format === '24hr') ? '00:00' : '12:00 AM';
+    if (!time24) return (window.hoa_config.time_format === '24hr') ? '00:00' : '12:00 AM';
 
     // If the admin wants 24-hour time, just return the raw DB string!
-    if (window.fsb_config.time_format === '24hr') {
+    if (window.hoa_config.time_format === '24hr') {
         return time24;
     }
 
@@ -568,8 +568,8 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
     }
 
     const formData = new FormData();
-    formData.append('action', 'fsb_save_calendar_event');
-    formData.append('nonce', fsb_config.nonce);
+    formData.append('action', 'hoa_save_calendar_event');
+    formData.append('nonce', hoa_config.nonce);
     formData.append('edit_mode', 'instance_move');
     formData.append('event_id', id);
     if (pivotId && pivotId !== "null") formData.append('pivot_id', pivotId);
@@ -582,7 +582,7 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
     // Requirement #2: Shift-drag sets scope to 'remaining' (Pivot)
     formData.append('reschedule_scope', isShift ? 'remaining' : 'instance');
 
-    const response = await fetch(fsb_config.ajax_url, {
+    const response = await fetch(hoa_config.ajax_url, {
         method: 'POST',
         body: formData
     });
@@ -592,7 +592,7 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
     if (result.success) {
 
         // Close the Reschedule Modal
-        const resModal = document.getElementById('fsb-reschedule-modal');
+        const resModal = document.getElementById('hoa-reschedule-modal');
         if (resModal) {
             resModal.classList.remove('is-visible');
             document.body.classList.remove('modal-open');
@@ -608,7 +608,7 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
 }
 
 function handleCancelBtn(eventData, dateStr) {
-    const modal = document.getElementById('fsb-manage-modal');
+    const modal = document.getElementById('hoa-manage-modal');
     const container = document.getElementById('manage-form-container');
     const isRecurring = !!eventData.rrule;
 
@@ -676,7 +676,7 @@ function handleCancelBtn(eventData, dateStr) {
         </div>
     `;
 
-    document.getElementById('fsb-edit-modal').classList.remove('is-visible');
+    document.getElementById('hoa-edit-modal').classList.remove('is-visible');
     modal.classList.add('is-visible');
 }
 
@@ -691,7 +691,7 @@ async function confirmAction(mode, id, date = null, pivotId = null) {
 
     if (confirm(messages[mode] || 'Proceed with this action?')) {
         // Close the manage modal immediately for better UI feel
-        const manageModal = document.getElementById('fsb-manage-modal');
+        const manageModal = document.getElementById('hoa-manage-modal');
         await saveEventChanges(mode, id, date, false);
         // saveEventChanges already handles the redirect/refresh
     }
@@ -705,7 +705,7 @@ async function confirmAction(mode, id, date = null, pivotId = null) {
  * Called when the + operator is clicked.
  */
 function handleAddEventFromModal(dateStr) {
-    const dayModal = document.getElementById('fsb-day-modal');
+    const dayModal = document.getElementById('hoa-day-modal');
     if (dayModal) {
         dayModal.classList.remove('is-visible');
     }
@@ -724,19 +724,19 @@ function handleAddEventFromModal(dateStr) {
 // Helper to bridge the Modal to the Edit Form
 async function handleEditClick(id, dateStr, timeStr, pivot_id, move_id = null, isAuditLog = false) {
     //console.log("Pencil clicked. Closing Day Modal and fetching ID:", id," (Move: ", move_id, " Pivot: ", pivot_id," )");
-    const dayModal = document.getElementById('fsb-day-modal');
+    const dayModal = document.getElementById('hoa-day-modal');
     if (dayModal) {
         dayModal.classList.remove('is-visible');
     }
 
     try {
-        const response = await fetch(`${fsb_config.ajax_url}?action=fsb_get_event_details&event_id=${id}&nonce=${fsb_config.nonce}`);
+        const response = await fetch(`${hoa_config.ajax_url}?action=hoa_get_event_details&event_id=${id}&nonce=${hoa_config.nonce}`);
         const result = await response.json();
 
         if (result.success) {
             // now get the current rrule.
             if (pivot_id && pivot_id !== 'null' && pivot_id != id) {
-                const pivotResponse = await fetch(`${fsb_config.ajax_url}?action=fsb_get_event_details&event_id=${pivot_id}&nonce=${fsb_config.nonce}`);
+                const pivotResponse = await fetch(`${hoa_config.ajax_url}?action=hoa_get_event_details&event_id=${pivot_id}&nonce=${hoa_config.nonce}`);
                 const pivotResult = await pivotResponse.json();
 
                 if (pivotResult.success && pivotResult.data.rrule) {
@@ -783,7 +783,7 @@ function openFlyerMediaLibrary(e) {
 
 
 async function saveEventChanges(overrideMode = null, overrideId = null, overrideDate = null, silent = false, isDragDrop = false) {
-    const form = document.getElementById('fsb-edit-form');
+    const form = document.getElementById('hoa-edit-form');
     // If the form exists, use it; otherwise, start with an empty FormData object
     const formData = form ? new FormData(form) : new FormData();
 
@@ -793,8 +793,8 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
     if (overrideDate) formData.set('date', overrideDate);
 
     // Ensure we have the basic WP requirements
-    formData.append('action', 'fsb_save_calendar_event');
-    formData.append('nonce', fsb_config.nonce);
+    formData.append('action', 'hoa_save_calendar_event');
+    formData.append('nonce', hoa_config.nonce);
 
     // If we're dragging, we might need the pivot_id too
     if (typeof draggedData !== 'undefined' && draggedData && draggedData.pivotId) {
@@ -802,7 +802,7 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
     }
 
     try {
-        const response = await fetch(fsb_config.ajax_url, {
+        const response = await fetch(hoa_config.ajax_url, {
             method: 'POST',
             body: formData,
             credentials: 'same-origin'
@@ -821,7 +821,7 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
             }
 
             //  Close all possible modals after a successful action
-            const allModals = document.querySelectorAll('.fsb-modal, .fsb-full-modal');
+            const allModals = document.querySelectorAll('.hoa-modal, .hoa-full-modal');
             allModals.forEach(m => m.classList.remove('is-visible'));
             document.body.classList.remove('modal-open');
 

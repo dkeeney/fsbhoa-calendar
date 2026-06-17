@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Get the actual directory name dynamically (e.g., fsbhoa-calendar-pro)
+# Get the actual directory name dynamically (e.g., hoaplugin-calendar-pro)
 DIR_NAME=$(basename "$PWD")
 TIMESTAMP=$(date +%Y%m%d_%H%M)
 ZIP_FILE="${DIR_NAME}.zip"
@@ -32,7 +32,7 @@ zip -r9 "$DIR_NAME/$ZIP_FILE" "$DIR_NAME" \
 # Step back IN to the directory
 cd "$DIR_NAME" || exit
 
-echo "Deploying to WordPress uploads directory..."
+echo "Deploying to WordPress uploads directory... $ZIP_FILE"
 # Copy it directly to the uploads folder and hand it over to the web server
 #sudo cp "$ZIP_FILE" /var/www/html/wp-content/uploads/
 #sudo chown www-data:www-data /var/www/html/wp-content/uploads/"$ZIP_FILE"

@@ -5,25 +5,25 @@
 // ==========================================
 
 // Ensure our constants exist (in case they aren't in the main plugin file yet)
-if ( ! defined( 'FSB_LICENSE_SERVER_URL' ) ) {
-    define( 'FSB_LICENSE_SERVER_URL', 'https://HOAplugin.com' );
+if ( ! defined( 'HOAPLUGIN_LICENSE_SERVER_URL' ) ) {
+    define( 'HOAPLUGIN_LICENSE_SERVER_URL', 'https://HOAplugin.com' );
 }
-if ( ! defined( 'FSB_PRO_SHARED_SECRET' ) ) {
-    define( 'FSB_PRO_SHARED_SECRET', '!*UuYp5iYLmsTM*' );
+if ( ! defined( 'HOAPLUGiN_PRO_SHARED_SECRET' ) ) {
+    define( 'HOAPLUGIN_PRO_SHARED_SECRET', '!*UuYp5iYLmsTM*' );
 }
 
-function fsb_render_pro_license_installer() {
-    $license_key = is_multisite() ? get_site_option('fsb_pro_license_key') : get_option('fsb_pro_license_key');
+function hoa_render_pro_license_installer() {
+    $license_key = is_multisite() ? get_site_option('hoa_pro_license_key') : get_option('hoa_pro_license_key');
 
     // 1. Force WP to load the plugin library so we can accurately check if Pro is active
     if ( ! function_exists( 'is_plugin_active' ) ) {
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
     }
 
-    $is_pro_active = is_plugin_active('fsbhoa-calendar-pro/fsbhoa-calendar-pro.php');
+    $is_pro_active = is_plugin_active('hoaplugin-calendar-pro/hoaplugin-calendar-pro.php');
     ?>
     <div class="card" style="max-width: 600px; padding: 20px; margin-top: 0;">
-        <h3 style="margin-top: 0;">FSBHOA Calendar Pro</h3>
+        <h3 style="margin-top: 0;">HOAplugin Calendar Pro</h3>
 
         <?php
         // 🚀 DEVELOPMENT UI INTERCEPTION:
@@ -33,7 +33,7 @@ function fsb_render_pro_license_installer() {
             <div style="background: #fff8e5; border-left: 4px solid #ffb900; padding: 15px; margin-bottom: 10px; border-radius: 4px;">
                 <strong style="color: #b25e00;">Local Testbed Mode Active</strong><br>
                 The automated Pro zip installer is deactivated on this machine to safeguard your symlinked development repositories from being deleted or modified.<br><br>
-                To test Pro capabilities locally, navigate directly to the core <a href="<?php echo admin_url('plugins.php'); ?>"><strong>Plugins dashboard</strong></a> and activate your local <em>fsbhoa-calendar-pro</em> repository branch manually.
+                To test Pro capabilities locally, navigate directly to the core <a href="<?php echo admin_url('plugins.php'); ?>"><strong>Plugins dashboard</strong></a> and activate your local <em>hoaplugin-calendar-pro</em> repository branch manually.
             </div>
             </div> <?php
         }
@@ -58,15 +58,15 @@ function fsb_render_pro_license_installer() {
 
             <p>Enter your License Key to instantly download, install, and activate the Pro features.</p>
             <form method="post" action="<?php echo esc_url( admin_url('admin-post.php') ); ?>">
-                <input type="hidden" name="action" value="fsb_install_pro_plugin">
-                <?php wp_nonce_field('fsb_install_pro_nonce'); ?>
+                <input type="hidden" name="action" value="hoa_install_pro_plugin">
+                <?php wp_nonce_field('hoa_install_pro_nonce'); ?>
 
                 <table class="form-table">
                     <!-- EMAIL FIELD HAS BEEN REMOVED! -->
                     <tr valign="top">
                         <th scope="row">License Key:</th>
                         <td>
-                            <input type="text" name="fsb_pro_license_key"
+                            <input type="text" name="hoa_pro_license_key"
                                    value="<?php echo esc_attr($license_key); ?>"
                                    class="regular-text" placeholder="XXXX-XXXX-XXXX-XXXX" required />
                         </td>
@@ -79,9 +79,9 @@ function fsb_render_pro_license_installer() {
     </div>
     <?php
 }
-add_action( 'admin_post_fsb_install_pro_plugin', 'fsb_handle_pro_installation' );
-function fsb_handle_pro_installation() {
-    if ( ! current_user_can('install_plugins') || ! check_admin_referer('fsb_install_pro_nonce') ) {
+add_action( 'admin_post_hoa_install_pro_plugin', 'hoa_handle_pro_installation' );
+function hoa_handle_pro_installation() {
+    if ( ! current_user_can('install_plugins') || ! check_admin_referer('hoa_install_pro_nonce') ) {
         wp_die('Unauthorized');
     }
 
@@ -89,9 +89,9 @@ function fsb_handle_pro_installation() {
         wp_die( '<strong>Operation Blocked:</strong> Local testbed mode.' );
     }
 
-    $key = sanitize_text_field($_POST['fsb_pro_license_key']);
-    $pro_path = 'fsbhoa-calendar-pro/fsbhoa-calendar-pro.php';
-    $redirect_url = admin_url('admin.php?page=fsb-cal-settings&tab=license');
+    $key = sanitize_text_field($_POST['hoa_pro_license_key']);
+    $pro_path = 'hoaplugin-calendar-pro/hoaplugin-calendar-pro.php';
+    $redirect_url = admin_url('admin.php?page=hoa-cal-settings&tab=license');
 
     $site_url = get_site_url(); // Keeps each multisite sub-site isolated as its own activation slot
 
@@ -101,7 +101,7 @@ function fsb_handle_pro_installation() {
         'license_key' => $key,
         'site_url'    => $site_url,
         'nocache'     => time()
-    ), FSB_LICENSE_SERVER_URL . '/wp-json/fsb-licensing/v1/license' );
+    ), HOAPLUGIN_LICENSE_SERVER_URL . '/wp-json/hoa-licensing/v1/license' );
 
     $response = wp_remote_get( $check_url, array( 'timeout' => 15 ) );
 
@@ -145,11 +145,11 @@ function fsb_handle_pro_installation() {
 
     // 2. SAVE KEYS AND TOKENS MULTISITE COMPATIBLE
     if ( is_multisite() ) {
-        update_site_option('fsb_pro_license_key', $key);
-        update_site_option('fsb_pro_activation_token', $activation_token);
+        update_site_option('hoa_pro_license_key', $key);
+        update_site_option('hoa_pro_activation_token', $activation_token);
     } else {
-        update_option('fsb_pro_license_key', $key);
-        update_option('fsb_pro_activation_token', $activation_token);
+        update_option('hoa_pro_license_key', $key);
+        update_option('hoa_pro_activation_token', $activation_token);
     }
 
     // 3. PHASE B: CONSTRUCT THE SIGNED DOWNLOAD LINK
@@ -162,7 +162,7 @@ function fsb_handle_pro_installation() {
     require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
     // THE WIPER: Delete the existing folder so the Upgrader doesn't crash, ensuring fresh code.
-    $pro_dir = WP_PLUGIN_DIR . '/fsbhoa-calendar-pro';
+    $pro_dir = WP_PLUGIN_DIR . '/hoaplugin-calendar-pro';
     if ( file_exists( $pro_dir ) ) {
         WP_Filesystem();
         global $wp_filesystem;
@@ -174,12 +174,12 @@ function fsb_handle_pro_installation() {
 
     $download_url = add_query_arg( array(
         'action'      => 'download',
-        'slug'        => 'fsbhoa-calendar-pro',
+        'slug'        => 'hoaplugin-calendar-pro',
         'license_key' => $key,
         'site_url'    => $site_url,
         'token'       => $signature,
         'timestamp'   => $time
-    ), FSB_LICENSE_SERVER_URL . '/wp-json/fsb-licensing/v1/license' );
+    ), HOAPLUGIN_LICENSE_SERVER_URL . '/wp-json/hoa-licensing/v1/license' );
 
     $skin     = new Automatic_Upgrader_Skin();
     $upgrader = new Plugin_Upgrader( $skin );
@@ -251,7 +251,7 @@ function fsb_handle_pro_installation() {
         $activation_result = activate_plugin( $pro_path );
 
         if ( is_wp_error( $activation_result ) ) {
-            error_log( 'FSBHOA Pro Auto-Activation Error: ' . $activation_result->get_error_message() );
+            error_log( 'HOAPLUGIN Pro Auto-Activation Error: ' . $activation_result->get_error_message() );
             wp_redirect( add_query_arg('pro_status', 'activation_fail', $redirect_url) );
             exit;
         } else {
@@ -269,11 +269,11 @@ function fsb_handle_pro_installation() {
 // ==========================================
 // TESTBED BYPASS: Generalized Local File Router
 // ==========================================
-add_filter('upgrader_pre_download', 'fsb_testbed_local_download_bypass', 10, 3);
+add_filter('upgrader_pre_download', 'hoa_testbed_local_download_bypass', 10, 3);
 
-function fsb_testbed_local_download_bypass($reply, $package, $upgrader) {
+function hoa_testbed_local_download_bypass($reply, $package, $upgrader) {
     // 1. Only intercept if WP is targeting our local License Server API
-    if ( strpos( $package, '/wp-json/fsb-licensing/v1/check' ) !== false ) {
+    if ( strpos( $package, '/wp-json/hoa-licensing/v1/check' ) !== false ) {
 
         // 2. Break apart the URL to read the query parameters
         $parsed_url = wp_parse_url( $package );
@@ -281,7 +281,7 @@ function fsb_testbed_local_download_bypass($reply, $package, $upgrader) {
         if ( isset( $parsed_url['query'] ) ) {
             parse_str( $parsed_url['query'], $query_params );
 
-            // 3. Extract the requested slug (e.g., 'fsbhoa-calendar' or 'fsbhoa-calendar-pro')
+            // 3. Extract the requested slug (e.g., 'hoaplugin-calendar' or 'hoaplugin-calendar-pro')
             if ( ! empty( $query_params['slug'] ) ) {
                 $slug = sanitize_file_name( $query_params['slug'] );
 

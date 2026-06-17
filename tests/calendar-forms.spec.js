@@ -61,7 +61,7 @@ test.describe('Calendar Forms and Modals', () => {
 
     // Lock into Sandbox Test Mode via Cookie
     await context.addCookies([{
-        name: 'fsb_test_mode',
+        name: 'hoa_test_mode',
         value: '1',
         domain: new URL(APP_URL).hostname,
         path: '/'
@@ -70,21 +70,21 @@ test.describe('Calendar Forms and Modals', () => {
 
     // NAVIGATE FIRST to load WordPress and grab the security Nonce!
     await page.goto('/calendar');
-    await page.waitForFunction(() => typeof window.fsb_config !== 'undefined');
+    await page.waitForFunction(() => typeof window.hoa_config !== 'undefined');
 
     // =====================================================================
     // PRE-EMPTIVE CLEANUP
     // Wipe the sandbox tables and JSON file before injecting the new fixture
     // =====================================================================
     await page.evaluate(async () => {
-        await fetch('/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=cleanup', {
+        await fetch('/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=cleanup', {
             method: 'POST',
-            headers: { 'X-WP-Nonce': window.fsb_config.nonce }
+            headers: { 'X-WP-Nonce': window.hoa_config.nonce }
         });
     });
 
     // To confirm that the display format is decoupled from execution time.
-    //await setSandboxOption(page, 'fsb_time_format', '24hr');
+    //await setSandboxOption(page, 'hoa_time_format', '24hr');
 
 
     // Define DB state payload
@@ -112,11 +112,11 @@ test.describe('Calendar Forms and Modals', () => {
 
     // 1. Inject Fixture and return the newly generated DB IDs
     const mappedIds = await page.evaluate(async (data) => {
-        const response = await fetch('/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=load_fixture', {
+        const response = await fetch('/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=load_fixture', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'X-WP-Nonce': window.fsb_config.nonce
+                'X-WP-Nonce': window.hoa_config.nonce
             },
             body: JSON.stringify(data)
         });
@@ -140,7 +140,7 @@ test.describe('Calendar Forms and Modals', () => {
     //============================================
 
     // The definitive milestone marker we want to hit once paths are fixed
-    const appWrapper = page.locator('#fsb-calendar-app[data-render-complete="true"]');
+    const appWrapper = page.locator('#hoa-calendar-app[data-render-complete="true"]');
     await expect(appWrapper).toBeAttached({ timeout: 15000 });
   });
 
@@ -161,8 +161,9 @@ test.describe('Calendar Forms and Modals', () => {
       const masterEvent = window.allEvents.find(e => e.title === "Simple Series");
       if (!masterEvent) return { error: "Simple Series missing from window.allEvents memory" };
 
-      const response = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${masterEvent.id}`, {
-        headers: { 'X-WP-Nonce': window.fsb_config.nonce }
+      const response = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${masterEvent.id}`, {
+        headers: { 'X-WP-Nonce': window.hoa_config.nonce }
+
       });
       const result = await response.json();
       return result.success ? result.data.db_state : { error: result.data };
@@ -185,7 +186,7 @@ test.describe('Calendar Forms and Modals', () => {
     console.log(`[JSON TRACE] Compiled target instances inside Next Month range window: ${targetingNextMonth.length}`);
 
     // --- STEP C: CONFIRM TIMELINE MONTH HORIZON NAVIGATION ---
-    const appEl = page.locator('#fsb-calendar-app');
+    const appEl = page.locator('#hoa-calendar-app');
 
     // 1. Check our newly injected structural data indicators
     await expect(appEl).toHaveAttribute('data-view-year', String(nextYyyy));
@@ -242,14 +243,14 @@ test.describe('Calendar Forms and Modals', () => {
     await addIcon.evaluate(el => el.click());
 
     // Verify the edit modal launched and initialized clean
-    const modal = page.locator('#fsb-edit-modal');
+    const modal = page.locator('#hoa-edit-modal');
     await expect(modal).toBeVisible();
     //console.log(await modal.innerHTML());   // SEE WHAT WAS RENDERED
     const startDateInput = modal.locator('input[name="date"]');
     await startDateInput.waitFor({ state: 'attached', timeout: 5000 });
     await expect(startDateInput).toHaveValue(target);
     
-    await page.locator('#fsb-edit-modal .close-modal, button:has-text("Cancel")').first().click();
+    await page.locator('#hoa-edit-modal .close-modal, button:has-text("Cancel")').first().click();
   });
 
   // =========================================================================
@@ -286,12 +287,12 @@ test.describe('Calendar Forms and Modals', () => {
     const addIcon = topHalf.locator('.add-event-plus').first();
     await expect(addIcon).toHaveCSS('visibility', 'visible');
     await addIcon.evaluate(el => el.click());
-    await expect(page.locator('#fsb-edit-modal')).toBeVisible();
+    await expect(page.locator('#hoa-edit-modal')).toBeVisible();
     await expect(page.locator('input[name="date"]')).toHaveValue(targets.topDay);
-    await page.locator('#fsb-edit-modal .close-modal, button:has-text("Cancel")').first().click();
+    await page.locator('#hoa-edit-modal .close-modal, button:has-text("Cancel")').first().click();
 
     // B. Validate Lower Day Target (Day 31 Shard)
-    //const bottomShard = page.locator(`.fsb-ghost-shard.shard-bottom[data-cell-date="${targets.bottomDay}"]`).first();
+    //const bottomShard = page.locator(`.hoa-ghost-shard.shard-bottom[data-cell-date="${targets.bottomDay}"]`).first();
     const bottomHalf = parentCell.locator('.split-half-bottom').first();
     // VERIFY DAY NUMBER: Extract the expected day number digits (e.g., "15" from "2026-06-15")
     expectedDayNum = String(parseInt(targets.bottomDay.split('-')[2], 10));
@@ -305,7 +306,7 @@ test.describe('Calendar Forms and Modals', () => {
     const addIconBottom = bottomHalf.locator('.add-event-plus').first();
     await expect(addIconBottom).toHaveCSS('visibility', 'visible');
     await addIconBottom.evaluate(el => el.click());
-    await expect(page.locator('#fsb-edit-modal')).toBeVisible();
+    await expect(page.locator('#hoa-edit-modal')).toBeVisible();
     await expect(page.locator('input[name="date"]')).toHaveValue(targets.bottomDay);
   });
 
@@ -344,9 +345,9 @@ test.describe('Calendar Forms and Modals', () => {
     await expect(addIcon).toHaveCSS('visibility', 'visible');
     await addIcon.evaluate(el => el.click());
 
-    await expect(page.locator('#fsb-edit-modal')).toBeVisible();
+    await expect(page.locator('#hoa-edit-modal')).toBeVisible();
     await expect(page.locator('input[name="date"]')).toHaveValue(targets.topDay);
-    await page.locator('#fsb-edit-modal .close-modal, button:has-text("Cancel")').first().click();
+    await page.locator('#hoa-edit-modal .close-modal, button:has-text("Cancel")').first().click();
 
     // B. Validate Lower Day Target (Day 30)
     const bottomHalf = parentCell.locator('.split-half-bottom').first();
@@ -364,7 +365,7 @@ test.describe('Calendar Forms and Modals', () => {
     await expect(addIconBottom).toHaveCSS('visibility', 'visible');
     await addIconBottom.evaluate(el => el.click());
 
-    await expect(page.locator('#fsb-edit-modal')).toBeVisible();
+    await expect(page.locator('#hoa-edit-modal')).toBeVisible();
     await expect(page.locator('input[name="date"]')).toHaveValue(targets.bottomDay);
   });
 
@@ -403,9 +404,9 @@ test.describe('Calendar Forms and Modals', () => {
     await expect(addIcon).toHaveCSS('visibility', 'visible');
     await addIcon.evaluate(el => el.click());
 
-    await expect(page.locator('#fsb-edit-modal')).toBeVisible();
+    await expect(page.locator('#hoa-edit-modal')).toBeVisible();
     await expect(page.locator('input[name="date"]')).toHaveValue(targets.topDay);
-    await page.locator('#fsb-edit-modal .close-modal, button:has-text("Cancel")').first().click();
+    await page.locator('#hoa-edit-modal .close-modal, button:has-text("Cancel")').first().click();
 
     // B. Validate Lower Day Target (Day 31)
     const bottomHalf = parentCell.locator('.split-half-bottom').first();
@@ -423,7 +424,7 @@ test.describe('Calendar Forms and Modals', () => {
     await expect(addIconBottom).toHaveCSS('visibility', 'visible');
     await addIconBottom.evaluate(el => el.click());
 
-    await expect(page.locator('#fsb-edit-modal')).toBeVisible();
+    await expect(page.locator('#hoa-edit-modal')).toBeVisible();
     await expect(page.locator('input[name="date"]')).toHaveValue(targets.bottomDay);
   });
 
@@ -434,7 +435,7 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("\n========================================================");
     console.log("TEST 2.4 -- Monday Start: Saturday 31-Day (Double Split)");
     console.log("========================================================");
-    await setSandboxOption(page, 'fsb_start_day', '1');  // First Day of week: MONDAY
+    await setSandboxOption(page, 'hoa_start_day', '1');  // First Day of week: MONDAY
     await page.goto('/calendar/');
 
     let targets;
@@ -448,11 +449,11 @@ test.describe('Calendar Forms and Modals', () => {
     await page.goto(`/calendar/?viewDate=${targets.viewMonthRoot}&pw_nocache=${Date.now()}`);
     // Inject Monday setting and Re-render!
     await page.evaluate(() => {
-        window.fsb_config.start_day = '1';
-        document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete');
+        window.hoa_config.start_day = '1';
+        document.getElementById('hoa-calendar-app').removeAttribute('data-render-complete');
         window.render();
     });
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // A. Validate First Split (1 / 8) - Top Half
     const parentCell1 = page.locator(`.calendar-day[data-date="${targets.topDay}"]`).first();
@@ -479,7 +480,7 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("\n========================================================");
     console.log("TEST 2.5 -- Monday Start: Sunday 30-Day Split");
     console.log("========================================================");
-    await setSandboxOption(page, 'fsb_start_day', '1');  // First Day of week: MONDAY
+    await setSandboxOption(page, 'hoa_start_day', '1');  // First Day of week: MONDAY
     await page.goto('/calendar/');
     let targets;
     try {
@@ -487,8 +488,8 @@ test.describe('Calendar Forms and Modals', () => {
     } catch (e) { test.skip(true, 'No matching month condition in range.'); return; }
 
     await page.goto(`/calendar/?viewDate=${targets.viewMonthRoot}&pw_nocache=${Date.now()}`);
-    await page.evaluate(() => { window.fsb_config.start_day = '1'; document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete'); window.render(); });
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.evaluate(() => { window.hoa_config.start_day = '1'; document.getElementById('hoa-calendar-app').removeAttribute('data-render-complete'); window.render(); });
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     const parentCell = page.locator(`.calendar-day[data-date="${targets.topDay}"]`).first();
     const bottomHalf = parentCell.locator('.split-half-bottom').first();
@@ -502,7 +503,7 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("\n========================================================");
     console.log("TEST 2.6 -- Monday Start: Sunday 31-Day Split");
     console.log("========================================================");
-    await setSandboxOption(page, 'fsb_start_day', '1');  // First Day of week: MONDAY
+    await setSandboxOption(page, 'hoa_start_day', '1');  // First Day of week: MONDAY
     await page.goto('/calendar/');
     let targets;
     try {
@@ -510,8 +511,8 @@ test.describe('Calendar Forms and Modals', () => {
     } catch (e) { test.skip(true, 'No matching month condition in range.'); return; }
 
     await page.goto(`/calendar/?viewDate=${targets.viewMonthRoot}&pw_nocache=${Date.now()}`);
-    await page.evaluate(() => { window.fsb_config.start_day = '1'; document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete'); window.render(); });
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.evaluate(() => { window.hoa_config.start_day = '1'; document.getElementById('hoa-calendar-app').removeAttribute('data-render-complete'); window.render(); });
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     const parentCell = page.locator(`.calendar-day[data-date="${targets.topDay}"]`).first();
     const topHalf = parentCell.locator('.split-half-top').first();
@@ -575,14 +576,14 @@ test.describe('Calendar Forms and Modals', () => {
     await textTitle.evaluate(el => el.click());
 
     // FIX: Use Playwright's :visible pseudo-class to automatically grab the active mode's modal
-    const activeDetailModal = page.locator('.fsb-detail-modal:visible');
+    const activeDetailModal = page.locator('.hoa-detail-modal:visible');
     await expect(activeDetailModal).toBeVisible();
 
     // Close it
     await activeDetailModal.locator('.close-modal, .modal-close').first().evaluate(el => el.click());
 
     // We check the base class here to ensure ALL detail modals are hidden
-    await expect(page.locator('.fsb-detail-modal:visible')).toHaveCount(0);
+    await expect(page.locator('.hoa-detail-modal:visible')).toHaveCount(0);
 
 
     // --- SCENARIO B & C: Flyer Bypass (New Tab Routing) ---
@@ -597,7 +598,7 @@ test.describe('Calendar Forms and Modals', () => {
     await flyerCell.hover({ force: true });
     await flyerCell.locator('.add-event-plus').first().evaluate(el => el.click());
 
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
 
     // NOW we can verify the WP Media frame, because the modal is actually open
@@ -610,20 +611,20 @@ test.describe('Calendar Forms and Modals', () => {
 
     // Close the WP modal safely
     await page.locator('.media-modal-close').first().evaluate(el => el.click());
-    await expect(page.locator('.fsb-detail-modal:visible')).toHaveCount(0);
+    await expect(page.locator('.hoa-detail-modal:visible')).toHaveCount(0);
 
     // Resume filling out the event form...
     await editModal.locator('input[name="title"]').fill('Flyer Bypass Event');
 
     // Inject the real static asset URL
     // If we can display a png we should be able to display an html or pdf as well.
-    const testFlyerUrl = `${APP_URL}/wp-content/plugins/fsbhoa-calendar/tests/assets/dummy-image.png`;
+    const testFlyerUrl = `${APP_URL}/wp-content/plugins/hoaplugin-calendar/tests/assets/dummy-image.png`;
     await editModal.locator('#flyer_url_input').fill(testFlyerUrl);
 
-    await editModal.locator('.fsb-save-btn').click();
+    await editModal.locator('.hoa-save-btn').click();
     await expect(editModal).toBeHidden({ timeout: 5000 });
 
-    const appWrapper = page.locator('#fsb-calendar-app[data-render-complete="true"]');
+    const appWrapper = page.locator('#hoa-calendar-app[data-render-complete="true"]');
     await expect(appWrapper).toBeVisible({ timeout: 10000 });
 
     // 2. Test the bypass logic
@@ -643,7 +644,7 @@ test.describe('Calendar Forms and Modals', () => {
     await newPage.close();
 
     // Verify the detail modal never spawned in the background
-    await expect(page.locator('.fsb-detail-modal:visible')).toHaveCount(0);
+    await expect(page.locator('.hoa-detail-modal:visible')).toHaveCount(0);
   });
 
 
@@ -667,7 +668,7 @@ test.describe('Calendar Forms and Modals', () => {
     await editPencil.evaluate(el => el.click());
 
     // 5. Verify the edit modal opened successfully
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
 
     // Verify it opened in edit mode by checking for the hidden input
@@ -677,7 +678,7 @@ test.describe('Calendar Forms and Modals', () => {
     await expect(editModal.locator('input[name="date"]')).toHaveValue(RECURRING_EVENT_DATE);
 
     // Close the modal
-    await page.locator('#fsb-edit-modal .close-modal, button:has-text("Cancel")').first().click();
+    await page.locator('#hoa-edit-modal .close-modal, button:has-text("Cancel")').first().click();
   });
 
 
@@ -694,7 +695,7 @@ test.describe('Calendar Forms and Modals', () => {
     // FIX: Standard day, so we click the plus inside the normal cell directly
     await dayCell.locator('.add-event-plus').first().evaluate(el => el.click());
 
-    const modal = page.locator('#fsb-edit-modal');
+    const modal = page.locator('#hoa-edit-modal');
     await expect(modal).toBeVisible();
 
     // Part 1: Test building a new RRule from the UI
@@ -753,11 +754,11 @@ test.describe('Calendar Forms and Modals', () => {
     const activeEvent = dayCell.locator('.event-item').filter({ hasText: 'Single Event' }).first();
     await activeEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
 
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
     await editModal.locator('button:has-text("Cancel Event")').click();
 
-    const manageModal = page.locator('#fsb-manage-modal');
+    const manageModal = page.locator('#hoa-manage-modal');
     await expect(manageModal).toBeVisible();
     await expect(manageModal.locator('button:has-text("Delete Event Forever")')).toBeVisible();
     await expect(manageModal.locator('button:has-text("Cancel ONLY this instance")')).not.toBeVisible();
@@ -780,11 +781,11 @@ test.describe('Calendar Forms and Modals', () => {
     const activeEvent = dayCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     await activeEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
 
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
     await editModal.locator('button:has-text("Cancel Event")').click();
 
-    const manageModal = page.locator('#fsb-manage-modal');
+    const manageModal = page.locator('#hoa-manage-modal');
     await expect(manageModal).toBeVisible();
 
     await expect(manageModal.locator('button:has-text("Cancel ONLY this instance")')).toBeVisible();
@@ -810,12 +811,12 @@ test.describe('Calendar Forms and Modals', () => {
     const recurringEvent = recurringCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     await recurringEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
 
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
 
     await editModal.locator('button:has-text("Reschedule")').click();
 
-    const rescheduleModal = page.locator('#fsb-reschedule-modal');
+    const rescheduleModal = page.locator('#hoa-reschedule-modal');
     await expect(rescheduleModal).toBeVisible();
     await expect(rescheduleModal.locator('#scope_instance')).toBeAttached();
     await expect(rescheduleModal.locator('#scope_remaining')).toBeAttached();
@@ -853,7 +854,7 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("========================================================");
 
     await page.goto(`/calendar/?viewDate=${NEXT_MONTH_URL_PARAM}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     const masterId = await page.evaluate(() => {
       const ev = window.allEvents.find(e => e.title === "Simple Series");
@@ -893,7 +894,7 @@ test.describe('Calendar Forms and Modals', () => {
 
     // 2. Fetch DB State
     let dbState = await page.evaluate(async (mId) => {
-      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}&cb=${Date.now()}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+      const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}&cb=${Date.now()}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
       return (await res.json()).data.db_state;
     }, masterId);
 
@@ -914,7 +915,7 @@ test.describe('Calendar Forms and Modals', () => {
 
     // 4. Fetch DB State
     dbState = await page.evaluate(async (mId) => {
-      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}&cb=${Date.now()}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+      const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}&cb=${Date.now()}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
       return (await res.json()).data.db_state;
     }, masterId);
 
@@ -942,7 +943,7 @@ test.describe('Calendar Forms and Modals', () => {
     const [y, m] = firstMondayDate.split('-');
     const targetHorizon = `${y}-${m}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // Calculate 1st Tuesday (Target)
     const firstTuesdayObj = new Date(firstMondayDate + 'T12:00:00');
@@ -959,10 +960,10 @@ test.describe('Calendar Forms and Modals', () => {
     await expect(targetCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first()).toBeVisible({ timeout: 10000 });
     await expect(sourceCell.locator('.event-item').filter({ hasText: 'Simple Series' })).toHaveCount(0);
 
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible();
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible();
 
     const dbState = await page.evaluate(async (mId) => {
-      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+      const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
       return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -990,7 +991,7 @@ test.describe('Calendar Forms and Modals', () => {
     const [y, m] = secondMondayDate.split('-');
     const targetHorizon = `${y}-${m}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // Calculate 2nd Tuesday and 3rd Tuesday for rendering checks
     const secondTuesdayObj = new Date(secondMondayDate + 'T12:00:00');
@@ -1019,10 +1020,10 @@ test.describe('Calendar Forms and Modals', () => {
     }
     await expect(sourceCell.locator('.event-item').filter({ hasText: 'Simple Series' })).toHaveCount(0);
 
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible();
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible();
 
     const dbState = await page.evaluate(async (mId) => {
-      const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+      const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
       return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -1039,7 +1040,7 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("========================================================");
     // 1. Navigate to CURRENT month to ensure 'today' exists in the grid
     await page.goto(`/calendar/?viewDate=${SERIES_START_DATE}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // Verify Today Highlight
     const todayCell = page.locator('.calendar-day.today').first();
@@ -1047,14 +1048,14 @@ test.describe('Calendar Forms and Modals', () => {
 
     // 2. Navigate away to Next Month to test the jump button
     await page.goto(`/calendar/?viewDate=${NEXT_MONTH_URL_PARAM}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // 3. Test "Today" Toolbar Button
     // (Update the locator if your toolbar button uses a different class/ID!)
     await page.locator('.jump-today, #jumpToday, button:has-text("Today")').first().click();
 
     // Assert: Viewport redirected to today's month
-    const app = page.locator('#fsb-calendar-app');
+    const app = page.locator('#hoa-calendar-app');
     const todayDate = new Date();
     await expect(app).toHaveAttribute('data-view-month', String(todayDate.getMonth() + 1));
   });
@@ -1065,7 +1066,7 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("========================================================");
 
     // 1. Extend the past limit guardrail so the UI allows navigating backward
-    await setSandboxOption(page, 'fsb_past_limit', '2');
+    await setSandboxOption(page, 'hoa_past_limit', '2');
     await page.evaluate(() => {
         const today = new Date();
         // Recalculate the window threshold matching the new past_limit
@@ -1076,7 +1077,7 @@ test.describe('Calendar Forms and Modals', () => {
 
     // 2. Click the previous month button to drop back into the current month horizon
     await page.locator('#prevMonth').first().click();
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // 3. Target the 1st of the current month (SERIES_START_DATE) which is a past-day
     const pastCell = page.locator(`.calendar-day[data-date="${SERIES_START_DATE}"]`).first();
@@ -1090,7 +1091,7 @@ test.describe('Calendar Forms and Modals', () => {
     await addIcon.evaluate(el => el.click());
 
     // 5. Interact with the Edit Modal Form
-    const modal = page.locator('#fsb-edit-modal');
+    const modal = page.locator('#hoa-edit-modal');
     await expect(modal).toBeVisible();
 
     // Fill the title
@@ -1104,11 +1105,11 @@ test.describe('Calendar Forms and Modals', () => {
     await modal.locator('.rr-day[value="MO"]').check();
 
     // 6. Save the new historical series
-    await modal.locator('.fsb-save-btn').click();
+    await modal.locator('.hoa-save-btn').click();
 
     // Verify modal closes and grid rebuild pass completes successfully
     await expect(modal).toBeHidden({ timeout: 5000 });
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
 
     // 7. Verify the generated event chip has edit permissions intact
     const eventChip = pastCell.locator('.event-item').filter({ hasText: 'Past Repeating Series' }).first();
@@ -1132,20 +1133,20 @@ test.describe('Calendar Forms and Modals', () => {
     // Open the creation modal natively
     await dayCell.locator('.add-event-plus').first().evaluate(el => el.click());
 
-    const modal = page.locator('#fsb-edit-modal');
+    const modal = page.locator('#hoa-edit-modal');
     await expect(modal).toBeVisible();
 
     // Ensure the title is absolutely empty
     await modal.locator('input[name="title"]').fill('');
 
     // Trigger the save action (The Bake Command)
-    await modal.locator('.fsb-save-btn').click();
+    await modal.locator('.hoa-save-btn').click();
 
     // 1. Verify the modal closes automatically after the backend responds
     await expect(modal).toBeHidden({ timeout: 5000 });
 
     // 2. Verify the frontend reload cycle completed (data-render-complete drops and returns)
-    const appWrapper = page.locator('#fsb-calendar-app[data-render-complete="true"]');
+    const appWrapper = page.locator('#hoa-calendar-app[data-render-complete="true"]');
     await expect(appWrapper).toBeVisible({ timeout: 10000 });
 
     // 3. Verify Database Integrity: The compiler should not have output a blank event
@@ -1185,25 +1186,25 @@ test.describe('Calendar Forms and Modals', () => {
     const [y, m] = firstMonday.split('-');
     const targetHorizon = `${y}-${m}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     const sourceCell = page.locator(`.calendar-day[data-date="${firstMonday}"]`).first();
     const chip = sourceCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     await expect(chip).toBeVisible();
 
     await chip.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
 
     await editModal.locator('input[name="start_time"]').fill('10:00');
     await editModal.locator('input[name="end_time"]').fill('11:00');
-    await editModal.locator('.fsb-save-btn').click();
+    await editModal.locator('.hoa-save-btn').click();
 
     await expect(editModal).toBeHidden({ timeout: 5000 });
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
 
     const dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -1230,25 +1231,25 @@ test.describe('Calendar Forms and Modals', () => {
     const [y, m] = secondMonday.split('-');
     const targetHorizon = `${y}-${m}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     const sourceCell = page.locator(`.calendar-day[data-date="${secondMonday}"]`).first();
     const chip = sourceCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     await expect(chip).toBeVisible();
 
     await chip.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
 
     await editModal.locator('input[name="start_time"]').fill('10:00');
     await editModal.locator('input[name="end_time"]').fill('11:00');
-    await editModal.locator('.fsb-save-btn').click();
+    await editModal.locator('.hoa-save-btn').click();
 
     await expect(editModal).toBeHidden({ timeout: 5000 });
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
 
     const dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -1287,18 +1288,18 @@ test.describe('Calendar Forms and Modals', () => {
     const [y, m] = firstMonday.split('-');
     const targetHorizon = `${y}-${m}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     const targetCell = page.locator(`.calendar-day[data-date="${secondMonday}"]`).first();
     const activeEvent = targetCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
 
     await activeEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
-    await page.locator('#fsb-edit-modal button:has-text("Cancel Event")').click();
+    await page.locator('#hoa-edit-modal button:has-text("Cancel Event")').click();
 
     page.once('dialog', dialog => dialog.accept());
-    await page.locator('#fsb-manage-modal button:has-text("End series starting today")').click();
+    await page.locator('#hoa-manage-modal button:has-text("End series starting today")').click();
 
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
 
     await expect(page.locator(`.calendar-day[data-date="${firstMonday}"] .event-item`).filter({ hasText: 'Simple Series' })).toBeVisible();
     await expect(page.locator(`.calendar-day[data-date="${secondMonday}"] .event-item`).filter({ hasText: 'Simple Series' })).toBeVisible();
@@ -1308,7 +1309,7 @@ test.describe('Calendar Forms and Modals', () => {
     }
 
     const dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -1336,23 +1337,23 @@ test.describe('Calendar Forms and Modals', () => {
     const [y, m] = firstMonday.split('-');
     const targetHorizon = `${y}-${m}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // --- PART 1: CANCEL INSTANCE ---
     const targetCell = page.locator(`.calendar-day[data-date="${secondMonday}"]`).first();
     const activeEvent = targetCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
 
     await activeEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
-    await page.locator('#fsb-edit-modal button:has-text("Cancel Event")').click();
+    await page.locator('#hoa-edit-modal button:has-text("Cancel Event")').click();
 
     page.once('dialog', dialog => dialog.accept());
-    await page.locator('#fsb-manage-modal button:has-text("Cancel ONLY this instance")').click();
+    await page.locator('#hoa-manage-modal button:has-text("Cancel ONLY this instance")').click();
 
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
     await expect(targetCell.locator('.event-item').filter({ hasText: 'Simple Series' })).toHaveCount(0);
 
     let dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -1364,16 +1365,16 @@ test.describe('Calendar Forms and Modals', () => {
     const firstEvent = firstCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
 
     await firstEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
-    await page.locator('#fsb-edit-modal button:has-text("Cancel Event")').click();
+    await page.locator('#hoa-edit-modal button:has-text("Cancel Event")').click();
 
     page.once('dialog', dialog => dialog.accept());
-    await page.locator('#fsb-manage-modal button:has-text("Restore or Undelete Next Cancelled Instance")').click();
+    await page.locator('#hoa-manage-modal button:has-text("Restore or Undelete Next Cancelled Instance")').click();
 
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
     await expect(targetCell.locator('.event-item').filter({ hasText: 'Simple Series' })).toBeVisible();
 
     dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -1402,19 +1403,19 @@ test.describe('Calendar Forms and Modals', () => {
     const [y, m] = firstMonday.split('-');
     const targetHorizon = `${y}-${m}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // --- STEP 1: Spawn the Initial Pivot ---
     let targetCell = page.locator(`.calendar-day[data-date="${secondMonday}"]`).first();
     let activeEvent = targetCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     
     await activeEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
-    await page.locator('#fsb-edit-modal input[name="start_time"]').fill('10:00');
-    await page.locator('#fsb-edit-modal .fsb-save-btn').click();
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await page.locator('#hoa-edit-modal input[name="start_time"]').fill('10:00');
+    await page.locator('#hoa-edit-modal .hoa-save-btn').click();
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
 
     let dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
     expect(dbState.children.length).toBe(1);
@@ -1424,13 +1425,13 @@ test.describe('Calendar Forms and Modals', () => {
     activeEvent = targetCell.locator('.event-item').filter({ hasText: 'Simple Series' }).first();
     
     await activeEvent.locator('.edit-pencil, .edit-pencil-mini').first().evaluate(el => el.click());
-    await page.locator('#fsb-edit-modal input[name="start_time"]').fill('11:00');
-    await page.locator('#fsb-edit-modal .fsb-save-btn').click();
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await page.locator('#hoa-edit-modal input[name="start_time"]').fill('11:00');
+    await page.locator('#hoa-edit-modal .hoa-save-btn').click();
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
 
     // --- STEP 3: Assert DB maintained exactly 1 child ---
     dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
     
@@ -1449,10 +1450,10 @@ test.describe('Calendar Forms and Modals', () => {
     console.log("TEST 20 -- 24 Hour Formatting");
     console.log("========================================================");
     await page.goto('/calendar/');
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // 1. USE THE NEW HELPER: Set 24-hour mode
-    await setSandboxOption(page, 'fsb_time_format', '24hr');
+    await setSandboxOption(page, 'hoa_time_format', '24hr');
 
     // 2. Inject the dummy event and re-render
     await page.evaluate(() => {
@@ -1466,10 +1467,10 @@ test.describe('Calendar Forms and Modals', () => {
             start_fmt: '14:00', end_fmt: '15:00', cat_color: '#3498db'
         });
         
-        document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete');
+        document.getElementById('hoa-calendar-app').removeAttribute('data-render-complete');
         window.render();
     });
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     const eventText = await page.evaluate(() => {
         const ev = Array.from(document.querySelectorAll('.event-item')).find(el => el.textContent.includes('Military Time Test'));
@@ -1491,7 +1492,7 @@ test.describe('Calendar Forms and Modals', () => {
 
     const stdMonth = await findNonSplitMonth();
     await page.goto(`/calendar/?viewDate=${stdMonth.viewMonthRoot}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // 1. Find position among ALL grid cells (including empty padding)
     let firstCellIndex = await page.evaluate((tgt) => {
@@ -1500,13 +1501,13 @@ test.describe('Calendar Forms and Modals', () => {
     }, stdMonth.firstDay);
 
     // 2. Inject Monday Start setting
-    await setSandboxOption(page, 'fsb_start_day', '1');
+    await setSandboxOption(page, 'hoa_start_day', '1');
 
     await page.evaluate(() => {
-        document.getElementById('fsb-calendar-app').removeAttribute('data-render-complete');
+        document.getElementById('hoa-calendar-app').removeAttribute('data-render-complete');
         window.render();
     });
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // 3. Find position again to verify shift
     let shiftedCellIndex = await page.evaluate((tgt) => {
@@ -1553,14 +1554,14 @@ test.describe('Calendar Forms and Modals', () => {
 
     const targetHorizon = `${nextMonth.getFullYear()}-${String(nextMonth.getMonth() + 1).padStart(2, '0')}-01`;
     await page.goto(`/calendar/?viewDate=${targetHorizon}&pw_nocache=${Date.now()}`);
-    await page.waitForSelector('#fsb-calendar-app[data-render-complete="true"]');
+    await page.waitForSelector('#hoa-calendar-app[data-render-complete="true"]');
 
     // 2. Open Modal on First Wednesday
     const dayCell = page.locator(`.calendar-day[data-date="${firstWedStr}"]`).first();
     await dayCell.hover({ force: true });
     await dayCell.locator('.add-event-plus').first().evaluate(el => el.click());
 
-    const modal = page.locator('#fsb-edit-modal');
+    const modal = page.locator('#hoa-edit-modal');
     await expect(modal).toBeVisible();
 
     // 3. Fill out the form
@@ -1575,9 +1576,9 @@ test.describe('Calendar Forms and Modals', () => {
     await modal.locator('#rr-until').fill(thirdWedStr);
 
     // Save
-    await modal.locator('.fsb-save-btn').click();
+    await modal.locator('.hoa-save-btn').click();
     await expect(modal).toBeHidden({ timeout: 5000 });
-    await expect(page.locator('#fsb-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('#hoa-calendar-app[data-render-complete="true"]')).toBeVisible({ timeout: 10000 });
 
     // 4. Verify Frontend Render Boundary
     // Should exist on 1st and 3rd Wednesday
@@ -1598,7 +1599,7 @@ test.describe('Calendar Forms and Modals', () => {
     });
 
     const dbState = await page.evaluate(async (mId) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.fsb_config.nonce } });
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_db_state&master_id=${mId}`, { headers: { 'X-WP-Nonce': window.hoa_config.nonce } });
         return (await res.json()).data.db_state;
     }, targetEventId);
 
@@ -1743,11 +1744,11 @@ async function createTestEvent(page, targetDate, title) {
 
     if (isSplitTop) {
         await targetArea.hover({ position: { x: 10, y: 10 }, force: true });
-        interactNode = page.locator('.fsb-ghost-shard.shard-top').first();
+        interactNode = page.locator('.hoa-ghost-shard.shard-top').first();
     } else if (isSplitBottom) {
         const box = await targetArea.boundingBox();
         await targetArea.hover({ position: { x: box.width - 10, y: box.height - 10 }, force: true });
-        interactNode = page.locator('.fsb-ghost-shard.shard-bottom').first();
+        interactNode = page.locator('.hoa-ghost-shard.shard-bottom').first();
     } else {
         await targetArea.hover({ force: true });
     }
@@ -1756,15 +1757,15 @@ async function createTestEvent(page, targetDate, title) {
     await interactNode.locator('.add-event-plus').first().evaluate(el => el.click());
 
     // 3. Complete the flow
-    const editModal = page.locator('#fsb-edit-modal');
+    const editModal = page.locator('#hoa-edit-modal');
     await expect(editModal).toBeVisible();
     await editModal.locator('input[name="title"]').first().fill(title);
 
-    await editModal.locator('.fsb-save-btn').first().click();
+    await editModal.locator('.hoa-save-btn').first().click();
     await expect(editModal).toBeHidden({ timeout: 5000 });
 
     // 4. Verify rendering
-    const appWrapper = page.locator('#fsb-calendar-app[data-render-complete="true"]');
+    const appWrapper = page.locator('#hoa-calendar-app[data-render-complete="true"]');
     await expect(appWrapper).toBeVisible({ timeout: 10000 });
 
     // We use toBeAttached here because split cell backgrounds might be masked via CSS
@@ -1785,11 +1786,11 @@ async function verifyDayModal(page, targetDate, expectedTitle) {
 
     if (isSplitTop) {
         await targetArea.hover({ position: { x: 10, y: 10 }, force: true });
-        interactNode = page.locator('.fsb-ghost-shard.shard-top').first();
+        interactNode = page.locator('.hoa-ghost-shard.shard-top').first();
     } else if (isSplitBottom) {
         const box = await targetArea.boundingBox();
         await targetArea.hover({ position: { x: box.width - 10, y: box.height - 10 }, force: true });
-        interactNode = page.locator('.fsb-ghost-shard.shard-bottom').first();
+        interactNode = page.locator('.hoa-ghost-shard.shard-bottom').first();
     } else {
         await targetArea.hover({ force: true });
     }
@@ -1797,7 +1798,7 @@ async function verifyDayModal(page, targetDate, expectedTitle) {
     // Click the day number natively to trigger the modal
     await interactNode.locator('.day-number').first().evaluate(el => el.click());
 
-    const dayModal = page.locator('#fsb-day-modal');
+    const dayModal = page.locator('#hoa-day-modal');
     await expect(dayModal).toBeVisible();
 
     await expect(dayModal.locator(`text="${expectedTitle}"`).first()).toBeVisible();
@@ -1851,8 +1852,8 @@ async function forceDrag(sourceLocator, targetLocator, shiftKey = false) {
  */
 async function getNthInstanceDate(page, eventId, n) {
     return await page.evaluate(async ({ eId, index }) => {
-        const res = await fetch(`/wp-admin/admin-ajax.php?action=fsb_run_regression_step&step=get_nth_instance&pivot_id=${eId}&n=${index}`, {
-            headers: { 'X-WP-Nonce': window.fsb_config.nonce }
+        const res = await fetch(`/wp-admin/admin-ajax.php?action=hoa_run_regression_step&step=get_nth_instance&pivot_id=${eId}&n=${index}`, {
+            headers: { 'X-WP-Nonce': window.hoa_config.nonce }
         });
         const result = await res.json();
         if (!result.success) throw new Error(`Backend RRule Math Failed: ${result.data}`);
@@ -1864,26 +1865,26 @@ async function getNthInstanceDate(page, eventId, n) {
 /**
  * Synchronizes a setting change across BOTH the backend Shadow State and the frontend config.
  * * @param {Page} page - Playwright page context instance
- * @param {string} optName - The WordPress option key (e.g., 'fsb_start_day')
+ * @param {string} optName - The WordPress option key (e.g., 'hoa_start_day')
  * @param {string} optVal - The new value (e.g., '1')
  */
 async function setSandboxOption(page, optName, optVal) {
     await page.evaluate(async ({ name, val }) => {
         // 1. Tell the PHP Backend to update the Shadow State
         const fd = new FormData();
-        fd.append('action', 'fsb_run_regression_step');
+        fd.append('action', 'hoa_run_regression_step');
         fd.append('step', 'set_option');
         fd.append('opt_name', name);
         fd.append('opt_val', val);
 
-        await fetch(window.fsb_config.ajax_url, {
-            method: 'POST', body: fd, headers: { 'X-WP-Nonce': window.fsb_config.nonce }
+        await fetch(window.hoa_config.ajax_url, {
+            method: 'POST', body: fd, headers: { 'X-WP-Nonce': window.hoa_config.nonce }
         });
 
         // 2. Tell the JavaScript frontend to update its active configuration
-        // Maps 'fsb_start_day' -> 'start_day', 'fsb_time_format' -> 'time_format'
-        const jsConfigKey = name.replace('fsb_', '');
-        window.fsb_config[jsConfigKey] = val;
+        // Maps 'hoa_start_day' -> 'start_day', 'hoa_time_format' -> 'time_format'
+        const jsConfigKey = name.replace('hoa_', '');
+        window.hoa_config[jsConfigKey] = val;
 
     }, { name: optName, val: optVal });
 }

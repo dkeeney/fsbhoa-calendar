@@ -41,7 +41,7 @@ module.exports = async (config) => {
 
     // Inject the Sandbox Cookie
     await page.context().addCookies([{
-        name: 'fsb_test_mode',
+        name: 'hoa_test_mode',
         value: '1',
         domain: 'testbed.fsbhoa.com', // MUST match your testing domain
         path: '/'
