@@ -27,6 +27,10 @@ zip -r9 "$DIR_NAME/$ZIP_FILE" "$DIR_NAME" \
     -x "$DIR_NAME/package-lock.json" \
     -x "$DIR_NAME/playwright.config.js" \
     -x "$DIR_NAME/tests/*" \
+    -x "$DIR_NAME/test.sh" \
+    -x "$DIR_NAME/README.md" \
+    -x "$DIR_NAME/deploy.sh" \
+    -x "$DIR_NAME/assets/screenshot-*.png" \
     -x "$DIR_NAME/.DS_Store"
 
 # Step back IN to the directory
@@ -34,8 +38,6 @@ cd "$DIR_NAME" || exit
 
 echo "Deploying to WordPress uploads directory... $ZIP_FILE"
 # Copy it directly to the uploads folder and hand it over to the web server
-#sudo cp "$ZIP_FILE" /var/www/html/wp-content/uploads/
-#sudo chown www-data:www-data /var/www/html/wp-content/uploads/"$ZIP_FILE"
 scp "$ZIP_FILE" scguild@keolight.com:~/hoaplugin.com/wp-content/uploads/
 rm $ZIP_FILE
 

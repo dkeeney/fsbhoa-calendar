@@ -3,7 +3,7 @@
  * Plugin Name: HOAplugin Calendar
  * Plugin URI:        https://hoaplugin.com
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.1.21
+ * Version:           1.1.22
  * Author:            David Keeney
  * AI Tool:           Gemini Pro 2.5 and 3.1
  * Company:           HOAplugin.com
@@ -157,6 +157,25 @@ add_action('admin_enqueue_scripts', function($hook) {
         }
     ");
 });
+
+
+// Hide the admin bar for mobile phones and tablets
+add_filter( 'show_admin_bar', 'hoaplugin_hide_admin_bar_on_mobile_calendar' );
+
+function hoaplugin_hide_admin_bar_on_mobile_calendar( $show ) {
+    // Only intercept on the frontend, AND only if it is a mobile device
+    if ( ! is_admin() && wp_is_mobile() && is_singular() ) {
+        global $post;
+
+        // If the current page contains your calendar shortcode, hide the admin bar
+        if ( is_a( $post, 'WP_Post' ) && has_shortcode( $post->post_content, 'hoaplugin_calendar' ) ) {
+            return false;
+        }
+    }
+
+    // Otherwise, respect the default WordPress behavior
+    return $show;
+}
 
 add_action('wp_enqueue_scripts', function() {
     // Let the shortcode handle script loading directly on demand
@@ -1157,7 +1176,7 @@ function hoa_calendar_add_custom_meta_links( $plugin_meta, $plugin_file ) {
         $plugin_meta[] = $docs_link;
 
         // 2. The Pro Upsell Link
-        / Check if the Pro version is physically installed on the server
+        // Check if the Pro version is physically installed on the server
         $pro_plugin_path = WP_PLUGIN_DIR . '/hoaplugin-calendar-pro/hoaplugin-calendar-pro.php';
         if ( ! file_exists( $pro_plugin_path ) ) {
            $pro_url = 'https://hoaplugin.com/';
