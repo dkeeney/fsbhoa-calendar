@@ -94,6 +94,14 @@ class Repository {
                  ON DELETE SET NULL"
             );
         }
+
+        // pre-populate initial data.
+        if ( !get_option( 'hoaplugin_defaults_installed' ) ) {
+            // Only ran once to pre-populate data.
+            require_once __DIR__ . '/Defaults.php';
+            hoaplugin_populate_default_data( $cat_table, $loc_table, $event_table );
+            update_option( 'hoaplugin_defaults_installed', 1 );
+        }
     }
 
 

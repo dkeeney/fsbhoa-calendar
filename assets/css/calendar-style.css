@@ -2,48 +2,49 @@
 /*     David Keeney, Mar 24, 2026 */
 
 
+/* --- HOA THEME CONFLICT RESOLUTION --- */
+/* Safely hide the page title and wrapper on the top 99% of WordPress themes */
 
-/* Hide common WordPress page title from classes that are siblings or parents */
+/* 1. Hide the Titles */
+body.hoa-calendar-active .entry-header,
+body.hoa-calendar-active .page-header,
+body.hoa-calendar-active h1.entry-title,
+body.hoa-calendar-active h1.page-title,
+body.hoa-calendar-active .ast-archive-description,
+body.hoa-calendar-active .wp-block-post-title {
+    display: none !important;
+}
+
+/* Hide sibling titles (Fallback if the theme renders titles inside the content area) */
 #hoa-calendar-app ~ .entry-title,
-#hoa-agenda-app ~ .entry-title,
-header.entry-header,
-h1.page-title,
-h1.entry-title {
+#hoa-agenda-app ~ .entry-title {
     display: none !important;
 }
 
-/* If the theme puts the title inside a specific header container */
-.ast-archive-description .ast-archive-title,
-.entry-header {
-    display: none !important;
+/* 2. Prevent horizontal wobbling ONLY when calendar is active */
+body.hoa-calendar-active {
+    overflow-x: hidden;
 }
 
-/* 1. Prevent the outer WordPress wrapper from scrolling when the calendar is active */
-html, body {
-    overflow-x: hidden; /* Prevent horizontal wobbling */
-}
-
-/* --- THEME CONFLICT RESOLUTION --- */
-/* Strip default theme padding on calendar pages to allow flush mounting */
-.site-content:has(#hoa-monthly-wrapper),
-.ast-container:has(#hoa-monthly-wrapper),
-#content:has(#hoa-monthly-wrapper),
-#primary:has(#hoa-monthly-wrapper) {
+/* 3. Strip default theme padding/margins to allow flush mounting */
+body.hoa-calendar-active .site-content,
+body.hoa-calendar-active .site-inner,
+body.hoa-calendar-active #content,
+body.hoa-calendar-active #primary,
+body.hoa-calendar-active .ast-container {
     padding-top: 0 !important;
     margin-top: 0 !important;
-    max-width: none !important;
-    margin-left: 0 !important;
-    margin-right: 0 !important;
-
     max-width: 100% !important;
     width: 100% !important;
     padding-left: 0 !important;
     padding-right: 0 !important;
-
     padding-bottom: 0 !important;
     margin-bottom: 0 !important;
     min-height: 0 !important;
 }
+
+
+
 
 /* Fullscreen wrapper has screen aspect */
 /* The Main Stage - Centers the 17:11 box and clears the header */

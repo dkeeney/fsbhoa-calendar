@@ -25,10 +25,8 @@ function hoa_render_settings_tabs() {
             <a href="?page=hoa-cal-settings&tab=locations" class="nav-tab <?php echo $active_tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
             <a href="?page=hoa-cal-settings&tab=categories" class="nav-tab <?php echo $active_tab == 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
             <a href="?page=hoa-cal-settings&tab=audit" class="nav-tab <?php echo $active_tab == 'audit' ? 'nav-tab-active' : ''; ?>">Event Audit Log</a>
-            <a href="?page=hoa-cal-settings&tab=regression" class="nav-tab <?php echo $active_tab == 'regression' ? 'nav-tab-active' : ''; ?>">Regression Test</a>
-            <a href="?page=hoa-cal-settings&tab=license" class="nav-tab <?php echo $active_tab == 'license' ? 'nav-tab-active' : ''; ?>" style="color: #d63638;">Pro License</a>
             <?php 
-            // Allow external plugins (like Pro) to inject their own tabs here
+            // Allow external plugins (like upsell, Pro, and test) to inject their own tabs here
             do_action('hoa_calendar_extra_tabs', $active_tab); 
             ?>
         </h2>
@@ -41,8 +39,6 @@ function hoa_render_settings_tabs() {
                 case 'backgrounds':hoa_render_bg_manager(); break;
                 case 'categories': hoa_render_category_manager(); break;
                 case 'audit':      hoa_render_event_audit(); break;
-                case 'regression': hoa_render_regression_test(); break;
-                case 'license':     hoa_render_pro_license_installer(); break;
                 default:
                     // If it's not a core tab, fire a hook so external plugins can render content
                     do_action('hoa_calendar_extra_tab_content', $active_tab);
@@ -59,7 +55,7 @@ add_action('admin_init', function() {
     register_setting('hoa_cal_settings_group', 'hoa_time_position');
     register_setting('hoa_cal_settings_group', 'hoa_time_format');
     register_setting('hoa_cal_settings_group', 'hoa_start_day');
-    register_setting( 'hoaplugin_calendar_settings', 'hoaplugin_nuke_on_delete' );
+    register_setting('hoa_cal_settings_group', 'hoaplugin_nuke_on_delete' );
 });
 
 // Ensure scripts and modal styles are loaded for the settings page
@@ -842,72 +838,6 @@ function hoa_render_event_audit() {
 }
 
 
-function hoa_render_regression_test() {
-    ?>
-    <div class="card" style="max-width: 800px;">
-        <h3>Automated Logic Regression</h3>
-        <p class="description">
-            This will create a temporary database sandbox, seed 12+ complex event scenarios 
-            (Pivots, reschedules, cancels, Triple-Exceptions), and verify the 
-            Compiler's output. 
-            <strong>Production data will not be touched.</strong>
-        </p>
-
-        <div id="regression-console" style="background: #222; color: #0f0; padding: 20px; font-family: monospace; border-radius: 4px; margin: 20px 0; min-height: 200px; overflow-y: auto; font-size: 12px; border: 1px solid #444;">
-            > System Ready. Click button to begin.
-        </div>
-
-        <button id="run-regression" class="button button-primary button-large">Run Automated Test Battery</button>
-    </div>
-
-    <script>
-    document.getElementById('run-regression').onclick = async function() {
-        const consoleEl = document.getElementById('regression-console');
-        const btn = this;
-        
-        const log = (msg, color = '#0f0') => {
-            consoleEl.innerHTML += `<div style="color:${color}">> ${msg}</div>`;
-            consoleEl.scrollTop = consoleEl.scrollHeight;
-        };
-
-        btn.disabled = true;
-        consoleEl.innerHTML = '';
-        log("INITIALIZING SANDBOX...", "#aaa");
-
-        try {
-            // Step 1: Create Sandbox & Seed
-            const initRes = await fetch(ajaxurl + '?action=hoa_run_regression_step&step=init&nonce=<?php echo wp_create_nonce('hoa_reg_nonce'); ?>');
-            const initData = await initRes.json();
-            if(!initData.success) throw new Error(initData.data);
-            log(initData.data.message);
-
-            // Step 2: Run Scenarios
-            const scenarios = initData.data.scenarios;
-            for(const slug of scenarios) {
-                log(`TESTING SCENARIO: [${slug}]...`, "#3498db");
-                const res = await fetch(ajaxurl + `?action=hoa_run_regression_step&step=run_scenario&slug=${slug}&prefix=${initData.data.prefix}&nonce=<?php echo wp_create_nonce('hoa_reg_nonce'); ?>`);
-                const result = await res.json();
-                
-                if(result.success) {
-                    log(`PASS: ${result.data.message}`, "#2ecc71");
-                } else {
-                    log(`FAIL: ${result.data}`, "#e74c3c");
-                }
-            }
-
-            log("CLEANING UP SANDBOX...", "#aaa");
-            await fetch(ajaxurl + `?action=hoa_run_regression_step&step=cleanup&prefix=${initData.data.prefix}&nonce=<?php echo wp_create_nonce('hoa_reg_nonce'); ?>`);
-            
-            log("REGRESSION COMPLETE.", "#fff");
-        } catch (e) {
-            log("CRITICAL ERROR: " + e.message, "#e74c3c");
-        } finally {
-            btn.disabled = false;
-        }
-    };
-    </script>
-    <?php
-}
 
 function hoa_handle_zip_upload() {
     // 1. Security Check
@@ -950,4 +880,4 @@ function hoa_handle_zip_upload() {
     }
 }
 
-require_once __DIR__ . "/pro-installer.php";
+

@@ -1,8 +1,0 @@
-{
-  "devDependencies": {
-    "@playwright/test": "^1.60.0"
-  },
-  "scripts": {
-    "test": "playwright test -c tests/playwright.config.js"
-  }
-}

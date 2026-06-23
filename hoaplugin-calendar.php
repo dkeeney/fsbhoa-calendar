@@ -3,7 +3,7 @@
  * Plugin Name: HOAplugin Calendar
  * Plugin URI:        https://hoaplugin.com
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.1.22
+ * Version:           1.1.28
  * Author:            David Keeney
  * AI Tool:           Gemini Pro 2.5 and 3.1
  * Company:           HOAplugin.com
@@ -29,9 +29,6 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit;
 
-if ( ! defined( 'HOAPLUGN_LICENSE_SERVER_URL' ) ) {
-    define( 'HOAPLUGIN_LICENSE_SERVER_URL', 'https://HOAplugin.com' );
-}
 // Define fixed file paths dynamically based on the server's environment
 if ( ! defined( 'HOAPLUGIN_CALENDAR_DIR' ) ) {
     $upload_dir = wp_upload_dir();
@@ -45,6 +42,29 @@ use HOAPLUGIN\Cal\Compiler;
 require_once __DIR__ . '/vendor/autoload.php';
 if ( is_admin() ) {
     require_once __DIR__ . '/admin/settings-page.php';
+    require_once __DIR__ . '/admin/upsell.php';
+}
+
+
+/**
+ * Inject a custom body class if the calendar shortcode is present on the page.
+ * This allows our CSS to safely override theme headers and padding.
+ */
+add_filter( 'body_class', 'hoa_calendar_body_class' );
+function hoa_calendar_body_class( $classes ) {
+    // Only run this on actual pages/posts (not archives or the backend)
+    if ( is_singular() ) {
+        global $post;
+
+        // Check for the master shortcode, plus the legacy aliases
+        if ( has_shortcode( $post->post_content, 'hoaplugin_calendar' ) ||
+             has_shortcode( $post->post_content, 'hoaplugin_monthly_calendar' ) ||
+             has_shortcode( $post->post_content, 'hoaplugin_agenda_calendar' ) ) {
+
+            $classes[] = 'hoa-calendar-active';
+        }
+    }
+    return $classes;
 }
 
 
@@ -84,27 +104,43 @@ add_action( 'wp_insert_site', function( $new_site ) {
 });
 
 
-// --- SANDBOX BRIDGE HELPERS ---
+// --- REPOSITORY & COMPILER HELPERS ---
 function hoa_get_repo() {
-    global $wpdb;
-    // If the Playwright cookie is present, use the test prefix!
-    if (isset($_COOKIE['hoa_test_mode']) && $_COOKIE['hoa_test_mode'] === '1') {
-        return new \HOAPLUGIN\Cal\Repository($wpdb->prefix . 'test_');
-    }
-    return new \HOAPLUGIN\Cal\Repository();
+    $repo = apply_filters( 'hoa_override_repo', null );
+    return $repo ? $repo : new \HOAPLUGIN\Cal\Repository();
 }
 
 function hoa_get_compiler() {
-    global $wpdb;
-    // If the Playwright cookie is present, use test prefix AND test JSON path!
-    if (isset($_COOKIE['hoa_test_mode']) && $_COOKIE['hoa_test_mode'] === '1') {
-        $upload_dir = wp_upload_dir();
-        $test_json_path = HOAPLUGIN_CALENDAR_DIR . '/test_calendar-events.json';
-        return new \HOAPLUGIN\Cal\Compiler($wpdb->prefix . 'test_', $test_json_path);
+    $compiler = apply_filters( 'hoa_override_compiler', null );
+    return $compiler ? $compiler : new \HOAPLUGIN\Cal\Compiler();
+}
+
+// Modify your JSON serving function to allow path interception:
+add_action('wp_ajax_hoa_get_calendar_json', 'hoa_serve_calendar_json');
+add_action('wp_ajax_nopriv_hoa_get_calendar_json', 'hoa_serve_calendar_json');
+
+function hoa_serve_calendar_json() {
+    // 1. Allow companion plugin to intercept the path
+    $default_path = HOAPLUGIN_CALENDAR_DIR . '/calendar-events.json';
+    $path = apply_filters( 'hoa_calendar_json_path', $default_path );
+
+    // 2. Check if the file actually exists on the server
+    if ( ! file_exists( $path ) ) {
+        wp_send_json_error( 'Calendar data file not found on server.', 404 );
     }
-    return new \HOAPLUGIN\Cal\Compiler();
+
+    // 3. Set headers so the browser treats this as a JSON file
+    header( 'Content-Type: application/json; charset=utf-8' );
+    header( 'Access-Control-Allow-Origin: *' ); 
+
+    // 4. Read the file and spit it out
+    echo file_get_contents( $path );
+    exit;
 }
 // ------------------------------
+
+
+
 
 // 1. Activation
 register_activation_hook( __FILE__, function() {
@@ -112,25 +148,6 @@ register_activation_hook( __FILE__, function() {
     $repo->create_table();
 
 });
-
-// Register the uninstall hook
-// This will also remove monthly calendar backgrounds.
-register_uninstall_hook(__FILE__, 'hoa_cal_cleanup');
-
-function hoa_cal_cleanup() {
-    // 1. Remove the settings from the database
-    delete_option('hoa_calendar_bgs');
-
-    // 2. Locate and delete the upload folder
-    $upload_dir = wp_upload_dir();
-    $hoa_dir = $upload_dir['basedir'] . '/hoaplugin-calendar';
-
-    if (file_exists($hoa_dir)) {
-        // Simple recursive delete function
-        array_map('unlink', glob("$hoa_dir/*.*"));
-        rmdir($hoa_dir);
-    }
-}
 
 
 add_action('admin_enqueue_scripts', function($hook) {
@@ -262,171 +279,6 @@ function hoa_enqueue_calendar_scripts() {
    do_action('hoa_enqueue_pro_scripts');
 }
 
-// --- THE SHADOW STATE: INTERCEPT OPTIONS FOR SANDBOX ---
-//  While running a regression test, use the options from the sandbox.
-add_action('init', 'hoa_apply_sandbox_options');
-function hoa_apply_sandbox_options() {
-    // Only intercept if the browser has the Playwright test cookie
-    if (isset($_COOKIE['hoa_test_mode'])) {
-        $sandbox_options = get_transient('hoa_sandbox_options') ?: [];
-
-        // Map the allowed overrides to their absolute baseline defaults
-        $allowed_overrides = [
-            'hoa_start_day'     => '0',      // Sunday
-            'hoa_time_format'   => '12hr',
-            'hoa_time_position' => 'prepend'
-        ];
-
-        foreach ($allowed_overrides as $opt => $default_val) {
-            add_filter("pre_option_{$opt}", function($false) use ($opt, $sandbox_options, $default_val) {
-                // 1. If Playwright explicitly set a shadow option, return it
-                if (isset($sandbox_options[$opt])) {
-                    return $sandbox_options[$opt];
-                }
-                // 2. TOTAL ISOLATION: Return the baseline default.
-                // This prevents WordPress from ever querying the live database.
-                return $default_val;
-            });
-        }
-    }
-}
-
-add_action('wp_ajax_hoa_run_regression_step', function() {
-    $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? $_SERVER['HTTP_X_WP_NONCE'] : ($_REQUEST['nonce'] ?? '');
-    if ( ! wp_verify_nonce( $nonce, 'hoa_reg_nonce' ) && ! wp_verify_nonce( $nonce, 'hoa_cal_nonce' ) ) {
-        wp_send_json_error( 'Invalid Security Nonce' );
-        wp_die();
-    }
-
-    $step = sanitize_text_field($_REQUEST['step']);
-    $runner = new \HOAPLUGIN\Cal\TestRunner();
-
-    switch($step) {
-        case 'init':
-            // Tell the JS console which tests exist
-            $scenarios = $runner->get_test_scenarios();
-            wp_send_json_success([
-                'message' => 'Sandbox Ready.',
-                'scenarios' => $scenarios,
-                'prefix' => $runner->get_prefix(),
-                'json_url' => $runner->get_json_url()
-            ]);
-            break;
-
-        case 'set_option':   // Sandbox the options for regression tests
-            $allowed_options = ['hoa_start_day', 'hoa_time_format', 'hoa_time_position'];
-            $opt_name = sanitize_text_field($_POST['opt_name'] ?? '');
-            $opt_val = sanitize_text_field($_POST['opt_val'] ?? '');
-
-            if (in_array($opt_name, $allowed_options)) {
-                // Write to a temporary transient, NOT the real wp_options table!
-                $sandbox_opts = get_transient('hoa_sandbox_options') ?: [];
-                $sandbox_opts[$opt_name] = $opt_val;
-                set_transient('hoa_sandbox_options', $sandbox_opts, HOUR_IN_SECONDS);
-
-                wp_send_json_success("Sandbox Shadow Option {$opt_name} set to {$opt_val}");
-            } else {
-                wp_send_json_error('Invalid option key for sandbox modification.');
-            }
-            break;
-
-        case 'run_scenario':
-            $slug = sanitize_text_field($_GET['slug']);
-            // The TestRunner will load the fixture, run the test, and return pass/fail
-            $result = $runner->run_test_scenario($slug);
-
-            if ($result['success']) {
-                wp_send_json_success(['message' => $result['message']]);
-            } else {
-                wp_send_json_error($result['message']);
-            }
-            break;
-
-        case 'load_fixture':
-            // Read raw JSON from the POST body
-            $json_payload = file_get_contents('php://input');
-            $fixture_data = json_decode($json_payload, true);
-            
-            if (!$fixture_data) wp_send_json_error('Invalid JSON payload');
-            
-            $mapped_ids = $runner->load_fixture($fixture_data);
-
-            // BUST THE BROWSER CACHE: Playwright executes too fast for standard time()
-            update_option('hoa_cal_version', time() . rand(100, 999));
-            
-            wp_send_json_success([
-                'message' => 'Fixture loaded successfully.',
-                'ids' => $mapped_ids
-            ]);
-            break;
-
-        case 'get_db_state':
-            $master_id = intval($_GET['master_id'] ?? 0);
-            if (!$master_id) wp_send_json_error('Missing master_id');
-
-            $state = $runner->get_db_state($master_id);
-            wp_send_json_success(['db_state' => $state]);
-            break;
-
-        case 'get_nth_instance':
-            // Note: the pivot_id may actually be the master.
-            $pivot_id = intval($_GET['pivot_id'] ?? 0);
-            $n = intval($_GET['n'] ?? 0); // 0 = first instance
-
-            if (!$pivot_id) wp_send_json_error('Missing pivot_id');
-
-            // Grab the repo using your existing sandbox helper
-            $repo = hoa_get_repo();
-            $pivot = $repo->get($pivot_id);
-
-            if (!$pivot || empty($pivot->rrule)) {
-                wp_send_json_error('Event not found or not recurring');
-                break;
-            }
-
-            // Sync Timezone
-            $tz_string = get_option('timezone_string') ?: timezone_name_from_abbr('', get_option('gmt_offset') * 3600, false);
-            if ($tz_string) date_default_timezone_set($tz_string);
-
-            $anchor = new \DateTime($pivot->start_datetime);
-
-            // Clean the RRule string to parse into array
-            $clean_rule = trim(str_ireplace('RRULE:', '', $pivot->rrule));
-            $parts = [];
-            foreach (explode(';', $clean_rule) as $pair) {
-                if (strpos($pair, '=') !== false) {
-                    list($key, $value) = explode('=', $pair);
-                    $parts[trim($key)] = trim($value);
-                }
-            }
-            $parts['DTSTART'] = $anchor;
-
-            try {
-                // Pass array to ensure strict 1:1 mapping with the PHP compiler
-                $rrule = new \RRule\RRule($parts);
-
-                // Get occurrences inclusive of anchor, limit to N+1
-                $occurrences = $rrule->getOccurrencesAfter($anchor, true, $n + 1);
-
-                if (isset($occurrences[$n])) {
-                    wp_send_json_success(['date' => $occurrences[$n]->format('Y-m-d')]);
-                } else {
-                    wp_send_json_error('Instance out of bounds (past UNTIL date or invalid)');
-                }
-            } catch (\Exception $e) {
-                wp_send_json_error('RRule Parse Error: ' . $e->getMessage());
-            }
-            break;
-
-        case 'cleanup':
-            $runner->cleanup();
-
-            delete_transient('hoa_sandbox_options');
-
-            wp_send_json_success();
-            break;
-    }
-});
 
 
 // =========================================================================
@@ -893,56 +745,7 @@ function hoa_handle_save_event() {
 }
 
 
-function hoa_handle_bg_upload($file_input_name, $month_index) {
-    if (empty($_FILES[$file_input_name]['name'])) return;
 
-    $upload_dir = wp_upload_dir();
-    $target_dir = $upload_dir['basedir'] . '/hoaplugin-calendar';
-
-    // Ensure directory exists
-    if (!file_exists($target_dir)) {
-        wp_mkdir_p($target_dir);
-    }
-
-    $file_ext = pathinfo($_FILES[$file_input_name]['name'], PATHINFO_EXTENSION);
-    $filename = "cal-bg-month-{$month_index}.{$file_ext}";
-    $target_file = $target_dir . '/' . $filename;
-
-    if (move_uploaded_file($_FILES[$file_input_name]['tmp_id'], $target_file)) {
-        // Return the URL for storage in options
-        return $upload_dir['baseurl'] . '/hoaplugin-calendar/' . $filename;
-    }
-    return false;
-}
-
-
-// Standard WP AJAX endpoint (Works for logged-in and logged-out users)
-add_action('wp_ajax_hoa_get_calendar_json', 'hoa_serve_calendar_json');
-add_action('wp_ajax_nopriv_hoa_get_calendar_json', 'hoa_serve_calendar_json');
-
-function hoa_serve_calendar_json() {
-    $upload_dir = wp_upload_dir();
-    // 1. Check for Sandbox Bridge
-    if (isset($_COOKIE['hoa_test_mode']) && $_COOKIE['hoa_test_mode'] === '1') {
-        $path = HOAPLUGIN_CALENDAR_DIR . '/test_calendar-events.json';
-    } else {
-        // Normal live operation
-        $path = HOAPLUGIN_CALENDAR_DIR . '/calendar-events.json';
-    }
-
-    // 3. Check if the file actually exists on the Pi
-    if (!file_exists($path)) {
-        wp_send_json_error('Calendar data file not found on server.', 404);
-    }
-
-    // 4. Set headers so the browser treats this as a JSON file
-    header('Content-Type: application/json; charset=utf-8');
-    header('Access-Control-Allow-Origin: *'); // Good for cross-domain if needed
-
-    // 5. Read the file and spit it out
-    echo file_get_contents($path);
-    exit;
-}
 
 // Allow both logged-in users and guests to export events
 add_action('wp_ajax_hoa_export_event', 'hoa_ajax_export_event');
@@ -1171,7 +974,7 @@ function hoa_calendar_add_custom_meta_links( $plugin_meta, $plugin_file ) {
     if ( 'hoaplugin-calendar/hoaplugin-calendar.php' === $plugin_file ) {
 
         // 1. The User Manual Link
-        $docs_url = 'https://hoaplugin.com/documentation/?hoa_doc=12&zip=hoaplugin-calendar.zip';
+        $docs_url = 'https://hoaplugin.com/documentation/';
         $docs_link = '<a href="' . esc_url( $docs_url ) . '" target="_blank" style="font-weight: bold; color: #2271b1;">📖 User Manual</a>';
         $plugin_meta[] = $docs_link;
 
@@ -1187,3 +990,6 @@ function hoa_calendar_add_custom_meta_links( $plugin_meta, $plugin_file ) {
 
     return $plugin_meta;
 }
+
+
+

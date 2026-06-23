@@ -872,6 +872,9 @@ function renderFlyerThumb(eventObj) {
     }
 
     let thumbSrc = "";
+    // Safely encoded inline SVGs so we never have to worry about broken image paths
+    const fallbackPdfIcon = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d32f2f'%3E%3Cpath d='M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z'/%3E%3C/svg%3E";
+    const fallbackGenericIcon = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230288d1'%3E%3Cpath d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/%3E%3C/svg%3E";
 
     // CASE 1 — Image flyer
     if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url)) {
@@ -880,23 +883,22 @@ function renderFlyerThumb(eventObj) {
 
     // CASE 2 — PDF flyer
     else if (/\.pdf$/i.test(url)) {
-        thumbSrc = hoa_config.pdf_icon || "/wp-content/plugins/hoaplugin-calendar/assets/img/pdf-icon.png";
+        thumbSrc = fallbackPdfIcon;
     }
 
-    // CASE 3 — Website URL → use favicon
+    // CASE 3 — Website URL  
     else if (/^https?:\/\//i.test(url)) {
         try {
             const urlObj = new URL(url);
             thumbSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
         } catch (err) {
-            // fallback favicon
-            thumbSrc = `https://www.google.com/s2/favicons?domain=${window.location.hostname}&sz=128`;
+            thumbSrc = fallbackGenericIcon;
         }
     }
 
     // CASE 4 — Unknown type → fallback icon
     else {
-        thumbSrc = hoa_config.flyer_fallback || "/wp-content/plugins/hoaplugin-calendar/assets/img/flyer-icon.png";
+        thumbSrc = fallbackGenericIcon;
     }
 
     // Return safe, non-navigating HTML

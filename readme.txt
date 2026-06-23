@@ -4,7 +4,7 @@ Tags: calendar, events, hoa, scheduling, community
 Requires at least: 5.8
 Tested up to: 6.5
 Requires PHP: 8.0
-Stable tag: 1.0.0
+Stable tag: 1.1.25
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -52,5 +52,5 @@ For busy volunteers looking for a true, effortless "What-You-See-Is-What-You-Get
 
 == Changelog ==
 
-= 1.0.0 =
+= 1.1.23 =
 * Initial release on the WordPress plugin repository.
