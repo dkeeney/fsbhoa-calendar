@@ -11,7 +11,7 @@ The application is built to handle complex recurring event logic (including exce
 * **Author:** David Keeney
 * **Contact:** dkeeney@gmail.com
 * **Role:** Chairperson, FSBHOA IT/Website Committee
-* **License:** Open Source, licensed under the MIT License - see the LICENSE file for details.
+* **License:** Open Source, licensed under the GPLv3
 * **Design Tool:** Gemini 2.5 pro, 3.1 pro, 3.5 flash.
 
 
@@ -27,7 +27,7 @@ The application is built to handle complex recurring event logic (including exce
 * **Frontend:** Vanilla JavaScript, CSS3, HTML5
 * **Playwright:** (Node.js) for UI regression testing.
 * **Canva:** used for generating monthly background zip files.
-* **Composer and RRule:** for dependancy installation
+* **Composer and RRule:** for dependency installation
 
 ---
 
@@ -53,10 +53,10 @@ A clean, high-level map of the plugin architecture. Standard vendor directories,
 
 ```
 
-## 🚀 Development environent
+## 🚀 Development environment
 To setup the development and build environment on a Linux system running WordPress.
 ### 1. Obtain the repository by cloning from github https://github.com/dkeeney/fsbhoa-calendar.git
-### 2. Install dependancies using Composer
+### 2. Install dependencies using Composer
  Run the following command in the plugin root to install the `rlanvin/php-rrule` package and generate the `vendor/` folder:
    ```bash
    composer install
@@ -135,20 +135,20 @@ After any edit action the compiler is called to regenerate the .json file contai
 * **Backend Action:** Inserts a child record on that specific date with the status set to `cancelled`. The Compiler will skip this date when generating the JSON.
 
 * **Trigger:** User holds shift and drags an event instance to the header zone, or clicks "Terminate event".
-* **Backend Action:** Ends the event by changing the RRule on the most recent master or pivot record to include a termination date. No event instances are generated beyone that date.
+* **Backend Action:** Ends the event by changing the RRule on the most recent master or pivot record to include a termination date. No event instances are generated beyond that date.
 
 ### 5. The Restorations
 * **Trigger:** User clicks "Restore Instance" or "Resume Series."
 * **Backend Action (`restore_hole` / `resume_series`):** Deletes the specific `cancelled` row from the database, or strips the `UNTIL` clause from an RRule, instantly reverting the calendar grid back to its natural recurring state.
 
 ## F. Pivot Behavior
-As stated previously, a pivot is a change in the pattern during a repeating event. Associated with a pivoit is a base date/time.  This is usually the date that would have been the last instance of the previous sequence. Anything on or after this date will be in the new pattern.  
+As stated previously, a pivot is a change in the pattern during a repeating event. Associated with a pivot is a base date/time.  This is usually the date that would have been the last instance of the previous sequence. Anything on or after this date will be in the new pattern.  
 
 A pivot is a child record of the master and has the parent_id of the master.  There can be any number of pivot child records, ordered by its start date, and each represents a change in pattern.
 
 When the pattern on an instance changes, all child records downstream from it are removed. This means that all instances subsequent to this date change to the new pattern.
 
-Note that the start date on the master record is the base date and is not neccessarally the date of the first instance. This could happen if an RRule specifies a pattern for which the base date would not be a member.  For example if a Tuseday is selected to create a pattern and the pattern was for every Monday, the first instance would be the following Monday.
+Note that the start date on the master record is the base date and is not necessarily the date of the first instance. This could happen if an RRule specifies a pattern for which the base date would not be a member.  For example if a Tuesday is selected to create a pattern and the pattern was for every Monday, the first instance would be the following Monday.
 
 The date on a pivot would be the base date of the new sequence which is a date which would have been the last date of the previous sequence.  The first intance of the pivot would be the first intance of the new RRule following that date.
 
@@ -159,9 +159,9 @@ Edge cases:
 
 * **Change RRule on first instance following a pivot** If the RRule changes on the first instance created by the original RRule on a pivot is changed, it should not create a new pivot record but rather it should just change the pattern on the pivot record (and remove all downstream records).
 
-* **Change RRule on a subsequent instance**  If an instance after the first instance of a master or pivoit is changed, a new pivot record is created. The RRule on the previous master or pivot will be stop being the rule-in-effect. The RRule on the new pivot will then determine the next instance of the event.
+* **Change RRule on a subsequent instance**  If an instance after the first instance of a master or pivot is changed, a new pivot record is created. The RRule on the previous master or pivot will be stop being the rule-in-effect. The RRule on the new pivot will then determine the next instance of the event.
 
-* **Bomerang** If the first instance of a series is modified with a new date that matches what would have been the next instnace of the previous series (which also is the date of the pivot that is in effect), AND the RRule and time are the same as the previous record, the current pivot record is updated with the new DNA and downstream records are removed.  This is not entirely self healing in that there will be two pivot records with the same DNA but the display and all operations are not affected.
+* **Bomerang** If the first instance of a series is modified with a new date that matches what would have been the next instance of the previous series (which also is the date of the pivot that is in effect), AND the RRule and time are the same as the previous record, the current pivot record is updated with the new DNA and downstream records are removed.  This is not entirely self healing in that there will be two pivot records with the same DNA but the display and all operations are not affected.
 
 * **Reschedules and Cancellations**  If a single instance of a series is rescheduled, a move record is created as a child record of the master and references the master id and the new date where the instance will be displayed. It also generates a hole record at the location of the original instance to suppress the display of the original instance. The master or pivot is not affected.  If a single instance of a sequence is cancelled, a hole child record is generated with the date of the original instance.
 

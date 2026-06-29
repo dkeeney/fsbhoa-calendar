@@ -212,28 +212,44 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 
+    // --- PRO FEATURE GATEWAY: EXPORT & PRINT ---
+
+    // 1. Standard PDF Print Button
     const printBtn = document.getElementById('printCal');
     if (printBtn) {
-      printBtn.onclick = function() {
+        printBtn.onclick = function() {
+            triggerProExportFlow('pdf');
+        };
+    }
 
+    // 2. High-Res PNG Button
+    const pngBtn = document.getElementById('downloadPng');
+    if (pngBtn) {
+        pngBtn.onclick = function() {
+            triggerProExportFlow('png');
+        };
+    }
+
+    // Shared Loader and Upsell Hook
+    function triggerProExportFlow(mode) {
         if (!hoa_config.is_pro) {
-            alert("🖨️ 11x17 Newsletter Export is a Premium feature.\n\nUpgrade to HOAplugin Calendar Pro to instantly generate, tabloid-ready PDFs of your monthly calendar for your community newsletter!");
+            alert("🖨️ High-Res Export & Printing is a Premium feature.\n\nUpgrade to HOAplugin Calendar Pro to instantly generate tabloid-ready PDFs and Canva-ready PNGs for your community newsletter!");
             return;
         }
-        // Check if the script is already loaded
+
+        // Pass the mode ('pdf' or 'png') as the 5th parameter
         if (typeof openPrintPreview === 'function') {
-            initPrintModule(window.currentYear, window.currentMonth, allEvents, window.currentBackgroundUrl);
+            initPrintModule(window.currentYear, window.currentMonth, window.allEvents, window.currentBackgroundUrl, mode);
         } else {
-                const printScript = document.createElement('script');
-                printScript.src = hoa_config.print_js_url + '?v=' + hoa_config.version;
-                printScript.onerror = () => alert("Error loading Pro Print Engine.");
-                printScript.onload = () => {
-                    initPrintModule(window.currentYear, window.currentMonth, allEvents, window.currentBackgroundUrl);
-                };
-                document.head.appendChild(printScript);
+            const printScript = document.createElement('script');
+            printScript.src = hoa_config.print_js_url + '?v=' + hoa_config.version;
+            printScript.onerror = () => alert("Error loading Pro Print Engine.");
+            printScript.onload = () => {
+                initPrintModule(window.currentYear, window.currentMonth, window.allEvents, window.currentBackgroundUrl, mode);
+            };
+            document.head.appendChild(printScript);
         }
-      };
-   }
+    }
 
 
 

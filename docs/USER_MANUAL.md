@@ -15,7 +15,7 @@ Welcome to the complete website calendar tailored specifically for HOA communiti
 
 ## 1.1 Installing the Free Base Version
 
-The HOAplugin Calendar operates on a "Core + Pro" system. The free base version provides the essential calendar framework.
+The HOAplugin Calendar comes in two versions. The free base version provides the essential calendar framework.  The Pro version is the same as the free base version but adds Pro features and includes updates and support.
 
 1. Log into your website's WordPress Dashboard as an Administrator. Access the Dashboard via the dropdown in upper left of screen.
 2. On the left-hand menu, hover over **Plugins** and click **Add New Plugin**.
@@ -37,6 +37,7 @@ To unlock premium features like visual drag-and-drop rescheduling, 11x17 PDF pri
 4. **Activate plugin:** Once installed, click the blue **Activate Plugin** button.
 5. **Enter your License Key:** In your left-hand WordPress dashboard menu, click the **HOAplugin Calendar** menu item. Then, click the **Pro License** tab located at the top of the settings page.
 6. Paste your License Key into the box and click **Activate License**. Your premium features are now unlocked!
+7. If you previously installed the Free version of HOAplugin Calendar, it may be safely deleted.
 
 > **Administrators on a WordPress Multisite:** If you manage a complex network of multiple community sub-sites, you can purchase multiple Pro license slots and utilize a single Pro license code across all of your sites. Through the central license portal, you can easily map, add, or revoke the specific websites assigned to each of your purchased license slots using the [HOAplugin.com/manage-license](Manage license) page.
 
@@ -313,17 +314,34 @@ You can cancel events by dragging them off the grid and dropping them into the m
 
 # Chapter 8: 11x17 Newsletter Printing (Pro Feature)
 
-The Pro version includes a dedicated layout compiler that packages your digital event logs into a high-density, tabloid-sized printing sheet for physical community newsletters.
+The calendar includes a built-in export engine designed to generate both casual printouts and commercial-grade graphics for the community newsletter. 
 
-1. Navigate to the calendar page on the public side of your website.
-2. Click the **Print (PDF)** button located in the bottom-right footer toolbar.
-3. A clean browser preview window will pop up, rendering your events perfectly scaled over your custom monthly background. Long titles naturally wrap into multiple rows, and vector category icons print in full color.
-4. **Critical Printer Settings:** When your computer's print dialog opens:
-   * Change the Paper Size to **Tabloid**, **11x17**, or **Ledger**.
-   * Set orientation to **Landscape**.
-   * Set margins to **None** or **Default**.
-   * Make sure **Background Graphics** is checked **ON**. (If unchecked, your computer will strip out your custom backgrounds).
-5. Print to paper, or choose **Save as PDF** to upload the sheet into design software like Canva.
+At the bottom right of the monthly calendar view, Pro users will see two export options: **Print (PDF)** and **Download (PNG)**.
+
+### Option 1: Standard Print (For the Fridge or Notice Board)
+Use this option when you need a quick, readable copy of the calendar on a standard 8.5" x 11" piece of paper.
+
+1. Click the **Print (PDF)** button on the calendar toolbar.
+2. A print preview window will briefly open, followed immediately by your browser's standard Print Dialog.
+3. Ensure your printer is set to **Landscape** orientation.
+4. Set the Scale option to **Default** (the system will automatically shrink the calendar perfectly to fit the page margins).
+5. Click **Print**.
+
+### Option 2: High-Resolution Export (For the Canva Newsletter)
+Use this option to generate a massive, pixel-perfect 5100x3300px image of the calendar designed specifically to be dropped into a two-page centerfold layout in Canva.
+
+**Generating the File:**
+1. Click the green **Download (PNG)** button.
+2. A "Generating High-Res Image" screen will appear while the system calculates the layout.
+3. Within a few seconds, a high-resolution image file (e.g., `HOA-Calendar-03-2026-HighRes.png`) will automatically save to your computer's Downloads folder.
+
+**Placing it in Canva:**
+1. Open your newsletter project in Canva.
+2. In the top menu, click **File > View settings > Show print bleed** to reveal the dashed layout borders.
+3. Upload the high-res PNG file you just generated into your Canva Uploads folder.
+4. **Left Page:** Drag the image onto the left half of your centerfold. Snap the *left-hand edge* of the image flush against the left side bleed line. Then, grab the upper right corner and pull it upward and outward until the top hits the dashed print bleed line.  Then pull the right bottom corner down and out until the bottem edge snaps to the bottom bleed line.
+
+5. **Right Page:** Drag the exact same image onto the right half of your centerfold. Snap the *right-hand edge* of the image flush against the right side bleed line, and pull the left top corner until the top snaps to the top bleed line. Pull the left bottom corner until it snaps the bottom of the image to the bottom bleed line.
 
 ---
 

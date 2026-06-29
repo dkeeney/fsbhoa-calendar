@@ -18,7 +18,7 @@ class Compiler {
         } else {
             // 2. Otherwise, check the DB option or use the WP default
             $upload_dir = wp_upload_dir();
-            $this->json_path = HOAPLUGIN_CALENDAR_DIR . '/calendar-events.json';
+            $this->json_path = HOAPLUGIN_DATA_DIR . '/calendar-events.json';
         }
     }
 

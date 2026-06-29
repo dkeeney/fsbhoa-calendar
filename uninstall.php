@@ -4,6 +4,17 @@ if ( ! defined( 'WP_UNINSTALL_PLUGIN' ) ) {
     die;
 }
 
+// ========================================================
+// DEFENSIVE ABORT: DO NOT DESTROY DATA IF PRO IS ACTIVE
+// ========================================================
+$active_plugins = apply_filters( 'active_plugins', get_option( 'active_plugins' ) );
+if ( in_array( 'hoaplugin-calendar-pro/hoaplugin-calendar-pro.php', $active_plugins ) ) {
+    // The user is just deleting the Free plugin to clean up their dashboard.
+    // The Pro plugin is still using this database table and upload folder.
+    // Exit silently and leave the data alone.
+    return;
+}
+
 // 2. Check if the user explicitly opted in to data destruction
 if ( get_option( 'hoaplugin_nuke_on_delete' ) == '1' ) {
 

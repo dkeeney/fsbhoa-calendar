@@ -11,16 +11,6 @@ vendor/
 
 calendar-events.json
 *.bak
+*.zip
 
-
-# Playwright stuff
-node_modules/
-**/test-results/
-**/playwright-report/
-.last-run.json
-**/storageState.json
-tests/state/
-tests/test-results/
-tests/playwright-report/
-fsbhoa-calendar.zip
 

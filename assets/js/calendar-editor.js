@@ -271,7 +271,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                 <div style="display: flex; gap: 10px; margin-top: 10px;">
                     <div style="flex: 2;">
                         <label style="font-size: 0.8rem;">New Date:</label><br>
-                        <input type="date" id="reschedule_date_input" name="move_to_date" value="${selectedDate}" style="width:100%; padding:5px;">
+                        <input type="date" id="reschedule_date_input" name="move_to_date" value="${selectedDate || activeDate}" style="width:100%; padding:5px;">
                     </div>
                     <div style="flex: 1;">
                         <label style="font-size: 0.8rem;">New Start Time:</label><br>
