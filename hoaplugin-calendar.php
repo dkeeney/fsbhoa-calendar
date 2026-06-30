@@ -3,7 +3,7 @@
  * Plugin Name: HOAplugin Calendar
  * Plugin URI:        https://hoaplugin.com
  * Description:       The complete website calendar talored for an HOA.
- * Version:           1.1.29
+ * Version:           1.1.30
  * Author:            David Keeney
  * AI Tool:           Gemini Pro 2.5 and 3.1
  * Company:           HOAplugin.com

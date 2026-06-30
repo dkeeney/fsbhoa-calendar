@@ -15,7 +15,7 @@ add_action('admin_menu', function() {
 });
 
 function hoa_render_settings_tabs() {
-    $active_tab = isset($_GET['tab']) ? $_GET['tab'] : 'settings';
+    $active_tab = isset($_GET['tab']) ? sanitize_text_field(wp_unslash($_GET['tab'])) : 'settings';
     ?>
     <div class="wrap">
         <h1>HOAPLUGIN Calendar Configuration</h1>
@@ -233,36 +233,36 @@ function hoa_render_location_manager() {
         $edit_loc = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $edit_id));
     }
 
+    $repo = hoa_get_repo();
+
     // 2. Handle Form Submission (Add or Update)
     if (isset($_POST['save_location'])) {
         check_admin_referer('hoa_location_action', 'hoa_loc_nonce');
-
         $loc_name = sanitize_text_field($_POST['loc_name']);
 
         if (!empty($loc_name)) {
+            $data = ['name' => $loc_name];
             if (!empty($_POST['loc_id'])) {
-                // UPDATE
-                $wpdb->update($table, ['name' => $loc_name], ['id' => intval($_POST['loc_id'])]);
+                $data['id'] = $_POST['loc_id'];
+                $repo->save_location($data);
                 echo '<div class="updated"><p>Location updated.</p></div>';
             } else {
-                // INSERT
-                $wpdb->insert($table, ['name' => $loc_name]);
+                $repo->save_location($data);
                 echo '<div class="updated"><p>Location added.</p></div>';
             }
 
-            $compiler = new HOAPLUGIN\Cal\Compiler();
+            $compiler = hoa_get_compiler();
             $compiler->bake();
-
-            // Clear edit mode
-            $edit_loc = null;
+            $edit_loc = null; // Clear edit mode
         }
     }
 
     // 3. Handle Deletion
     if (isset($_GET['delete_loc']) && isset($_GET['_wpnonce'])) {
         if (wp_verify_nonce($_GET['_wpnonce'], 'delete_loc_' . $_GET['delete_loc'])) {
-            $wpdb->delete($table, ['id' => intval($_GET['delete_loc'])]);
-            $compiler = new HOAPLUGIN\Cal\Compiler();
+            $repo->delete_location($_GET['delete_loc']);
+
+            $compiler = hoa_get_compiler();
             $compiler->bake();
             echo '<div class="updated"><p>Location deleted.</p></div>';
         }
@@ -338,39 +338,39 @@ function hoa_render_category_manager() {
         $edit_cat = $wpdb->get_row($wpdb->prepare("SELECT * FROM $table WHERE id = %d", $edit_id));
     }
 
+    $repo = hoa_get_repo();
+
     // 2. Handle Form Submission (Add or Update)
     if (isset($_POST['save_cat'])) {
         check_admin_referer('hoa_category_action', 'hoa_cat_nonce');
 
         $data = [
-            'name'      => sanitize_text_field($_POST['cat_name']),
-            'color_hex' => sanitize_hex_color($_POST['cat_color']),
-            'svg_path'  => hoa_sanitize_svg($_POST['svg_path']),
+            'name'            => sanitize_text_field($_POST['cat_name']),
+            'color_hex'       => sanitize_hex_color($_POST['cat_color']),
+            'svg_path'        => hoa_sanitize_svg($_POST['svg_path']),
             'delegate_emails' => sanitize_textarea_field($_POST['delegate_emails'] ?? '')
         ];
 
         if (!empty($_POST['cat_id'])) {
-            // UPDATE
-            $wpdb->update($table, $data, ['id' => intval($_POST['cat_id'])]);
+            $data['id'] = $_POST['cat_id'];
+            $repo->save_category($data);
             echo '<div class="updated"><p>Category updated.</p></div>';
         } else {
-            // INSERT
-            $wpdb->insert($table, $data);
+            $repo->save_category($data);
             echo '<div class="updated"><p>Category added.</p></div>';
         }
 
-        $compiler = new HOAPLUGIN\Cal\Compiler();
+        $compiler = hoa_get_compiler();
         $compiler->bake();
-
-        // Clear edit mode after save
-        $edit_cat = null;
+        $edit_cat = null; // Clear edit mode after save
     }
 
     // 3. Handle Deletion
     if (isset($_GET['delete_cat']) && isset($_GET['_wpnonce'])) {
         if (wp_verify_nonce($_GET['_wpnonce'], 'delete_cat_' . $_GET['delete_cat'])) {
-            $wpdb->delete($table, ['id' => intval($_GET['delete_cat'])]);
-            $compiler = new HOAPLUGIN\Cal\Compiler();
+            $repo->delete_category($_GET['delete_cat']);
+
+            $compiler = hoa_get_compiler();
             $compiler->bake();
             echo '<div class="updated"><p>Category deleted.</p></div>';
         }
@@ -612,18 +612,9 @@ function hoa_sanitize_svg($svg_str) {
 }
 
 function hoa_render_event_audit() {
-    global $wpdb;
-    $table_events = $wpdb->prefix . 'hoaplugin_events';
-    $table_cats   = $wpdb->prefix . 'hoaplugin_categories';
 
-    $results = $wpdb->get_results("
-        SELECT e.*, c.name as cat_name 
-        FROM $table_events e
-        LEFT JOIN $table_cats c ON e.category_id = c.id
-        ORDER BY COALESCE(e.parent_id, e.id) DESC, (CASE WHEN e.parent_id IS NULL THEN 0 ELSE 1 END) ASC, e.id ASC
-        LIMIT 200
-    ");
-
+    $repo = hoa_get_repo();
+    $results = $repo->get_audit_log_events(200);
     $today = date('Y-m-d');
     ?>
     <style>
@@ -658,7 +649,7 @@ function hoa_render_event_audit() {
     <div class="card" style="max-width: 100%; margin-top: 0; position: relative;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
             <h3 style="margin:0;">Database Audit Log</h3>
-            <span title="Add New Event" style="color:#0056b3; cursor:pointer; font-size:2.2rem; font-weight:900; line-height:1; padding: 0 10px;" onclick="openAddModal(null)">+</span>
+            <span title="Add New Event" style="color:#0056b3; cursor:pointer; font-size:2.2rem; font-weight:900; line-height:1; padding: 0 10px;" onclick="window.openAddModal(null)">+</span>
         </div>
 
         <table class="wp-list-table widefat fixed striped">
@@ -674,7 +665,6 @@ function hoa_render_event_audit() {
             </thead>
             <tbody>
                 <?php 
-                $repo = hoa_get_repo();
                 foreach ($results as $e) : 
                     $is_child = !empty($e->parent_id);
                     $is_hole = ($e->status === 'cancelled');
@@ -727,7 +717,7 @@ function hoa_render_event_audit() {
                             <?php if (!$is_hole): ?>
                                 <span title="Edit" 
                                      style="color:#f57c00; cursor:pointer; margin-right:12px;" 
-                                     onclick="handleEditClick(
+                                     onclick="window.handleEditClick(
                                          <?php echo $e->id; ?>, 
                                          '<?php echo $target_date; ?>', 
                                          '<?php echo $target_time; ?>',

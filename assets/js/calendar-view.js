@@ -1,17 +1,17 @@
 //   -- calendar-view.js  --
-window.config = window.config || {};
-// note: hoa_config is injected by PHP and is not the same as window.config.  
-window.allEvents = [];
-window.grid; 
-window.agendaContainer = null;
-window.display = null;
-window.currentView = 'month'; // 'month' or 'agenda'
-window.iconLibrary = {};
+window.hoaplugin_config = window.hoaplugin_config || {};
+// note: window.hoaplugin_data is injected by PHP and is not the same as window.hoaplugin_config.  
+window.hoaplugin_allEvents = [];
+window.hoaplugin_grid; 
+window.hoaplugin_agendaContainer = null;
+window.hoaplugin_display = null;
+window.hoaplugin_currentView = 'month'; // 'month' or 'agenda'
+window.hoaplugin_iconLibrary = {};
 
 // --- DATE DETECTION LOGIC --- (the month to show at start if not today)
 const urlParams = new URLSearchParams(window.location.search);
 const urlDateStr = urlParams.get('viewDate');
-window.currentViewDate = urlDateStr ? new Date(urlDateStr + 'T00:00:00') : new Date();
+window.hoaplugin_currentViewDate = urlDateStr ? new Date(urlDateStr + 'T00:00:00') : new Date();
 // Scrub the URL immediately so a manual "F5" refresh
 // doesn't keep the user trapped in that month forever.
 if (urlDateStr) {
@@ -34,26 +34,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- ADDED GUARDRAIL ---
     // 2. EXIT if on the Backend Dashboard. 
     // This stops the 404 fetches, DOM errors, and prevents it from overwriting the PHP config.
-    if (window.config && window.config.isDashboard) {
+    if (window.hoaplugin_config && window.hoaplugin_config.isDashboard) {
         return; 
     }
     // -----------------------
-    grid = document.getElementById('calendar-grid');
-    agendaContainer = document.getElementById('agenda-view');
-    display = document.getElementById('currentMonthDisplay');
+    window.hoaplugin_grid = document.getElementById('calendar-grid');
+    window.hoaplugin_agendaContainer = document.getElementById('agenda-view');
+    window.hoaplugin_display = document.getElementById('currentMonthDisplay');
 
 
     // 3. DETERMINE VIEW & CAPABILITY
     if (monthlyApp && agendaApp) {
         // BOTH ARE HERE: Enable switching and auto-detect width
-        window.isHybridPage = true;
-        if (!window.hasManuallyToggled) {
-            currentView = (window.innerWidth < 768) ? 'agenda' : 'month';
+        window.hoaplugin_isHybridPage = true;
+        if (!window.hoaplugin_hasManuallyToggled) {
+            window.hoaplugin_currentView = (window.innerWidth < 768) ? 'agenda' : 'month';
         }
     } else {
         // ONLY ONE IS HERE: Lock the view to what's available
-        window.isHybridPage = false;
-        currentView = monthlyApp ? 'month' : 'agenda';
+        window.hoaplugin_isHybridPage = false;
+        window.hoaplugin_currentView = monthlyApp ? 'month' : 'agenda';
 
         // Hide the view selector since they can't switch
         const selectors = document.querySelectorAll('#viewSelector, #viewSelectorAgenda');
@@ -61,25 +61,25 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const activeApp = monthlyApp || agendaApp;
-    config = {
+    window.hoaplugin_config = {
         jsonUrl: activeApp.dataset.jsonUrl,
         userEmail: activeApp.dataset.userEmail,
         isAdmin: activeApp.dataset.isAdmin === 'true',
-        printJsUrl: hoa_config.print_js_url
+        printJsUrl: window.hoaplugin_data.print_js_url
     };
 
     // Calculate the min and max allowed dates
     const today = new Date();
     // We use parseInt to ensure "1" becomes 1, and window. prefix to make them globally accessible
-    window.fsbMinTime = new Date(
+    window.hoaplugin_fsbMinTime = new Date(
         today.getFullYear(),
-        today.getMonth() - parseInt(hoa_config.past_limit),
+        today.getMonth() - parseInt(window.hoaplugin_data.past_limit),
         1
     ).getTime();
 
-    window.fsbMaxTime = new Date(
+    window.hoaplugin_fsbMaxTime = new Date(
         today.getFullYear(),
-        today.getMonth() + parseInt(hoa_config.future_limit),
+        today.getMonth() + parseInt(window.hoaplugin_data.future_limit),
         1
     ).getTime();
 
@@ -106,11 +106,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Attach logic to every 'Prev' button found
     prevBtns.forEach(btn => {
         btn.onclick = () => {
-            let testDate = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth() - 1, 1).getTime();
-            if (testDate >= window.fsbMinTime) {
+            let testDate = new Date(window.hoaplugin_currentViewDate.getFullYear(), window.hoaplugin_currentViewDate.getMonth() - 1, 1).getTime();
+            if (testDate >= window.hoaplugin_fsbMinTime) {
                 // STRIP FLAG BEFORE RE-RENDER
                 document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
-                currentViewDate.setMonth(currentViewDate.getMonth() - 1);
+                window.hoaplugin_currentViewDate.setMonth(window.hoaplugin_currentViewDate.getMonth() - 1);
                 render();
             } else {
                 console.log("Navigation blocked: Past limit reached.");
@@ -121,11 +121,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Attach logic to every 'Next' button found
     nextBtns.forEach(btn => {
         btn.onclick = () => {
-            let testDate = new Date(currentViewDate.getFullYear(), currentViewDate.getMonth() + 1, 1).getTime();
-            if (testDate <= window.fsbMaxTime) {
+            let testDate = new Date(window.hoaplugin_currentViewDate.getFullYear(), window.hoaplugin_currentViewDate.getMonth() + 1, 1).getTime();
+            if (testDate <= window.hoaplugin_fsbMaxTime) {
                 // STRIP FLAG BEFORE RE-RENDER
                 document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
-                currentViewDate.setMonth(currentViewDate.getMonth() + 1);
+                window.hoaplugin_currentViewDate.setMonth(window.hoaplugin_currentViewDate.getMonth() + 1);
                 render();
             } else {
                 console.log("Navigation blocked: Future limit reached.");
@@ -140,7 +140,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.onclick = () => {
             // STRIP FLAG BEFORE RE-RENDER
             document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
-            currentViewDate = new Date();
+            window.hoaplugin_currentViewDate = new Date();
             render();
         };
     });
@@ -170,8 +170,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const viewToggles = document.querySelectorAll('#viewToggle');
     viewToggles.forEach(toggle => {
         toggle.onchange = (e) => {
-            window.hasManuallyToggled = true;
-            currentView = e.target.checked ? 'agenda' : 'month';
+            window.hoaplugin_hasManuallyToggled = true;
+            window.hoaplugin_currentView = e.target.checked ? 'agenda' : 'month';
             document.querySelectorAll('#viewToggle').forEach(t => {
                 t.checked = e.target.checked;
             });
@@ -212,55 +212,14 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
 
-    // --- PRO FEATURE GATEWAY: EXPORT & PRINT ---
-
-    // 1. Standard PDF Print Button
-    const printBtn = document.getElementById('printCal');
-    if (printBtn) {
-        printBtn.onclick = function() {
-            triggerProExportFlow('pdf');
-        };
-    }
-
-    // 2. High-Res PNG Button
-    const pngBtn = document.getElementById('downloadPng');
-    if (pngBtn) {
-        pngBtn.onclick = function() {
-            triggerProExportFlow('png');
-        };
-    }
-
-    // Shared Loader and Upsell Hook
-    function triggerProExportFlow(mode) {
-        if (!hoa_config.is_pro) {
-            alert("🖨️ High-Res Export & Printing is a Premium feature.\n\nUpgrade to HOAplugin Calendar Pro to instantly generate tabloid-ready PDFs and Canva-ready PNGs for your community newsletter!");
-            return;
-        }
-
-        // Pass the mode ('pdf' or 'png') as the 5th parameter
-        if (typeof openPrintPreview === 'function') {
-            initPrintModule(window.currentYear, window.currentMonth, window.allEvents, window.currentBackgroundUrl, mode);
-        } else {
-            const printScript = document.createElement('script');
-            printScript.src = hoa_config.print_js_url + '?v=' + hoa_config.version;
-            printScript.onerror = () => alert("Error loading Pro Print Engine.");
-            printScript.onload = () => {
-                initPrintModule(window.currentYear, window.currentMonth, window.allEvents, window.currentBackgroundUrl, mode);
-            };
-            document.head.appendChild(printScript);
-        }
-    }
-
-
-
 
     /* "Rotate Tablet" Listener */
     window.addEventListener('resize', () => {
-        if (window.isHybridPage && !window.hasManuallyToggled) {
+        if (window.hoaplugin_isHybridPage && !window.hoaplugin_hasManuallyToggled) {
             const newView = (window.innerWidth < 768) ? 'agenda' : 'month';
-            if (newView !== currentView) {
-                currentView = newView;
-                document.querySelectorAll('.viewToggle').forEach(t => t.checked = (currentView === 'agenda'));
+            if (newView !== window.hoaplugin_currentView) {
+                window.hoaplugin_currentView = newView;
+                document.querySelectorAll('.viewToggle').forEach(t => t.checked = (window.hoaplugin_currentView === 'agenda'));
                 // STRIP FLAG BEFORE RE-RENDER
                 document.getElementById('hoa-calendar-app')?.removeAttribute('data-render-complete');
                 render();
@@ -279,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
     let lastTargetKey = null; // Stores "date-type" to prevent redundant re-draws
 
     document.addEventListener('mousemove', (e) => {
-        if (grid.classList.contains('magnifier-disabled') || grid.classList.contains('is-dragging')) {
+        if (window.hoaplugin_grid.classList.contains('magnifier-disabled') || window.hoaplugin_grid.classList.contains('is-dragging')) {
             // Clean up any stray shards before returning
             if (activeShard) {
                 activeShard.remove();
@@ -394,19 +353,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 async function loadData() {
         try {
-            const response = await fetch(config.jsonUrl);
+            const response = await fetch(window.hoaplugin_config.jsonUrl);
             const data = await response.json();
-            allEvents = data.events || [];
-            window.eventInstances = {};
+            window.hoaplugin_allEvents = data.events || [];
+            window.hoaplugin_eventInstances = {};
             // build an index of events so events can be passed by reference to instance_id.
-            allEvents.forEach(ev => {
-                eventInstances[ev.instance_id] = ev;
+            window.hoaplugin_allEvents.forEach(ev => {
+                window.hoaplugin_eventInstances[ev.instance_id] = ev;
             });
-            iconLibrary = { ...iconLibrary, ...(data.icons || {}) };
+            window.hoaplugin_iconLibrary = { ...window.hoaplugin_iconLibrary, ...(data.icons || {}) };
             render();
         } catch (e) {
             console.error("HOAplugin Calendar Error:", e);
-            grid.innerHTML = '<div style="padding:20px; color:red;">Failed to load calendar data.</div>';
+            window.hoaplugin_grid.innerHTML = '<div style="padding:20px; color:red;">Failed to load calendar data.</div>';
         }
 }
 
@@ -418,11 +377,11 @@ function render() {
     const agendaWrapper = document.getElementById('hoa-agenda-wrapper');
 
     // 1. RESPONSIVE AUTO-SWITCH (Only if both exist and user hasn't touched the toggle)
-    if (monthlyWrapper && agendaWrapper && !window.hasManuallyToggled) {
-        currentView = (window.innerWidth < 768) ? 'agenda' : 'month';
+    if (monthlyWrapper && agendaWrapper && !window.hoaplugin_hasManuallyToggled) {
+        window.hoaplugin_currentView = (window.innerWidth < 768) ? 'agenda' : 'month';
         // Sync the checkbox visual
         document.querySelectorAll('.viewToggle').forEach(t => {
-            t.checked = (currentView === 'agenda');
+            t.checked = (window.hoaplugin_currentView === 'agenda');
         });
     }
 
@@ -430,16 +389,16 @@ function render() {
 
 
     // 2. DATE GLOBALS (Needed for Navigation & Guardrails)
-    const year = currentViewDate.getFullYear();
-    const month = currentViewDate.getMonth();
-    window.currentYear = year;
-    window.currentMonth = month;
+    const year = window.hoaplugin_currentViewDate.getFullYear();
+    const month = window.hoaplugin_currentViewDate.getMonth();
+    window.hoaplugin_currentYear = year;
+    window.hoaplugin_currentMonth = month;
 
     // 3. NAV GUARDRAILS (Keeps users within your past/future limits)
     updateNavGuardrails(year, month);
     
     // 4. THE TOGGLE & RENDER LOGIC
-    if (currentView === 'month' && monthlyWrapper) {
+    if (window.hoaplugin_currentView === 'month' && monthlyWrapper) {
         // Show Monthly, Kill Agenda
         monthlyWrapper.style.display = 'flex';
         if (agendaWrapper) agendaWrapper.style.display = 'none';
@@ -453,7 +412,7 @@ function render() {
         updateBackground(monthlyApp, year, month);
         renderMonthGrid(monthlyApp);
     } 
-    else if (currentView === 'agenda' && agendaWrapper) {
+    else if (window.hoaplugin_currentView === 'agenda' && agendaWrapper) {
         // Show Agenda, Kill Monthly
         agendaWrapper.style.display = 'flex';
         if (monthlyWrapper) monthlyWrapper.style.display = 'none';
@@ -472,12 +431,12 @@ function render() {
 
 
 function updateNavGuardrails(year, month) {
-    const isAtPrevLimit = (new Date(year, month - 1, 1).getTime()) < window.fsbMinTime;
-    const isAtNextLimit = (new Date(year, month + 1, 1).getTime()) > window.fsbMaxTime;
+    const isAtPrevLimit = (new Date(year, month - 1, 1).getTime()) < window.hoaplugin_fsbMinTime;
+    const isAtNextLimit = (new Date(year, month + 1, 1).getTime()) > window.hoaplugin_fsbMaxTime;
 
     // Target the arrows based on active view
-    let prev = document.getElementById(currentView === 'month' ? 'prevMonth' : 'prevMonthAgenda');
-    let next = document.getElementById(currentView === 'month' ? 'nextMonth' : 'nextMonthAgenda');
+    let prev = document.getElementById(window.hoaplugin_currentView === 'month' ? 'prevMonth' : 'prevMonthAgenda');
+    let next = document.getElementById(window.hoaplugin_currentView === 'month' ? 'nextMonth' : 'nextMonthAgenda');
 
     if (prev) {
         prev.style.opacity = isAtPrevLimit ? "0.3" : "1";
@@ -493,8 +452,8 @@ function updateNavGuardrails(year, month) {
 function renderMonthGrid(monthlyApp) {
     const grid = monthlyApp.querySelector('#calendar-grid');
     if (!grid) return;
-    const year = window.currentYear;
-    const month = window.currentMonth;
+    const year = window.hoaplugin_currentYear;
+    const month = window.hoaplugin_currentMonth;
     const now = new Date();
     const todayStr = [
         now.getFullYear(),
@@ -504,7 +463,7 @@ function renderMonthGrid(monthlyApp) {
 
     const rawFirstDay = new Date(year, month, 1).getDay(); // 0-6 (Sun-Sat)
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const startOffset = parseInt(window.hoa_config.start_day) || 0; // 0=Sun, 1=Mon
+    const startOffset = parseInt(window.hoaplugin_data.start_day) || 0; // 0=Sun, 1=Mon
 
     // 1. DETERMINE THE CALENDAR STATE
     let mode = 'standard';
@@ -570,7 +529,7 @@ function renderMonthGrid(monthlyApp) {
         else appEl.removeAttribute('data-has-split-cell');
     }
 
-    const canCreate = config.isAdmin || (hoa_config.delegated_categories && hoa_config.delegated_categories.length > 0);
+    const canCreate = window.hoaplugin_config.isAdmin || (window.hoaplugin_data.delegated_categories && window.hoaplugin_data.delegated_categories.length > 0);
     grid.innerHTML = '';
 
     for (let i = 0; i < 35; i++) {
@@ -592,9 +551,9 @@ function renderMonthGrid(monthlyApp) {
         const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
         const isPast = dateStr < todayStr;
         const isToday = new Date().toDateString() === new Date(year, month, d).toDateString();
-        const dayEvents = allEvents.filter(e => e.date === dateStr);
-        const bars = dayEvents.filter(e => !iconLibrary[e.category_id]);
-        const icons = dayEvents.filter(e => iconLibrary[e.category_id]);
+        const dayEvents = window.hoaplugin_allEvents.filter(e => e.date === dateStr);
+        const bars = dayEvents.filter(e => !window.hoaplugin_iconLibrary[e.category_id]);
+        const icons = dayEvents.filter(e => window.hoaplugin_iconLibrary[e.category_id]);
 
         grid.innerHTML += `
             <div class="calendar-day day-content ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}"
@@ -640,9 +599,9 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 
     const splitStateClass = stateClasses.join(' ');
 
-    const evtsA = allEvents.filter(e => e.date === dateA);
-    const evtsB = allEvents.filter(e => e.date === dateB);
-    const canCreate = config.isAdmin || (hoa_config.delegated_categories && hoa_config.delegated_categories.length > 0);
+    const evtsA = window.hoaplugin_allEvents.filter(e => e.date === dateA);
+    const evtsB = window.hoaplugin_allEvents.filter(e => e.date === dateB);
+    const canCreate = window.hoaplugin_config.isAdmin || (window.hoaplugin_data.delegated_categories && window.hoaplugin_data.delegated_categories.length > 0);
 
     return `
     <div class="calendar-day split-cell ${splitStateClass}"
@@ -658,19 +617,19 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
             <div class="events-layer layer-bg" aria-hidden="true">
                 <div class="day-top" style="visibility: hidden;"></div>
                 <div class="day-events">
-                    ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
+                    ${renderEvents(evtsA.filter(e => !window.hoaplugin_iconLibrary[e.category_id]))}
                 </div>
             </div>
             <div class="events-layer layer-text">
                 <div class="day-top" style="visibility: hidden;"></div>
                 <div class="day-events">
-                    ${renderEvents(evtsA.filter(e => !iconLibrary[e.category_id]))}
+                    ${renderEvents(evtsA.filter(e => !window.hoaplugin_iconLibrary[e.category_id]))}
                 </div>
             </div>
 
             <div class="day-top">
                 <div class="day-number">${topDay}</div>
-                <div class="day-icons-corner">${renderIcons(evtsA.filter(e => iconLibrary[e.category_id]), dateA)}</div>
+                <div class="day-icons-corner">${renderIcons(evtsA.filter(e => window.hoaplugin_iconLibrary[e.category_id]), dateA)}</div>
                 ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>` : ''}
             </div>
         </div>
@@ -681,20 +640,20 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 
             <div class="events-layer layer-bg" aria-hidden="true">
                 <div class="day-events-bottom">
-                    ${renderEvents(evtsB.filter(e => !iconLibrary[e.category_id]))}
+                    ${renderEvents(evtsB.filter(e => !window.hoaplugin_iconLibrary[e.category_id]))}
                 </div>
                 <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
 
             <div class="events-layer layer-text">
                 <div class="day-events-bottom">
-                    ${renderEvents(evtsB.filter(e => !iconLibrary[e.category_id]))}
+                    ${renderEvents(evtsB.filter(e => !window.hoaplugin_iconLibrary[e.category_id]))}
                 </div>
                 <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
             <div class="day-bottom">
                 ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>` : ''}
-                <div class="day-icons-corner">${renderIcons(evtsB.filter(e => iconLibrary[e.category_id]), dateB)}</div>
+                <div class="day-icons-corner">${renderIcons(evtsB.filter(e => window.hoaplugin_iconLibrary[e.category_id]), dateB)}</div>
                 <div class="day-number">${botDay}</div>
             </div>
         </div>
@@ -706,12 +665,12 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 function renderIcons(icons, dateStr) {
     return icons.map(e => {
         //  Only show the pencil if they have permission AND we aren't in the agenda
-        const isCatDelegate = hoa_config.delegated_categories && hoa_config.delegated_categories.includes(parseInt(e.category_id));
+        const isCatDelegate = window.hoaplugin_data.delegated_categories && window.hoaplugin_data.delegated_categories.includes(parseInt(e.category_id));
         const canEdit =
             window.handleAddEventFromModal &&
-            ((config.isAdmin || isCatDelegate || (e.owner_email && config.userEmail && e.owner_email.toLowerCase() === config.userEmail.toLowerCase()))
-            && currentView !== 'agenda');
-        let svgContent = iconLibrary[e.category_id] || '';
+            ((window.hoaplugin_config.isAdmin || isCatDelegate || (e.owner_email && window.hoaplugin_config.userEmail && e.owner_email.toLowerCase() === window.hoaplugin_config.userEmail.toLowerCase()))
+            && window.hoaplugin_currentView !== 'agenda');
+        let svgContent = window.hoaplugin_iconLibrary[e.category_id] || '';
 
         if (svgContent) {
             // We only need the color here; we've moved the click and height logic to the parent
@@ -722,7 +681,7 @@ function renderIcons(icons, dateStr) {
         return `
             <div class="corner-unit event-item"
                  title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
-                 draggable="${(canEdit && hoa_config.is_pro) ? 'true' : 'false'}"
+                 draggable="${(canEdit && window.hoaplugin_data.is_pro) ? 'true' : 'false'}"
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${e.move_id || ''}"
@@ -760,32 +719,32 @@ function renderAgendaView(agendaApp) {
 
     if (prevAgendaBtn) {
         prevAgendaBtn.onclick = () => {
-            currentViewDate.setMonth(currentViewDate.getMonth() - 1);
+            window.hoaplugin_currentViewDate.setMonth(window.hoaplugin_currentViewDate.getMonth() - 1);
             render();
         };
     }
 
     if (nextAgendaBtn) {
         nextAgendaBtn.onclick = () => {
-            currentViewDate.setMonth(currentViewDate.getMonth() + 1);
+            window.hoaplugin_currentViewDate.setMonth(window.hoaplugin_currentViewDate.getMonth() + 1);
             render();
         };
     }
 
     // 2. Calculate the Month Name
     const todayStr = new Date().toISOString().split('T')[0];
-    const monthName = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(currentViewDate);
+    const monthName = new Intl.DateTimeFormat('en-US', { month: 'long', year: 'numeric' }).format(window.hoaplugin_currentViewDate);
 
     // 3. Setup the skeleton inside the agenda container
     const sticky = agendaApp.querySelector('#agenda-sticky-header');
-    console.log('sticky =', sticky, 'monthName =', monthName, ' currentViewDate=', currentViewDate);
+    console.log('sticky =', sticky, 'monthName =', monthName, ' currentViewDate=', window.hoaplugin_currentViewDate);
     sticky.textContent = monthName;
 
     // 4. Filter and Sort Events (Same logic as yours, which is solid)
-    const targetMonth = currentViewDate.getMonth();
-    const targetYear = currentViewDate.getFullYear();
+    const targetMonth = window.hoaplugin_currentViewDate.getMonth();
+    const targetYear = window.hoaplugin_currentViewDate.getFullYear();
 
-    const monthEvents = allEvents.filter(e => {
+    const monthEvents = window.hoaplugin_allEvents.filter(e => {
         const d = new Date(e.date + 'T00:00:00');
         return d.getMonth() === targetMonth && d.getFullYear() === targetYear;
     });
@@ -814,7 +773,7 @@ function renderAgendaView(agendaApp) {
         // DAY HEADER BLOCK
         if (e.date !== lastDate) {
             const dayIcons = monthEvents.filter(iconEvt =>
-                iconEvt.date === e.date && iconLibrary[iconEvt.category_id]
+                iconEvt.date === e.date && window.hoaplugin_iconLibrary[iconEvt.category_id]
             );
 
             html += `
@@ -832,7 +791,7 @@ function renderAgendaView(agendaApp) {
         }
 
         // EVENT ROW BLOCK (Only for non-icon events)
-        if (!iconLibrary[e.category_id]) {
+        if (!window.hoaplugin_iconLibrary[e.category_id]) {
             html += `
                 <div class="agenda-row ${isToday ? 'agenda-today-row' : ''}"
                       onclick="activateEventDetailClick(event, ${e.instance_id})">
@@ -904,12 +863,7 @@ function renderFlyerThumb(eventObj) {
 
     // CASE 3 — Website URL  
     else if (/^https?:\/\//i.test(url)) {
-        try {
-            const urlObj = new URL(url);
-            thumbSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
-        } catch (err) {
-            thumbSrc = fallbackGenericIcon;
-        }
+        thumbSrc = fallbackGenericIcon;
     }
 
     // CASE 4 — Unknown type → fallback icon
@@ -930,7 +884,7 @@ function activateEventDetailClick(e, instanceId) {
     e.preventDefault();
     e.stopPropagation();
 
-    const data = eventInstances[instanceId];
+    const data = window.hoaplugin_eventInstances[instanceId];
     if (!data) {
         console.error("Event instance not found:", instanceId);
         return;
@@ -954,12 +908,12 @@ function openDayModal(dateStr) {
     const content = document.getElementById('hoa-modal-content');
 
     // Find the events for this date from our global array
-    const events = allEvents.filter(e => e.date === dateStr);
+    const events = window.hoaplugin_allEvents.filter(e => e.date === dateStr);
 
     const dateObj = new Date(dateStr + 'T00:00:00');
     const title = dateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
     const dayIcons = events;
-    const canCreate = config.isAdmin || (hoa_config.delegated_categories && hoa_config.delegated_categories.length > 0);
+    const canCreate = window.hoaplugin_config.isAdmin || (window.hoaplugin_data.delegated_categories && window.hoaplugin_data.delegated_categories.length > 0);
 
     // heading
     let html = `
@@ -987,8 +941,8 @@ function openDayModal(dateStr) {
         html += '<ul class="modal-event-list" style="padding:0; list-style:none;">';
         events.forEach(e => {
             // who can edit?  The admin or the delegate.
-            const canEdit = config.isAdmin || 
-                (e.owner_email && e.owner_email.toLowerCase() === config.userEmail.toLowerCase());
+            const canEdit = window.hoaplugin_config.isAdmin || 
+                (e.owner_email && e.owner_email.toLowerCase() === window.hoaplugin_config.userEmail.toLowerCase());
             const webcal = getWebcalBtn(e.id);
 
             html += `
@@ -1052,20 +1006,20 @@ function renderEvents(events) {
     return events.map(e => {
         // --- THE GATEKEEPER ---
         // If it's a resident event and we don't have a user email, don't render anything
-        if (e.visibility && e.visibility === 'resident' && !config.userEmail) {
+        if (e.visibility && e.visibility === 'resident' && !window.hoaplugin_config.userEmail) {
             return '';
         }
-        const isCatDelegate = hoa_config.delegated_categories && hoa_config.delegated_categories.includes(parseInt(e.category_id));
-        const canEdit = config.isAdmin || isCatDelegate || (e.owner_email && config.userEmail && e.owner_email.toLowerCase() === config.userEmail.toLowerCase());
+        const isCatDelegate = window.hoaplugin_data.delegated_categories && window.hoaplugin_data.delegated_categories.includes(parseInt(e.category_id));
+        const canEdit = window.hoaplugin_config.isAdmin || isCatDelegate || (e.owner_email && window.hoaplugin_config.userEmail && e.owner_email.toLowerCase() === window.hoaplugin_config.userEmail.toLowerCase());
 
         // Smart Time Logic (e.g., "9a" or "9:30p")
         let timeStr = e.start_fmt || '';
-        if (timeStr && window.hoa_config.time_format !== '24hr') {
+        if (timeStr && window.hoaplugin_data.time_format !== '24hr') {
             timeStr = timeStr.toLowerCase().replace(':00', '').replace(' ', '');
         }
 
         let combinedTitle = '';
-        const pos = hoa_config.time_position;
+        const pos = window.hoaplugin_data.time_position;
 
         if (pos === 'prepend') {
             combinedTitle = `<span style="font-weight:900;">${timeStr}</span> ${e.title}`;
@@ -1080,7 +1034,7 @@ function renderEvents(events) {
 
         return `
             <div class="event-item"
-                 draggable="${(canEdit && hoa_config.is_pro) ? 'true' : 'false'}"
+                 draggable="${(canEdit && window.hoaplugin_data.is_pro) ? 'true' : 'false'}"
                  data-event-id="${e.id}"
                  data-pivot-id="${e.pivot_id || e.id}"
                  data-move-id="${moveId || ''}"
@@ -1106,7 +1060,7 @@ function renderEvents(events) {
 // be sure to access Modal and content by class rather than id.
 function showEventDetail(ev) {
     // 1. Identify which "Room" we are standing in
-    const activeAppId = (currentView === 'month') ? 'hoa-calendar-app' : 'hoa-agenda-app';
+    const activeAppId = (window.hoaplugin_currentView === 'month') ? 'hoa-calendar-app' : 'hoa-agenda-app';
     const activeApp = document.getElementById(activeAppId);
 
     // 2. Find the modal and content area INSIDE that active app
@@ -1133,13 +1087,9 @@ function showEventDetail(ev) {
         if (isImage) {
             thumbSrc = ev.flyer_url;
         } else {
-            try {
-                const urlObj = new URL(ev.flyer_url);
-                thumbSrc = `https://www.google.com/s2/favicons?domain=${urlObj.hostname}&sz=128`;
-            } catch(err) {
-                thumbSrc = `https://www.google.com/s2/favicons?domain=hoaplugin.com&sz=128`;
-            }
+            thumbSrc = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230288d1'%3E%3Cpath d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/%3E%3C/svg%3E";
         }
+          
 
         // 2. Build the "Flyer:" row
         flyerHtml = `
@@ -1223,24 +1173,24 @@ function updateBackground(appContainer, year, month) {
     // Standardize the filename: cal-2026-03.png
     const monthPad = String(month + 1).padStart(2, '0');
     const fileName = `cal-${year}-${monthPad}.png`;
-    const bgUrl = `${hoa_config.bg_base_url}${fileName}?v=${hoa_config.version}`;
+    const bgUrl = `${window.hoaplugin_data.bg_base_url}${fileName}?v=${window.hoaplugin_data.version}`;
 
     // The dynamic fallback endpoint
-    const fallbackUrl = `${hoa_config.ajax_url}?action=hoa_generate_fallback_bg&year=${year}&month=${month + 1}`;
+    const fallbackUrl = `${window.hoaplugin_data.ajax_url}?action=hoa_generate_fallback_bg&year=${year}&month=${month + 1}`;
 
     // Create a temporary image object to test if the Canva file exists
     const imgTest = new Image();
 
     imgTest.onload = function() {
         // Image exists! Use the Canva background
-        window.currentBackgroundUrl = bgUrl;
+        window.hoaplugin_currentBackgroundUrl = bgUrl;
         applyBackgroundStyles(appContainer, bgUrl);
     };
 
     imgTest.onerror = function() {
         // Image missing (404)! Fallback to the generated SVG
         console.warn(`[HOAPLUGIN Calendar] Background image missing for ${year}-${monthPad}. Using SVG fallback.`);
-        window.currentBackgroundUrl = fallbackUrl;
+        window.hoaplugin_currentBackgroundUrl = fallbackUrl;
         applyBackgroundStyles(appContainer, fallbackUrl);
     };
 
@@ -1286,7 +1236,7 @@ function updateFlyerHint() {
  */
 function getWebcalBtn(eventId) {
     // Swap http/https for webcal protocol
-    const baseUrl = window.hoa_config.ajax_url.replace(/^https?:\/\//i, 'webcal://');
+    const baseUrl = window.hoaplugin_data.ajax_url.replace(/^https?:\/\//i, 'webcal://');
     const exportUrl = `${baseUrl}?action=hoa_export_event&event_id=${eventId}`;
 
     // ADDED onclick="event.stopPropagation()" so it doesn't trigger the row click!

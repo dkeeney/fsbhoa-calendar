@@ -871,4 +871,89 @@ class Repository {
         return $first_date;
     }
 
+
+    /**
+     * Fetches the most recent events for the Audit Log.
+     * Groups children with their master parents chronologically.
+     */
+    public function get_audit_log_events($limit = 200) {
+        global $wpdb;
+        $table_events = $this->prefix . 'hoaplugin_events';
+        $table_cats   = $this->prefix . 'hoaplugin_categories';
+
+        // Force the limit to be an integer for absolute safety
+        $safe_limit = intval($limit);
+
+        return $wpdb->get_results("
+            SELECT e.*, c.name as cat_name
+            FROM $table_events e
+            LEFT JOIN $table_cats c ON e.category_id = c.id
+            ORDER BY COALESCE(e.parent_id, e.id) DESC, (CASE WHEN e.parent_id IS NULL THEN 0 ELSE 1 END) ASC, e.id ASC
+            LIMIT $safe_limit
+        ");
+    }
+
+
+
+    // --- LOCATION CRUD ---
+    public function save_location($data) {
+        global $wpdb;
+        $table = $this->prefix . 'hoaplugin_locations';
+        if (!empty($data['id'])) {
+            return $wpdb->update($table, ['name' => $data['name']], ['id' => intval($data['id'])]);
+        } else {
+            return $wpdb->insert($table, ['name' => $data['name']]);
+        }
+    }
+
+    public function delete_location($id) {
+        global $wpdb;
+        $table = $this->prefix . 'hoaplugin_locations';
+        return $wpdb->delete($table, ['id' => intval($id)]);
+    }
+
+    // --- CATEGORY CRUD ---
+    public function save_category($data) {
+        global $wpdb;
+        $table = $this->prefix . 'hoaplugin_categories';
+        $update_data = [
+            'name'            => $data['name'],
+            'color_hex'       => $data['color_hex'],
+            'svg_path'        => $data['svg_path'],
+            'delegate_emails' => $data['delegate_emails']
+        ];
+        if (!empty($data['id'])) {
+            return $wpdb->update($table, $update_data, ['id' => intval($data['id'])]);
+        } else {
+            return $wpdb->insert($table, $update_data);
+        }
+    }
+
+    public function delete_category($id) {
+        global $wpdb;
+        $table = $this->prefix . 'hoaplugin_categories';
+        return $wpdb->delete($table, ['id' => intval($id)]);
+    }
+
+    // --- COMPILER DATA FETCHERS ---
+    public function get_active_roots() {
+        global $wpdb;
+        $table = $this->prefix . 'hoaplugin_events';
+        $cat_table = $this->prefix . 'hoaplugin_categories';
+        $loc_table = $this->prefix . 'hoaplugin_locations';
+
+        return $wpdb->get_results("
+            SELECT e.*, c.color_hex, l.name as location_name
+            FROM $table e
+            LEFT JOIN $cat_table c ON e.category_id = c.id
+            LEFT JOIN $loc_table l ON e.location_id = l.id
+            WHERE e.parent_id IS NULL AND e.status = 'active'
+        ");
+    }
+
+    public function get_lineage_exceptions() {
+        global $wpdb;
+        $table = $this->prefix . 'hoaplugin_events';
+        return $wpdb->get_results("SELECT * FROM $table WHERE parent_id IS NOT NULL ORDER BY start_datetime ASC");
+    }
 }

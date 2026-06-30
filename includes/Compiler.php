@@ -69,14 +69,8 @@ class Compiler {
 
         // 3. Fetch Root Events & Lineage Map
         // We only start with 'active' roots.
-        $roots = $wpdb->get_results("
-            SELECT e.*, c.color_hex, l.name as location_name
-            FROM $table e
-            LEFT JOIN $cat_table c ON e.category_id = c.id
-            LEFT JOIN $loc_table l ON e.location_id = l.id
-            WHERE e.parent_id IS NULL AND e.status = 'active'
-        ");
-        error_log("HOAPLUGIN BAKE: Found " . count($roots) . " root events.");
+        $repo = new Repository($this->prefix);
+        $roots = $repo->get_active_roots();
         $lineage_map = $this->build_lineage_map();
 
         $final_manifest = [];
@@ -125,11 +119,9 @@ class Compiler {
 
     // build a map of a parent and associated holes, moves, and pivots in time order.
     private function build_lineage_map() {
-        global $wpdb;
-        $table = $this->prefix . 'hoaplugin_events';
-
         // Fetch all exceptions (anything with a parent_id)
-        $results = $wpdb->get_results("SELECT * FROM $table WHERE parent_id IS NOT NULL ORDER BY start_datetime ASC");
+        $repo = new Repository($this->prefix);
+        $results = $repo->get_lineage_exceptions();
 
         $map = [];
         foreach ($results as $row) {

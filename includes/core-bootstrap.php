@@ -194,7 +194,7 @@ function hoa_enqueue_calendar_scripts() {
     $bg_dir = apply_filters('hoa_background_url', HOAPLUGIN_DATA_URL . '/backgrounds/');
 
     // 3. Localize ONE TIME with all data
-    wp_localize_script('hoa-cal-view', 'hoa_config', array(
+    wp_localize_script('hoa-cal-view', 'hoaplugin_data', array(
         'ajax_url'      => admin_url('admin-ajax.php'),
         'nonce'         => wp_create_nonce('hoa_cal_nonce'),
         'bg_base_url'   => $bg_dir,
@@ -300,8 +300,8 @@ function hoa_calendar_master_shortcode( $atts ) {
                     <button type="button" id="toggleFullScreen" class="hoa-mini-btn">⛶ Fullscreen</button>
                 </div>
                 <div class="toolbar-right">
-                    <button type="button" id="printCal" class="hoa-mini-btn">Print (PDF)</button>
-                    <button type="button" id="downloadPng" class="hoa-mini-btn" style="background:#00a32a; color:white; border-color:#008a20;">Download (PNG)</button>
+                    <?php do_action('hoaplugin_toolbar_export_area'); ?>
+
                     <label class="mini-label">
                         <input type="checkbox" id="toggle-magnifier" checked> Magnifier
                     </label>

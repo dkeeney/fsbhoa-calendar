@@ -1,5 +1,5 @@
 //   -- calendar-editor.js --
-window.draggedData = null; // Global Drag State
+window.hoaplugin_draggedData = null; // Global Drag State
 
 
 
@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (addBtn) {
         addBtn.onclick = () => {
             // Just pass the current date string
-            const dateStr = currentViewDate.toISOString().split('T')[0];
+            const dateStr = window.hoaplugin_currentViewDate.toISOString().split('T')[0];
             openEditModal(dateStr);
         };
     }
@@ -56,7 +56,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
     const hasDelegate = !!(eventData.owner_email && eventData.owner_email.trim() !== '');
     // Only render the input if the current user is a full Admin
     let delegateSection = '';
-    if (window.hoa_config && window.hoa_config.is_admin) {
+    if (window.hoaplugin_data && window.hoaplugin_data.is_admin) {
         delegateSection = `
         <div class="form-group" style="margin-top:15px; padding:10px; background:#f0f4f8; border-radius:4px; border:1px solid #d1d9e0;">
             <label style="display:flex; align-items:center; cursor:pointer; margin-bottom:0;">
@@ -157,7 +157,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                     <label>Location (Room)</label>
                     <select name="location_id" style="width:100%;">
                         <option value="">-- Select --</option>
-                        ${hoa_config.locations.map(loc =>
+                        ${window.hoaplugin_data.locations.map(loc =>
                             `<option value="${loc.id}" ${eventData.location_id == loc.id ? 'selected' : ''}>${loc.name}</option>`
                         ).join('')}
                     </select>
@@ -166,10 +166,10 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                     <label>Category</label>
                     <select name="category_id" style="width:100%;">
                         ${(() => {
-                            let availableCategories = hoa_config.categories;
-                            if (!config.isAdmin) {
-                                availableCategories = hoa_config.categories.filter(cat => 
-                                    (hoa_config.delegated_categories && hoa_config.delegated_categories.includes(parseInt(cat.id))) ||
+                            let availableCategories = window.hoaplugin_data.categories;
+                            if (!window.hoaplugin_config.isAdmin) {
+                                availableCategories = window.hoaplugin_data.categories.filter(cat => 
+                                    (window.hoaplugin_data.delegated_categories && window.hoaplugin_data.delegated_categories.includes(parseInt(cat.id))) ||
                                     (eventData.category_id && eventData.category_id == cat.id) // Always show the current category if editing
                                 );
                             }
@@ -466,7 +466,7 @@ async function handleRescheduleBtn() {
         document.getElementById('hoa-edit-modal').classList.remove('is-visible');
 
         // 3. Fetch fresh data for the reschedule (to ensure we have the latest)
-        const response = await fetch(`${hoa_config.ajax_url}?action=hoa_get_event_details&event_id=${eventId}&nonce=${hoa_config.nonce}`);
+        const response = await fetch(`${window.hoaplugin_data.ajax_url}?action=hoa_get_event_details&event_id=${eventId}&nonce=${window.hoaplugin_data.nonce}`);
         const result = await response.json();
 
         if (result.success) {
@@ -533,10 +533,10 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
 
 // Helper to convert 24h DB time to the correct display format based on HOA settings
 function formatTimeAMPM(time24) {
-    if (!time24) return (window.hoa_config.time_format === '24hr') ? '00:00' : '12:00 AM';
+    if (!time24) return (window.hoaplugin_data.time_format === '24hr') ? '00:00' : '12:00 AM';
 
     // If the admin wants 24-hour time, just return the raw DB string!
-    if (window.hoa_config.time_format === '24hr') {
+    if (window.hoaplugin_data.time_format === '24hr') {
         return time24;
     }
 
@@ -556,12 +556,12 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
     if (newTime) {
         // Priority 1: Time passed explicitly from the Reschedule Modal
         startTime = newTime;
-    } else if (draggedData && draggedData.id == id) {
+    } else if (window.hoaplugin_draggedData && window.hoaplugin_draggedData.id == id) {
         // Use the time grabbed during dragstart
-        startTime = draggedData.originalStartTime;
+        startTime = window.hoaplugin_draggedData.originalStartTime;
     } else {
         // Look up the time in the global array (for Modal-based moves)
-        const event = allEvents.find(e => e.id == id && e.date == origDate);
+        const event = window.hoaplugin_allEvents.find(e => e.id == id && e.date == origDate);
         if (event && event.start_time) {
             startTime = event.start_time;
         }
@@ -569,7 +569,7 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
 
     const formData = new FormData();
     formData.append('action', 'hoa_save_calendar_event');
-    formData.append('nonce', hoa_config.nonce);
+    formData.append('nonce', window.hoaplugin_data.nonce);
     formData.append('edit_mode', 'instance_move');
     formData.append('event_id', id);
     if (pivotId && pivotId !== "null") formData.append('pivot_id', pivotId);
@@ -582,7 +582,7 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
     // Requirement #2: Shift-drag sets scope to 'remaining' (Pivot)
     formData.append('reschedule_scope', isShift ? 'remaining' : 'instance');
 
-    const response = await fetch(hoa_config.ajax_url, {
+    const response = await fetch(window.hoaplugin_data.ajax_url, {
         method: 'POST',
         body: formData
     });
@@ -730,13 +730,13 @@ async function handleEditClick(id, dateStr, timeStr, pivot_id, move_id = null, i
     }
 
     try {
-        const response = await fetch(`${hoa_config.ajax_url}?action=hoa_get_event_details&event_id=${id}&nonce=${hoa_config.nonce}`);
+        const response = await fetch(`${window.hoaplugin_data.ajax_url}?action=hoa_get_event_details&event_id=${id}&nonce=${window.hoaplugin_data.nonce}`);
         const result = await response.json();
 
         if (result.success) {
             // now get the current rrule.
             if (pivot_id && pivot_id !== 'null' && pivot_id != id) {
-                const pivotResponse = await fetch(`${hoa_config.ajax_url}?action=hoa_get_event_details&event_id=${pivot_id}&nonce=${hoa_config.nonce}`);
+                const pivotResponse = await fetch(`${window.hoaplugin_data.ajax_url}?action=hoa_get_event_details&event_id=${pivot_id}&nonce=${window.hoaplugin_data.nonce}`);
                 const pivotResult = await pivotResponse.json();
 
                 if (pivotResult.success && pivotResult.data.rrule) {
@@ -794,15 +794,15 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
 
     // Ensure we have the basic WP requirements
     formData.append('action', 'hoa_save_calendar_event');
-    formData.append('nonce', hoa_config.nonce);
+    formData.append('nonce', window.hoaplugin_data.nonce);
 
     // If we're dragging, we might need the pivot_id too
-    if (typeof draggedData !== 'undefined' && draggedData && draggedData.pivotId) {
-        formData.set('pivot_id', draggedData.pivotId);
+    if (typeof window.hoaplugin_draggedData !== 'undefined' && window.hoaplugin_draggedData && window.hoaplugin_draggedData.pivotId) {
+        formData.set('pivot_id', window.hoaplugin_draggedData.pivotId);
     }
 
     try {
-        const response = await fetch(hoa_config.ajax_url, {
+        const response = await fetch(window.hoaplugin_data.ajax_url, {
             method: 'POST',
             body: formData,
             credentials: 'same-origin'
@@ -815,7 +815,7 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
             // Admin Check for the Audit Log
             // If we are in the WP Admin backend, reload to refresh the PHP table
             // ---------------------------------------------------------
-            if (window.config && window.config.isDashboard) {
+            if (window.hoaplugin_config && window.hoaplugin_config.isDashboard) {
                 window.location.reload();
                 return true;
             }
