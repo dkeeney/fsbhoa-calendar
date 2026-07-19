@@ -24,7 +24,7 @@ function hoa_render_settings_tabs() {
             <a href="?page=hoa-cal-settings&tab=backgrounds" class="nav-tab <?php echo $active_tab == 'backgrounds' ? 'nav-tab-active' : ''; ?>">Monthly Backgrounds</a>
             <a href="?page=hoa-cal-settings&tab=locations" class="nav-tab <?php echo $active_tab == 'locations' ? 'nav-tab-active' : ''; ?>">Locations</a>
             <a href="?page=hoa-cal-settings&tab=categories" class="nav-tab <?php echo $active_tab == 'categories' ? 'nav-tab-active' : ''; ?>">Categories</a>
-            <a href="?page=hoa-cal-settings&tab=audit" class="nav-tab <?php echo $active_tab == 'audit' ? 'nav-tab-active' : ''; ?>">Event Audit Log</a>
+            <a href="?page=hoa-cal-settings&tab=audit" class="nav-tab <?php echo $active_tab == 'audit' ? 'nav-tab-active' : ''; ?>">Events</a>
             <?php 
             // Allow external plugins (like upsell, Pro, and test) to inject their own tabs here
             do_action('hoa_calendar_extra_tabs', $active_tab); 
@@ -648,9 +648,10 @@ function hoa_render_event_audit() {
     </style>
     <div class="card" style="max-width: 100%; margin-top: 0; position: relative;">
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 15px;">
-            <h3 style="margin:0;">Database Audit Log</h3>
-            <span title="Add New Event" style="color:#0056b3; cursor:pointer; font-size:2.2rem; font-weight:900; line-height:1; padding: 0 10px;" onclick="window.openAddModal(null)">+</span>
+            <h3 style="margin:0;">Events</h3>
+            <span title="Add New Event" style="color:#0056b3; cursor:pointer; font-size:2.2rem; font-weight:900; line-height:1; padding: 0 10px;" onclick="window.hoaplugin_openAddModal(null)">+</span>
         </div>
+        <p class="description" style="margin-top: 0; margin-bottom: 15px;">A database view of the event declarations ordered by root date.</p>
 
         <table class="wp-list-table widefat fixed striped">
             <thead>
@@ -717,7 +718,7 @@ function hoa_render_event_audit() {
                             <?php if (!$is_hole): ?>
                                 <span title="Edit" 
                                      style="color:#f57c00; cursor:pointer; margin-right:12px;" 
-                                     onclick="window.handleEditClick(
+                                     onclick="window.hoaplugin_handleEditClick(
                                          <?php echo $e->id; ?>, 
                                          '<?php echo $target_date; ?>', 
                                          '<?php echo $target_time; ?>',
@@ -727,7 +728,7 @@ function hoa_render_event_audit() {
                                      )">✎
                                 </span>
                             <?php endif; ?>
-                            <span title="Delete" style="color:#d32f2f; cursor:pointer;" onclick="handleAuditDelete(<?php echo $e->id; ?>)">&times;</span>
+                            <span title="Delete" style="color:#d32f2f; cursor:pointer;" onclick="window.hoaplugin_handleAuditDelete(<?php echo $e->id; ?>)">&times;</span>
                         </td>
                     </tr>
                 <?php endforeach; ?>
@@ -738,37 +739,37 @@ function hoa_render_event_audit() {
 
     <div id="hoa-edit-modal" class="hoa-modal">
         <div class="modal-content">
-            <span class="close-modal" onclick="closeAdminModals()">&times;</span>
+            <span class="close-modal" onclick="window.hoaplugin_closeAdminModals()">&times;</span>
             <div id="edit-form-container"></div>
         </div>
     </div>
 
     <div id="hoa-day-modal" class="hoa-modal">
         <div class="modal-content">
-            <span class="close-modal" onclick="closeAdminModals()">&times;</span>
+            <span class="close-modal" onclick="window.hoaplugin_closeAdminModals()">&times;</span>
             <div id="hoa-modal-content"></div>
         </div>
     </div>
 
     <script>
-        function closeAdminModals() {
+        window.hoaplugin_closeAdminModals = function() {
             document.querySelectorAll('.hoa-modal').forEach(m => m.classList.remove('is-visible'));
             document.body.style.removeProperty('overflow');
             document.documentElement.style.removeProperty('overflow');
             document.body.classList.add('hoa-admin-scroll-fix');
             document.body.classList.remove('modal-open');
-        }
+        };
 
         // 2. Ensure Add Modal works even if logic.js hasn't attached listeners yet
-        function openAddModal(dateStr) {
+        window.hoaplugin_openAddModal = function(dateStr) {
             if (typeof window.openEditModal === 'function') {
                 window.openEditModal(dateStr, null, null, null, null);
             } else {
                 console.error("Calendar logic not loaded yet.");
             }
-        }
+        };
 
-        async function handleAuditDelete(id) {
+        window.hoaplugin_handleAuditDelete = async function(id) {
             if(confirm('Permanently delete record #' + id + '?')) {
                 const params = new URLSearchParams({
                     action: 'hoa_save_calendar_event',
@@ -784,7 +785,8 @@ function hoa_render_event_audit() {
                 const result = await response.json();
                 if(result.success) { location.reload(); } else { alert(result.data); }
             }
-        }
+        };
+
         // 3. Auto-Refresh the static Audit Log table after a successful modal edit
         const originalFetch = window.fetch;
         window.fetch = async function(...args) {
@@ -823,7 +825,7 @@ function hoa_render_event_audit() {
 
             return response;
         };
-        </script>
+    </script>
     <?php
 }
 

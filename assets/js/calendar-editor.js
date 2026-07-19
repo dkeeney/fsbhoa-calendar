@@ -61,7 +61,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
         <div class="form-group" style="margin-top:15px; padding:10px; background:#f0f4f8; border-radius:4px; border:1px solid #d1d9e0;">
             <label style="display:flex; align-items:center; cursor:pointer; margin-bottom:0;">
                 <input type="checkbox" id="toggle-delegate" ${hasDelegate ? 'checked' : ''}
-                       style="margin-right:10px;" onchange="toggleDelegateField()">
+                       style="margin-right:10px;" onchange="window.hoaplugin_toggleDelegateField()">
                 <strong>Delegate Event Management</strong>
             </label>
 
@@ -120,7 +120,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
             <div class="form-group">
                 <label>Setup Notes (Internal/Admin)</label>
                 <textarea name="setup_notes" rows="1" style="width:100%; resize:vertical; font-family:inherit; padding:8px; border:1px solid #ddd; border-radius:4px; background: #fffde7;">${eventData.setup_notes || ''}</textarea>
-                <p style="font-size:10px; color:#666; margin:0;">*Visible to admins and residents in details view.</p>
+                <p style="font-size:10px; color:#666; margin:0;">*Notes for yourself. Visible only here. Residents do not see this.</p>
             </div>
 
             <div class="form-group">
@@ -128,7 +128,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                     <label style="margin-bottom: 0;">Flyer URL (Canva/Media Lib)</label>
                     <a href="#" id="upload-flyer-link" 
                        style="font-size: 0.75rem; color: #0288d1; text-decoration: none; font-weight: 600;"
-                       onclick="openFlyerMediaLibrary(event)">
+                       onclick="window.hoaplugin_openFlyerMediaLibrary(event)">
                        [Browse Media]
                     </a>
                 </div>
@@ -165,6 +165,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                 <div style="flex:1">
                     <label>Category</label>
                     <select name="category_id" style="width:100%;">
+                        <option value="">-- Select --</option>
                         ${(() => {
                             let availableCategories = window.hoaplugin_data.categories;
                             if (!window.hoaplugin_config.isAdmin) {
@@ -215,7 +216,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                 <label>
                     <input type="checkbox" id="is_repeating"
                            ${(eventData.rrule && eventData.rrule !== '') ? 'checked' : ''}
-                           onchange="toggleRRPanel()">
+                           onchange="window.hoaplugin_toggleRRPanel()">
                     This is a Repeating Event.
                 </label>
                 <div id="rr-warning" style="display:none; color: #d32f2f; font-size: 0.8rem; font-weight: bold; margin-top: 5px;">
@@ -229,7 +230,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                 <div class="rr-row checkbox-group-horizontal">
                     <strong>Days of Week:</strong><br>
                     ${['MO','TU','WE','TH','FR','SA','SU'].map(d =>
-                        `<label style="margin-right:5px;"><input type="checkbox" class="rr-check rr-day" value="${d}" onchange="buildRRule()"> ${d}</label>`
+                        `<label style="margin-right:5px;"><input type="checkbox" class="rr-check rr-day" value="${d}" onchange="window.hoaplugin_buildRRule()"> ${d}</label>`
                     ).join('')}
                 </div>
                 <div class="rr-row" style="margin-bottom:10px; font-size:13px;">
@@ -241,12 +242,12 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                 <div class="rr-row checkbox-group-horizontal" style="margin-top:10px;">
                     <strong>Which Weeks?</strong><br>
                     ${['1','2','3','4','-1'].map(w =>
-                        `<label style="margin-right:10px;"><input type="checkbox" class="rr-check rr-week" value="${w}" onchange="buildRRule()"> ${w=='-1'?'Last':w}</label>`
+                        `<label style="margin-right:10px;"><input type="checkbox" class="rr-check rr-week" value="${w}" onchange="window.hoaplugin_buildRRule()"> ${w=='-1'?'Last':w}</label>`
                     ).join('')}
                 </div>
                 <div class="rr-row" style="margin-top:10px;">
                     <strong>Specific Day of Month:</strong><br>
-                    <select id="rr-bymonthday" class="rr-check" onchange="buildRRule()" style="margin-top:5px; padding:4px;">
+                    <select id="rr-bymonthday" class="rr-check" onchange="window.hoaplugin_buildRRule()" style="margin-top:5px; padding:4px;">
                         <option value="">not selected</option>
                         ${Array.from({length: 31}, (_, i) => `<option value="${i+1}">${i+1}</option>`).join('')}
                         <option value="-1">Last Day</option>
@@ -255,7 +256,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
                 </div>
                 <div class="rr-row" style="margin-top:15px; padding-top:10px; border-top:1px dashed #ccc;">
                     <strong>Ends On (Optional):</strong><br>
-                    <input type="date" id="rr-until" onchange="buildRRule()" style="padding:4px; margin-top:5px; width:100%;">
+                    <input type="date" id="rr-until" onchange="window.hoaplugin_buildRRule()" style="padding:4px; margin-top:5px; width:100%;">
                     <p style="font-size:10px; color:#666; margin:2px 0;">Leave blank for an infinite series.</p>
                 </div>
                 <div class="rr-row" style="margin-top:15px;">
@@ -294,11 +295,11 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
             </div>
 
             <div class="form-actions" style="margin-top:25px; display:flex; gap:10px; flex-wrap:wrap;">
-                <button type="button" class="hoa-save-btn" onclick="saveEventChanges()" style="background:#0288d1; color:#fff; padding:10px 20px; border:none; border-radius:4px; cursor:pointer;">Save</button>
+                <button type="button" class="hoa-save-btn" onclick="window.hoaplugin_saveEventChanges()" style="background:#0288d1; color:#fff; padding:10px 20px; border:none; border-radius:4px; cursor:pointer;">Save</button>
 
                 ${(eventId && !isAuditLog) ? `
-                    <button type="button" onclick="handleCancelBtn(${JSON.stringify(eventData).replace(/"/g, '&quot;')}, '${selectedDate}')" style="background:#ef5350; color:#fff; padding:10px; border:none; border-radius:4px; cursor:pointer;">Cancel Event</button>
-                    <button type="button" onclick="handleRescheduleBtn()" style="background:#ffa726; color:#fff; padding:10px; border:none; border-radius:4px; cursor:pointer;">Reschedule</button>
+                    <button type="button" onclick="window.hoaplugin_handleCancelBtn(${JSON.stringify(eventData).replace(/"/g, '&quot;')}, '${selectedDate}')" style="background:#ef5350; color:#fff; padding:10px; border:none; border-radius:4px; cursor:pointer;">Cancel Event</button>
+                    <button type="button" onclick="window.hoaplugin_handleRescheduleBtn()" style="background:#ffa726; color:#fff; padding:10px; border:none; border-radius:4px; cursor:pointer;">Reschedule</button>
                 ` : ''}
             </div>
         </form>
@@ -344,7 +345,7 @@ function openEditModal(selectedDate, selectedTime, eventId = null, pivot_id = nu
     document.body.classList.add('modal-open');  // keeps background from scrolling while editing.
 }
 
-function toggleRRPanel() {
+window.hoaplugin_toggleRRPanel = function() {
     const panel = document.getElementById('rr-builder-panel');
     const isChecked = document.getElementById('is_repeating').checked;
     const headerLabel = document.querySelector('#hoa-edit-form [style*="text-transform: uppercase"]');
@@ -394,7 +395,7 @@ function toggleRRPanel() {
     }
 }
 
-function buildRRule() {
+window.hoaplugin_buildRRule = function() {
     const days = Array.from(document.querySelectorAll('.rr-day:checked')).map(c => c.value);
     const weeks = Array.from(document.querySelectorAll('.rr-week:checked')).map(c => c.value);
     const monthDay = document.getElementById('rr-bymonthday').value;
@@ -434,7 +435,7 @@ function buildRRule() {
     }
 }
 
-function toggleDelegateField() {
+window.hoaplugin_toggleDelegateField = function() {
     const isChecked = document.getElementById('toggle-delegate').checked;
     const container = document.getElementById('delegate-input-container');
     const input = document.getElementById('owner_email_input');
@@ -447,7 +448,7 @@ function toggleDelegateField() {
     }
 }
 
-async function handleRescheduleBtn() {
+window.hoaplugin_handleRescheduleBtn = async function() {
     const form = document.getElementById('hoa-edit-form');
     const eventId = form.querySelector('input[name="event_id"]').value;
     const pivotId = form.querySelector('input[name="pivot_id"]').value;
@@ -459,7 +460,7 @@ async function handleRescheduleBtn() {
     console.log(`RESCHEDULE TRIGGER: Harvested Pivot: ${pivotId}, Move: ${moveId}`);
 
     // 1. Save current changes first to ensure data integrity
-    const saved = await saveEventChanges('soft_save', null, null, true); // Added 'silent' flag
+    const saved = await window.hoaplugin_saveEventChanges('soft_save', null, null, true); // Added 'silent' flag
 
     if (saved) {
         // 2. Close the Edit Modal and save only the meda data.
@@ -523,7 +524,7 @@ function openRescheduleDialog(eventData, clickedDate, pivotId = null, moveId = n
                     const newDate = document.getElementById('res_date').value;
                     const newTime = document.getElementById('res_time').value;
                     const isShift = document.getElementById('scope_remaining') ? document.getElementById('scope_remaining').checked : false;
-                    submitReschedule(${eventData.id}, '${clickedDate}', ${pivotId || 'null'}, ${moveId || 'null'}, newDate, isShift, newTime);
+                    window.hoaplugin_submitReschedule(${eventData.id}, '${clickedDate}', ${pivotId || 'null'}, ${moveId || 'null'}, newDate, isShift, newTime);
                 ">Confirm Move</button>
             </div>
         </div>
@@ -548,7 +549,7 @@ function formatTimeAMPM(time24) {
     return `${hours}:${minutes} ${ampm}`;
 }
 
-async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift = false, newTime = null, isDragDrop = false) {
+window.hoaplugin_submitReschedule = async function(id, origDate, pivotId, moveId, newDate, isShift = false, newTime = null, isDragDrop = false) {
     // Determine the new time.
     // For a drag-drop, we usually keep the original start time.
     let startTime = "09:00"; // Absolute fallback
@@ -607,7 +608,7 @@ async function submitReschedule(id, origDate, pivotId, moveId, newDate, isShift 
     }
 }
 
-function handleCancelBtn(eventData, dateStr) {
+window.hoaplugin_handleCancelBtn = function(eventData, dateStr) {
     const modal = document.getElementById('hoa-manage-modal');
     const container = document.getElementById('manage-form-container');
     const isRecurring = !!eventData.rrule;
@@ -622,15 +623,15 @@ function handleCancelBtn(eventData, dateStr) {
     if (!isRecurring) {
         // --- SINGLE EVENT OPTIONS ---
         buttonsHtml = `
-            <button class="manage-btn danger" onclick="confirmAction('master_delete', ${eventData.id})">Delete Event Forever</button>
+            <button class="manage-btn danger" onclick="window.hoaplugin_confirmAction('master_delete', ${eventData.id})">Delete Event Forever</button>
         `;
     } else {
         // --- RECURRING SERIES OPTIONS ---
-        buttonsHtml += `<button class="manage-btn warning" onclick="confirmAction('instance_cancel', ${eventData.id}, '${dateStr}')">Cancel ONLY this instance</button>`;
+        buttonsHtml += `<button class="manage-btn warning" onclick="window.hoaplugin_confirmAction('instance_cancel', ${eventData.id}, '${dateStr}')">Cancel ONLY this instance</button>`;
 
-        buttonsHtml += `<button class="manage-btn success" onclick="confirmAction('instance_restore', ${eventData.id}, '${dateStr}')">Restore or Undelete Next Cancelled Instance</button>`;
+        buttonsHtml += `<button class="manage-btn success" onclick="window.hoaplugin_confirmAction('instance_restore', ${eventData.id}, '${dateStr}')">Restore or Undelete Next Cancelled Instance</button>`;
 
-        buttonsHtml += `<button class="manage-btn warning" onclick="confirmAction('series_end', ${eventData.id}, '${dateStr}', ${eventData.pivot_id})">End series starting today</button>`;
+        buttonsHtml += `<button class="manage-btn warning" onclick="window.hoaplugin_confirmAction('series_end', ${eventData.id}, '${dateStr}', ${eventData.pivot_id})">End series starting today</button>`;
 
         if (hasEndDate) {
             // 1. Extract the raw string (e.g., "20260414T235959")
@@ -655,14 +656,14 @@ function handleCancelBtn(eventData, dateStr) {
             buttonsHtml += `
                 <div style="margin-top:10px; padding:10px; background:#e8f5e9; border:1px solid #c8e6c9; border-radius:4px;">
                     <p style="margin:0 0 8px 0; font-size:0.8rem; color:#2e7d32;"><strong>Series currently ends:</strong> ${readableUntil}</p>
-                    <button class="manage-btn success" style="width:100%;" onclick="confirmAction('series_resume', ${eventData.id}, '${dateStr}', ${eventData.pivot_id})">
+                    <button class="manage-btn success" style="width:100%;" onclick="window.hoaplugin_confirmAction('series_resume', ${eventData.id}, '${dateStr}', ${eventData.pivot_id})">
                         Resume Series & Restore All Future
                     </button>
                 </div>
             `;
         }
         
-        buttonsHtml += `<hr><button class="manage-btn danger" onclick="confirmAction('master_delete', ${eventData.id})">DELETE ENTIRE SERIES & HISTORY</button>`;
+        buttonsHtml += `<hr><button class="manage-btn danger" onclick="window.hoaplugin_confirmAction('master_delete', ${eventData.id})">DELETE ENTIRE SERIES & HISTORY</button>`;
     }
 
     container.innerHTML = `
@@ -681,7 +682,7 @@ function handleCancelBtn(eventData, dateStr) {
 }
 
 // Global Helper for Confirmation
-async function confirmAction(mode, id, date = null, pivotId = null) {
+window.hoaplugin_confirmAction = async function(mode, id, date = null, pivotId = null) {
     const messages = {
         'instance_cancel': 'Are you sure you want to cancel this specific session?',
         'instance_restore': 'Restore this session to the calendar?',
@@ -692,8 +693,8 @@ async function confirmAction(mode, id, date = null, pivotId = null) {
     if (confirm(messages[mode] || 'Proceed with this action?')) {
         // Close the manage modal immediately for better UI feel
         const manageModal = document.getElementById('hoa-manage-modal');
-        await saveEventChanges(mode, id, date, false);
-        // saveEventChanges already handles the redirect/refresh
+        await window.hoaplugin_saveEventChanges(mode, id, date, false);
+        // window.hoaplugin_saveEventChanges already handles the redirect/refresh
     }
 }
 
@@ -704,7 +705,7 @@ async function confirmAction(mode, id, date = null, pivotId = null) {
  * Helper to bridge the Day Modal to the New Event Form
  * Called when the + operator is clicked.
  */
-function handleAddEventFromModal(dateStr) {
+window.hoaplugin_handleAddEventFromModal = function(dateStr) {
     const dayModal = document.getElementById('hoa-day-modal');
     if (dayModal) {
         dayModal.classList.remove('is-visible');
@@ -722,7 +723,7 @@ function handleAddEventFromModal(dateStr) {
 
 
 // Helper to bridge the Modal to the Edit Form
-async function handleEditClick(id, dateStr, timeStr, pivot_id, move_id = null, isAuditLog = false) {
+window.hoaplugin_handleEditClick = async function(id, dateStr, timeStr, pivot_id, move_id = null, isAuditLog = false) {
     //console.log("Pencil clicked. Closing Day Modal and fetching ID:", id," (Move: ", move_id, " Pivot: ", pivot_id," )");
     const dayModal = document.getElementById('hoa-day-modal');
     if (dayModal) {
@@ -754,7 +755,7 @@ async function handleEditClick(id, dateStr, timeStr, pivot_id, move_id = null, i
     }
 }
 
-function openFlyerMediaLibrary(e) {
+window.hoaplugin_openFlyerMediaLibrary = function(e) {
     if (e) e.preventDefault();
     
     // Ensure wp.media is available
@@ -782,7 +783,7 @@ function openFlyerMediaLibrary(e) {
 }
 
 
-async function saveEventChanges(overrideMode = null, overrideId = null, overrideDate = null, silent = false, isDragDrop = false) {
+window.hoaplugin_saveEventChanges = async function(overrideMode = null, overrideId = null, overrideDate = null, silent = false, isDragDrop = false) {
     const form = document.getElementById('hoa-edit-form');
     // If the form exists, use it; otherwise, start with an empty FormData object
     const formData = form ? new FormData(form) : new FormData();
@@ -791,6 +792,22 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
     if (overrideMode) formData.set('edit_mode', overrideMode);
     if (overrideId)   formData.set('event_id', overrideId);
     if (overrideDate) formData.set('date', overrideDate);
+
+    // VALIDATION GATEKEEPER: Ensure Location and Category are selected on standard saves
+    const currentMode = formData.get('edit_mode') || 'standard';
+    if (form && currentMode === 'standard') {
+        const title = formData.get('title');
+        const loc = formData.get('location_id');
+        const cat = formData.get('category_id');
+        if (!title || title.trim() === '') {
+            alert("Please provide an Event Title before saving.");
+            return false;
+        }
+        if (!loc || !cat) {
+            alert("Please select both a Location and a Category before saving.");
+            return false; // Abort the save process
+        }
+    }
 
     // Ensure we have the basic WP requirements
     formData.append('action', 'hoa_save_calendar_event');
@@ -850,22 +867,11 @@ async function saveEventChanges(overrideMode = null, overrideId = null, override
  * BRIDGING FUNCTIONS
  */
 
-function openAddModal(dateStr) {
+window.hoaplugin_openAddModal = function(dateStr) {
     console.log("Admin clicked [+] for date:", dateStr);
     // We reuse the existing openEditModal logic, 
     // passing null for the ID to trigger a "New Event" form
     openEditModal(dateStr);
 }
-
-
-// Ensure handleEditClick is available globally if needed by other modules
-window.handleEditClick = handleEditClick;
-window.openAddModal = openAddModal;
-window.submitReschedule = submitReschedule;
-window.saveEventChanges = saveEventChanges;
-
-
-
-
 
 

@@ -262,7 +262,7 @@ function hoa_calendar_master_shortcode( $atts ) {
                 <div class="hoa-detail-modal hoa-full-modal">
                     <div class="modal-backdrop"></div>
                     <div class="modal-window">
-                        <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                        <button class="modal-close" onclick="window.hoaplugin_closeDetailModal()">&times;</button>
                         <div class="modal-content-area"> </div>
                     </div>
                 </div>
@@ -275,7 +275,7 @@ function hoa_calendar_master_shortcode( $atts ) {
                 </div>
                 <div id="hoa-reschedule-modal" class="hoa-modal">
                     <div class="modal-content" style="max-width: 400px;">
-                        <span class="close-modal" onclick="closeRescheduleModal()">&times;</span>
+                        <span class="close-modal" onclick="window.hoaplugin_closeRescheduleModal()">&times;</span>
                         <div id="reschedule-form-container"></div>
                     </div>
                 </div>
@@ -343,7 +343,7 @@ function hoa_calendar_master_shortcode( $atts ) {
                   <div class="hoa-detail-modal hoa-full-modal">
                        <div class="modal-backdrop"></div>
                        <div class="modal-window">
-                            <button class="modal-close" onclick="closeDetailModal()">&times;</button>
+                            <button class="modal-close" onclick="window.hoaplugin_closeDetailModal()">&times;</button>
                             <div class="modal-content-area"></div>
                        </div>
                   </div>
@@ -449,19 +449,15 @@ function hoa_handle_save_event() {
     $move_id   = isset($_POST['move_id']) ? intval($_POST['move_id']) : null;
     $repo = hoa_get_repo();
     $compiler = hoa_get_compiler();
-
-    if ( $is_drag_drop && !defined('HOAPLUGIN_CALENDAR_PRO_VERSION') ) {
-        error_log("HOAPLUGIN SECURITY: Blocked unauthorized drag-and-drop attempt.");
-        wp_send_json_error('Drag-and-drop features require HOAplugin Calendar Pro.');
-        wp_die();
-    }
-    error_log("HOAPLUGIN AJAX TRIGGERED: Mode=" . $edit_mode . 
-              " ID=$master_id move_id=$move_id pivot_id=$pivot_id");
+    if ( $is_drag_drop && empty($GLOBALS['hoa_extended_buffer_enabled']) ) return;
+    
+    #error_log("HOAPLUGIN AJAX TRIGGERED: Mode=" . $edit_mode . 
+    #          " ID=$master_id move_id=$move_id pivot_id=$pivot_id");
 
     
     // 1. Security & Permission Check
     check_ajax_referer('hoa_cal_nonce', 'nonce');
-    error_log("PHP DEBUG: Nonce Check Passed");
+    #error_log("PHP DEBUG: Nonce Check Passed");
 
 
     // Quick check: Is this admin or user an owner of ANY event?

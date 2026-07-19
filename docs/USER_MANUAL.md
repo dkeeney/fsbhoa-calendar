@@ -6,7 +6,7 @@
 Welcome to the complete website calendar tailored specifically for HOA communities. This guide will walk you through the initial setup, ensuring your calendar is perfectly configured for your residents.
 
 > **⚠️ Before You Begin: Administrator Access Required**
-> To install this calendar, you must be logged into your community website with an account that has **Administrator** permissions. You can typically access your website's login screen by adding `/wp-admin` to the end of your website address (for example: `www.myneighborhood.com/wp-admin`). 
+> To install this calendar, you must be logged into your community website with an account that has **Administrator** permissions. You can typically access your website's login screen by adding `/wp-admin` to the end of your website address (for example: `www.myneighborhood.com/wp-admin`).
 > Note that user can view the calendar without being logged in although specific events can be marked as "Resident only" and will not be visible unless the user is logged in to the website as a subscriber.
 
 ![Calendar Monthly](./CalendarMonthly.png)
@@ -29,9 +29,9 @@ You will now see a new **HOAplugin Calendar** menu item in your left-hand Dashbo
 
 ## 1.2 Installing the Pro Upgrade Version
 
-To unlock premium features like visual drag-and-drop rescheduling, 11x17 PDF printing, and over-the-air dashboard updates, you must [HOAplugin.com](purchase a Pro License key). You will need to upload a second file to your website to unlock these features.
+To unlock premium features like visual drag-and-drop rescheduling, 11x17 PNG & PDF printing, support, and feature updates, you must [purchase a Pro License key](https://hoaplugin.com). You will need to upload a separate file to your website to unlock these features.
 
-1. **Get your files:** When you purchase the Pro version at [HOAplugin.com](https://hoaplugin.com), you will receive an email containing a link to download the `hoaplugin-calendar-pro.zip` file to your computer, along with your unique **Pro License Key**. *(You can also download this file and copy your key at any time by logging into the [HOAplugin.com/manage-license](Manage License portal)).* This will download the file to your downloads folder on your PC.
+1. **Get your files:** When you purchase the Pro version at [HOAplugin.com](https://hoaplugin.com), you will receive an email containing a link to download the `hoaplugin-calendar-pro.zip` file to your computer, along with your unique **Pro License Key**. *(You can also download this file and copy your key at any time by logging into the [Manage License portal](https://hoaplugin.com/manage-license)).* This will download the file to your downloads folder on your PC.
 2. **Upload the Plugin:** In the left menu of your WordPress dashboard, go to **Plugins > Add New Plugin**. At the very top of the screen, next to the title, click the **Upload Plugin** button.
 3. **Install:** Click **Choose File**, select the `hoaplugin-calendar-pro.zip` file from your computer (in your downloads folder), and click **Install Now**.
 4. **Activate plugin:** Once installed, click the blue **Activate Plugin** button.
@@ -39,7 +39,7 @@ To unlock premium features like visual drag-and-drop rescheduling, 11x17 PDF pri
 6. Paste your License Key into the box and click **Activate License**. Your premium features are now unlocked!
 7. If you previously installed the Free version of HOAplugin Calendar, it may be safely deleted.
 
-> **Administrators on a WordPress Multisite:** If you manage a complex network of multiple community sub-sites, you can purchase multiple Pro license slots and utilize a single Pro license code across all of your sites. Through the central license portal, you can easily map, add, or revoke the specific websites assigned to each of your purchased license slots using the [HOAplugin.com/manage-license](Manage license) page.
+> **Administrators on a WordPress Multisite:** If you manage a complex network of multiple community sub-sites, you can purchase multiple Pro license slots and utilize a single Pro license code across all of your sites. Through the central license portal, you can easily map, add, or revoke the specific websites assigned to each of your purchased license slots using the [Manage license](https://hoaplugin.com/manage-license) page.
 
 ---
 
@@ -69,7 +69,7 @@ By default, the standard shortcode displays a full monthly grid on desktop compu
 
 # Chapter 2: Quick-Start Tutorial (Hands-On)
 
-When you first install the calendar, the system automatically prepopulates a fake **Sample Repeating Event** (scheduled for every Monday, Wednesday, and Friday at 9:00 AM) and a few default categories. 
+When you first install the calendar, the system automatically prepopulates a fake **Sample Repeating Event** (scheduled for every Monday, Wednesday, and Friday at 9:00 AM) and a few default categories.
 
 Before you start adding your real community schedule, let's use this sample event as a training dummy to practice the core features! This assumes you are logged into WordPress as the administrator.
 
@@ -81,7 +81,7 @@ Let's practice adding a standalone event to the calendar.
 4. **Time:** Set it from 5:00 PM to 7:00 PM.
 5. **Location:** Select `Clubhouse`.
 6. **Category:** Select `Social Event`.
-7. Click the blue **Save** button. You should now see your new event perfectly formatted on Saturday!
+7. Click the blue **Save** button. You should now see your new event, perfectly formatted, on Saturday!
 
 ## Lesson 2: Cancel a Single Session
 Imagine the instructor for your Monday/Wednesday/Friday class is sick this coming Wednesday. We need to cancel *just* that day without deleting the whole series.
@@ -111,10 +111,10 @@ Now that you are a calendar expert, it's time to delete our training dummies so 
 **Delete the Entire Repeating Series:**
 While you *could* delete the sample event day-by-day, there is a much faster way to wipe out an entire series at once.
 1. Log into your WordPress Dashboard.
-2. Go to **HOAplugin Calendar > Event Audit Log**.
+2. Go to **HOAplugin Calendar > Events**.
 3. Look at the data table. You will see a bold blue row labeled **Master Series** for the `Sample Repeating Event`.
 4. Click the red **× (Delete)** icon on the far right side of that bold row.
-5. Confirm the deletion. 
+5. Confirm the deletion.
 
 Congratulations! You just wiped out the master rule for the sample event, the Thursday rescheduled move, and the entire history of that sample event in one single click. Your calendar is now a perfectly clean slate, and you are ready to manage your community!
 
@@ -128,7 +128,7 @@ To keep your calendar clean, structured, and legible, you should define your com
 Locations define the specific physical rooms or recreational spaces within your neighborhood (e.g., the Clubhouse, Ballroom, Pool).
 
 1. In your WordPress Dashboard, navigate to **HOAplugin Calendar** and click the **Locations** tab at the top.
-2. Type the name of the facility into the **Location Name** text box.
+2. Type the name of the facility into the **Location Name** text box near the bottom.
 3. Click the blue **Add Location** button.
 
 You can click the **Edit** button next to any row to modify its name, or the **Del** button to remove it. If you delete a location that is currently linked to an active event, that event will safely default to showing "TBD" on the front-end grid.
@@ -141,10 +141,10 @@ Categories allow you to color-code events so residents can instantly scan the ca
 
 1. Click the **Categories** tab located at the top of the main configuration page.
 2. **Category Name:** Enter the name of the category (e.g., `Social Committee`).
-3. **Display Color:** Click the color box to select a hex color. This serves as the background fill of the event text bar on the monthly grid.  Ask Google or your AI to help you pick the right code for the color to use.
-4. **Category Icon (Optional):** Events assigned to a category with an icon configured will be handled the same as any other event except that it will be displayed as an icon at the top of the day cell.
+3. **Display Color:** Click the color box to select a RGB color code. This serves as the background fill of the event text bar on the monthly grid.  Ask Google or your AI to help you pick the right code or use use the color picker for the color to use.
+4. **Category Icon (Optional):** Events assigned to a category with an icon configured will be handled the same as any other event except that it will be displayed on the calendar as an icon at the top of the day cell. (this is for things like trash cans and etc.)
 You can upload a vector icon (`.svg` file) to represent the category. This icon will appear in the top corner of the calendar day cell. You can find .svg icons on the web to represent almost anything.
-   * Simply drag and drop your `.svg` file into the dashed box. 
+   * Simply drag and drop your `.svg` file into the dashed box.
    * The calendar will automatically paint the icon using your chosen **Display Color**.
 5. Click **Add Category**.
 
@@ -176,20 +176,20 @@ The HOAplugin Calendar allows administrators and delegated users to coordinate o
 
 ## 4.1 Creating a New Event
 
-To access the event creation interface, go to the public calendar page on your website, hover your mouse over the day you want to schedule, and click the blue **[+]** icon. The day cell that the **[+]** icon was on will determine the date that the new event will placed on. *(Alternatively, admins can click the [+] icon at the top of the "Event Audit Log" in the WordPress dashboard).*
+To access the event creation interface, go to the public calendar page on your website, hover your mouse over the day you want to schedule, and click the blue **[+]** icon. The day cell that the **[+]** icon was on will determine the date that the new event will placed on. *(Alternatively, admins can click the [+] icon at the top of the "Events" tab in the WordPress dashboard).*
 
 ### Event Form Field Directory:
 1.  **Event Title:** Enter a clear name for the activity. Recommend that it be fairly short so it will not wrap in the day cells.
 2.  **Description:** Provide details for your residents (e.g., What the event is all about, what to bring, ticket and contact info). This displays inside an interactive pop-up when a resident clicks on the event chip.
 3.  **Setup Notes (Internal/Admin):** This yellow-tinted text field is reserved for notes to yourself about this event (e.g., `Requires 4 round tables by 8:00 AM`). *Residents do not see this.*
-4.  **Flyer URL (Optional):** If your committee designed a custom graphic poster for the event, click **[Browse Media]** to select it from the WordPress Media Library, or paste an external webpage link. Ask Google for procedues for uploading flyer graphs into the WordPress Media Library. 
+4.  **Flyer URL (Optional):** If your committee designed a custom graphic poster for the event, click **[Browse Media]** to select it from the WordPress Media Library, or paste an external webpage link. Ask Google for procedues for uploading flyer graphs into the WordPress Media Library.
     * ⚠️ **Important Redirection Notice:** Populating this field changes the calendar's behavior. When a user clicks this event chip it will instantly open the flyer file in a new browser tab, skipping the standard description pop-up entirely.
-5.  **Start and End Time:** Set the timing boundaries for the activity. 
+5.  **Start and End Time:** Set the timing boundaries for the activity.
 6.  **Location (Room):** Select the facility where the event is occurring.
-7.  **Category:** Select a category to map the event to its corresponding color (or icon). 
+7.  **Category:** Select a category to map the event to its corresponding color (or icon).
 8.  **Privacy & Visibility:**
     * *Public (Everyone):* Viewable to any public visitor browsing your community website.
-    * *Residents Only:*  Blocks viewing the event if a user is not logged into the website, the event chip remains invisible to protect community privacy.
+    * *Residents Only:* Blocks viewing the event if a user is not logged into the website, the event chip remains invisible to protect community privacy.
 9.  **Tickets & Registration:** Check **Requires Tickets / Registration** to reveal a **Cost** input field where you can define entry fees. Future plugis may add more capability for ticketing.
 
 ---
@@ -200,7 +200,7 @@ For activities that run on a set cycle, the calendar features a recurrence build
 
 ![Edit Repeating Events](./EditRepeating.png)
 
-1.  Check the box labeled **This is a Repeating Event** to unlock the Recurrence Rules Builder. 
+1.  Check the box labeled **This is a Repeating Event** to unlock the Recurrence Rules Builder.
 2.  **Days of Week:** Check the specific days of the week your event occurs (e.g., `MO`, `WE`, `FR`).
 3.  **Frequency:** Sets the structural gap. Leaving this at `1` schedules the pattern every week or month. Adjusting it to `2` creates a bi-weekly skip pattern. (i.e. every other Monday).
 4.  **Which Weeks? (Monthly Patterns):** For clubs meeting on specific weeks (like the *2nd and 4th Monday*), check boxes `2` and `4`. To target the final week of any month, check the `-1 (Last)` box (i.e. Last Wendsday of every month).
@@ -216,7 +216,7 @@ To adjust an event, click its chip on the calendar grid and select the **✎ (Pe
 ### Global Overrides vs. Time Shifts
 * **Global Field Overrides:** Modifying text-based fields like the *Title, Description, Setup Notes, Flyer URL, Location, or Category* will automatically change that attribute across your entire history of the event (altering all past, present, and future instances of that series simultaneously).
 * **Time Shift Boundaries:** For repeating events, modifying the *Start Time or End Time* or any of the *event repeat specifications*,  establishes a chronological boundary or pivot point in the schedule reletive to the date on which the change was made.  All event instnaces prior to this date remain unchanged, while all instances on or after this date going forward will repeat using the new pattern.
-> ⚠️ **Warning on Turning Off Recurrence:** If you edit a repeating event and uncheck the "This is a Repeating Event" box, saving will strip the background rules and collapse the series into a single, isolated day. 
+> ⚠️ **Warning on Turning Off Recurrence:** If you edit a repeating event and uncheck the "This is a Repeating Event" box, saving will strip the background rules and collapse the series into a single, isolated day.
 
 ### Rescheduling and Canceling
 At the bottom of the edit panel are two buttons for rescheduling and cancelling.
@@ -257,7 +257,7 @@ Because active HOAs host multiple concurrent events, the monthly grid features a
 * *Note: Residents can uncheck the "Magnifier" box in the footer toolbar to disable this feature.*
 
 ## 5.4 The Agenda Stream View (Mobile)
-When a user visits the calendar on a smartphone, the grid automatically hides itself and shifts to a clean, vertically scrolling **Agenda list** so users don't have to pinch-zoom or squint. 
+When a user visits the calendar on a smartphone, the grid automatically hides itself and shifts to a clean, vertically scrolling **Agenda list** so users don't have to pinch-zoom or squint.
 *(Tablet users will see the Agenda stream if holding the device vertically, and the Monthly Grid if rotated horizontally).*
 
 ## 5.5 Exporting to Personal Calendars
@@ -270,19 +270,19 @@ Every activity block includes a custom sub-link labeled **📅 Add to your Calen
 The calendar supports custom structural backgrounds for each month, allowing you to display seasonal graphics or custom photography.  The calendar app automatically places all of the events on top of this background, eleminating all of the tedious layout normally required to build a calendar.
 
 ## 6.1 Understanding Calendar Backgrounds
-The calendar canvas is a standard **1700x1100 pixel** layout (an absolute 11x17 aspect ratio, optimized for printing the HOA's newsletter, a Pro feature). 
+The calendar canvas is a standard **1700x1100 pixel** layout (an absolute 11x17 aspect ratio, optimized for printing the HOA's newsletter, a Pro feature).
 **Automated Fallback:** You do not need to manually design artwork for every month or use Canva at all. If a custom background file is not uploaded, it triggers a built-in generator to draw a clean, high-contrast grid outline on the fly. It just will not have your custom themed decorations.
 
 ## 6.2 Designing Custom Backgrounds via Canva
 1. On the **Monthly Backgrounds** tab, click **Download 11x17 Canva Grid Seed (SVG)**. This can act as the template.
-2. Log into your Canva account and upload the downloaded SVG seed file to use as your structural project blueprint. 
+2. Log into your Canva account and upload the downloaded SVG seed file to use as your structural project blueprint.
 3. **Critical Rule:** Never stretch, shift, or distort the core matrix lines of the grid. The calendar compiler relies on these exact geometric lines to overlay event titles perfectly. You have complete creative freedom to decorate the header and empty cells.
 4. **Building out the template:** You can replicate the seed page to make the months of the year within on project. In the upper left corner of each page is a filename which must be unique (see below).
 5. **Decorating:** For each month's page, add seasonal decorations and anotations. You can add anything anywhere, just do not modify the grid or change the aspect ratio. The calendar app expects the day cells to be at those precise locations. Try to avoid adding decorations to cells that will contain events.
 6. **Handling Split Cells:** The calendar program calculates 5-row split instances mathematically and will automatically overlay a clean diagonal slash (`/`) for the months that require them. You do not need to draw the slash in Canva!
 
 ## 6.3 Publishing and Uploading Your Background Set
-The calendar engine accumulates backgrounds based strictly on their image filenames. 
+The calendar engine accumulates backgrounds based strictly on their image filenames.
 
 1. **Set your Filenames:** The filename in Canva must follow this strict format: `cal-YYYY-MM`. (Example: `cal-2026-01` for January 2026).
 2. **Export from Canva:** After you have a set of month pages all decorated, Click **Share > Download**. Set the format to **PNG** and check the box labeled **Compress**. Download the ZIP file to your computer. It will most likely be placed in your downloads folder.
@@ -314,7 +314,7 @@ You can cancel events by dragging them off the grid and dropping them into the m
 
 # Chapter 8: 11x17 Newsletter Printing (Pro Feature)
 
-The calendar includes a built-in export engine designed to generate both casual printouts and commercial-grade graphics for the community newsletter. 
+The calendar includes a built-in export engine designed to generate both casual printouts and commercial-grade graphics for the community newsletter.
 
 At the bottom right of the monthly calendar view, Pro users will see two export options: **Print (PDF)** and **Download (PNG)**.
 
@@ -352,7 +352,7 @@ This section covers the primary Configuration panel found under **HOAplugin Cale
 ## 9.1 Baking & Data Configuration
 To keep the calendar loading lightning-fast for hundreds of residents simultaneously, it "bakes" a flat snapshot of your raw database events into a highly optimized cache file.
 * **Past/Future Months:** Determines how many months backward and forward the compiler prepares for active viewing.
-* **The Manual Re-Bake:** If your local browser is stuck and is not showing any events in the calendar, scroll to the bottom of the Settings page and click **Save All Settings & Re-Bake**. This forces the server to build a fresh cache file. *(Note: You can also try using `Ctrl + F5` on your keyboard to force your personal browser to refresh the screen).* 
+* **The Manual Re-Bake:** If your local browser is stuck and is not showing any events in the calendar, scroll to the bottom of the Settings page and click **Save All Settings & Re-Bake**. This forces the server to build a fresh cache file. *(Note: You can also try using `Ctrl + F5` on your keyboard to force your personal browser to refresh the screen).*
 
 ## 9.2 Display Preferences
 Customize exactly how the calendar matrix renders to your public visitors.
@@ -366,17 +366,17 @@ By default, the calendar prioritizes data protection. If you temporarily deactiv
 
 ---
 
-# Chapter 10: The Event Audit Log
+# Chapter 10: The Events Tab (Database View)
 
-The Event Audit Log is a centralized administrative listing located under the **HOAplugin Calendar > Event Audit Log** tab in the WordPress dashboard. It allows managers to inspect the database row-by-row and instantly fix structural mistakes.
+The Events tab is a centralized administrative listing located under the **HOAplugin Calendar > Events** tab in the WordPress dashboard. Rather than a standard calendar grid, this is a direct "source of truth" database view of your event declarations ordered by root date. It allows managers to inspect the database row-by-row and instantly fix structural mistakes.
 
-* **Chrological Lineage Grouping:** For each event, the **Master** rules are highlighted in bold blue rows. Any single-day modifications to the sequence (like a rescheduled session or a cancellation) are cleanly nested directly underneath that master row.
-* **Holes & Moves:** A canceled session shows as a "Hole". A rescheduled sessions show a Hole for the original slot and a "Move" row for the new target date/time.
+* **Chronological Lineage Grouping:** For each event, the **Master** rules are highlighted in bold blue rows. Any single-day modifications to the sequence (like a rescheduled session or a cancellation) are cleanly nested directly underneath that master row.
+* **Holes & Moves:** A canceled session shows as a "Hole". A rescheduled session shows a Hole for the original slot and a "Move" row for the new target date/time.
 * **Pivots:** Adjustments to a series pattern manifest as a "Pivot" row tracking the new rule.
 
-**Using the Audit Log for Rapid Maintenance:**
-* **Undoing a Cancellation:** Locate the "Hole" row and click its red **× (Delete)** icon. Erasing the log instantly restores that session to the live grid.
-* **Master delete:** If you created an entire recurring event series incorrectly, find the bold blue **Master Series** row and click its red **× (Delete)** icon. This single click cleans out the master rules and all cancellations and reschedues across the entire life of that repeating event.
+**Using the Events Tab for Rapid Maintenance:**
+* **Undoing a Cancellation:** Locate the "Hole" row and click its red **× (Delete)** icon. Erasing this record instantly restores that session to the live grid.
+* **Master delete:** If you created an entire recurring event series incorrectly, find the bold blue **Master Series** row and click its red **× (Delete)** icon. This single click cleans out the master rules and all cancellations and reschedules across the entire life of that repeating event.
 
 ---
 
@@ -387,7 +387,7 @@ To protect your community schedule against accidental deletions or server failur
 ## 11.1 Understanding the Structure
 * **The Event Registry (The Database):** Every category, location, event, and rule is recorded directly into three custom tables inside your WordPress database: `wp_hoapg_events`, `wp_hoapg_categories`, and `wp_hoapg_locations`. This is your permanent master data.
 * **The Compiled Snapshot (The JSON Cache):** Every time you save an entry, the system flattens your schedule into a fast-loading file (`calendar-events.json`). This file is temporary and automatically regenerates, meaning it does not need to be backed up.
-* **Other files:* All other files used by the HOAplugin calendar are located in the WordPress uploads folder in a folder named "HOAplugin_calendar". This is where your custom backgrounds and the temporary "calendar-events.json" file are stored.
+* **Other files:** All other files used by the HOAplugin calendar are located in the WordPress uploads folder in a folder named "HOAplugin_calendar". This is where your custom backgrounds and the temporary "calendar-events.json" file are stored.
 
 ## 11.2 Backing up and Restoring
 Because your master event entries live inside the WordPress database, they are easily protected as part of your standard website backup routine using tools like Duplicator Pro, UpdraftPlus or VaultPress.
@@ -414,7 +414,7 @@ If a volunteer that you designated as a delegate reports they cannot see the edi
 
 
 **Can I set an event to repeat on a pattern like "the 2nd and 4th Monday"?**
-Yes. Check the *This is a Repeating Event* box inside the editor. Under *Days of Week*, check `MO`. Then, go to the *Which Weeks?* row and check boxes `2` and `4`. 
+Yes. Check the *This is a Repeating Event* box inside the editor. Under *Days of Week*, check `MO`. Then, go to the *Which Weeks?* row and check boxes `2` and `4`.
 
 **An instructor is going on vacation for three weeks. How do I clear those dates?**
 Do not delete the series. Click the first vacation date on the grid, click edit, select *Cancel Event*, and choose *Cancel ONLY this instance*. Repeat for the other dates. This punches a hole for the vacation but leaves the rest of the year intact.
@@ -424,7 +424,7 @@ If you can see the block as an admin, but a resident reports it is missing, insp
 
 ---
 
-# Chapter 13: Free vs. Pro Feature Reference
+# Chapter 14: Free vs. Pro Feature Reference
 
 | Feature Capability | Free Base Version | Pro Upgrade Edition |
 | :--- | :---: | :---: |

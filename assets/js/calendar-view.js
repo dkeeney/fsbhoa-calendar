@@ -337,7 +337,7 @@ document.addEventListener('DOMContentLoaded', function() {
             wrapper.appendChild(activeShard);
 
             // 9. RE-ENABLE INTERACTION: Allow the user to click the actual items
-            const interactives = activeShard.querySelectorAll('.event-item, .edit-pencil, .add-event-plus');
+            const interactives = activeShard.querySelectorAll('.event-item, .edit-pencil, .edit-pencil-mini, .add-event-plus');
             interactives.forEach(el => {
                 el.style.pointerEvents = 'auto';
             });
@@ -558,11 +558,11 @@ function renderMonthGrid(monthlyApp) {
         grid.innerHTML += `
             <div class="calendar-day day-content ${isPast ? 'past-day' : ''} ${isToday ? 'today' : ''}"
                     data-date="${dateStr}"
-                    onclick="openDayModal('${dateStr}')">
+                    onclick="window.hoaplugin_openDayModal('${dateStr}')">
                 <div class="day-top">
                     <div class="day-number">${d}</div>
                     <div class="day-icons-corner">${renderIcons(icons, dateStr)}</div>
-                    ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateStr}')">+</div>` : ''}
+                    ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); window.hoaplugin_openAddModal('${dateStr}')">+</div>` : ''}
                     
                 </div>
                 <div class="day-events">${renderEvents(bars)}</div>
@@ -612,7 +612,7 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
 
         <div class="split-half day-content split-half-top ${isPastA ? 'past-day' : ''}"
              data-date="${dateA}"
-             onclick="event.stopPropagation(); openDayModal('${dateA}')">
+             onclick="event.stopPropagation(); window.hoaplugin_openDayModal('${dateA}')">
 
             <div class="events-layer layer-bg" aria-hidden="true">
                 <div class="day-top" style="visibility: hidden;"></div>
@@ -630,13 +630,13 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
             <div class="day-top">
                 <div class="day-number">${topDay}</div>
                 <div class="day-icons-corner">${renderIcons(evtsA.filter(e => window.hoaplugin_iconLibrary[e.category_id]), dateA)}</div>
-                ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateA}')">+</div>` : ''}
+                ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); window.hoaplugin_openAddModal('${dateA}')">+</div>` : ''}
             </div>
         </div>
 
         <div class="split-half day-content split-half-bottom ${isPastB ? 'past-day' : ''}"
              data-date="${dateB}"
-             onclick="event.stopPropagation(); openDayModal('${dateB}')">
+             onclick="event.stopPropagation(); window.hoaplugin_openDayModal('${dateB}')">
 
             <div class="events-layer layer-bg" aria-hidden="true">
                 <div class="day-events-bottom">
@@ -652,7 +652,7 @@ function renderSplitCell(year, month, topDay, botDay, todayStr) {
                 <div class="day-bottom" style="visibility: hidden;"></div>
             </div>
             <div class="day-bottom">
-                ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); openAddModal('${dateB}')">+</div>` : ''}
+                ${canCreate ? `<div class="add-event-plus" onclick="event.stopPropagation(); window.hoaplugin_openAddModal('${dateB}')">+</div>` : ''}
                 <div class="day-icons-corner">${renderIcons(evtsB.filter(e => window.hoaplugin_iconLibrary[e.category_id]), dateB)}</div>
                 <div class="day-number">${botDay}</div>
             </div>
@@ -667,7 +667,7 @@ function renderIcons(icons, dateStr) {
         //  Only show the pencil if they have permission AND we aren't in the agenda
         const isCatDelegate = window.hoaplugin_data.delegated_categories && window.hoaplugin_data.delegated_categories.includes(parseInt(e.category_id));
         const canEdit =
-            window.handleAddEventFromModal &&
+            window.hoaplugin_handleAddEventFromModal &&
             ((window.hoaplugin_config.isAdmin || isCatDelegate || (e.owner_email && window.hoaplugin_config.userEmail && e.owner_email.toLowerCase() === window.hoaplugin_config.userEmail.toLowerCase()))
             && window.hoaplugin_currentView !== 'agenda');
         let svgContent = window.hoaplugin_iconLibrary[e.category_id] || '';
@@ -688,7 +688,7 @@ function renderIcons(icons, dateStr) {
                  data-event-date="${e.date}"
                  data-event-start-time="${e.start_time}"
                  data-is-single="${!!e.single}"
-                 onclick="activateEventDetailClick(event, ${e.instance_id})"
+                 onclick="window.hoaplugin_activateEventDetailClick(event, ${e.instance_id})"
                  style="display:inline-flex; align-items:center; position:relative; background:transparent !important;">
 
                 ${svgContent}
@@ -696,7 +696,7 @@ function renderIcons(icons, dateStr) {
                 ${canEdit ? `
                     <span class="edit-pencil-mini"
                           style="pointer-events: auto;"
-                          onclick="event.stopPropagation(); window.handleEditClick(${e.id}, '${dateStr}', '${e.start_time}', ${e.pivot_id || 'null'}, ${e.move_id || 'null'})">
+                          onclick="event.stopPropagation(); window.hoaplugin_handleEditClick(${e.id}, '${dateStr}', '${e.start_time}', ${e.pivot_id || 'null'}, ${e.move_id || 'null'})">
                         ✎
                     </span>` : ''}
             </div>`;
@@ -737,7 +737,7 @@ function renderAgendaView(agendaApp) {
 
     // 3. Setup the skeleton inside the agenda container
     const sticky = agendaApp.querySelector('#agenda-sticky-header');
-    console.log('sticky =', sticky, 'monthName =', monthName, ' currentViewDate=', window.hoaplugin_currentViewDate);
+    //console.log('sticky =', sticky, 'monthName =', monthName, ' window.hoaplugin_currentViewDate=', window.hoaplugin_currentViewDate);
     sticky.textContent = monthName;
 
     // 4. Filter and Sort Events (Same logic as yours, which is solid)
@@ -794,7 +794,7 @@ function renderAgendaView(agendaApp) {
         if (!window.hoaplugin_iconLibrary[e.category_id]) {
             html += `
                 <div class="agenda-row ${isToday ? 'agenda-today-row' : ''}"
-                      onclick="activateEventDetailClick(event, ${e.instance_id})">
+                      onclick="window.hoaplugin_activateEventDetailClick(event, ${e.instance_id})">
                     ${renderFlyerThumb(e)}
                     <div class="agenda-info">
                         <div class="agenda-main-line">
@@ -821,7 +821,7 @@ function renderAgendaView(agendaApp) {
 
     setTimeout(() => {
         const targetEl = contentArea.querySelector(`[data-agenda-date="${scrollTarget}"]`);
-        if (targetEl && currentView === 'agenda') {
+        if (targetEl && window.hoaplugin_currentView === 'agenda') {
             // Calculate position relative to the document
             const headerHeight = 150; // Site Header + Agenda Header
             const elementPosition = targetEl.getBoundingClientRect().top + window.pageYOffset;
@@ -839,48 +839,43 @@ function renderAgendaView(agendaApp) {
 function renderFlyerThumb(eventObj) {
     const url = eventObj.flyer_url ? eventObj.flyer_url.trim() : "";
 
-    // No flyer → return placeholder
+    // No flyer → return placeholder (with explicit flex-shrink so it doesn't collapse)
     if (!url) {
         return `
-            <div class="agenda-thumb-placeholder" style="width:50px; margin-right:15px;"></div>
+            <div class="agenda-thumb-placeholder" style="width:50px; min-width:50px; margin-right:15px; flex-shrink:0;"></div>
         `;
     }
 
-    let thumbSrc = "";
-    // Safely encoded inline SVGs so we never have to worry about broken image paths
-    const fallbackPdfIcon = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23d32f2f'%3E%3Cpath d='M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z'/%3E%3C/svg%3E";
-    const fallbackGenericIcon = "data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%230288d1'%3E%3Cpath d='M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z'/%3E%3C/svg%3E";
+    let visualContent = "";
 
-    // CASE 1 — Image flyer
+    // Pure SVG strings are much safer and easier to style than data URIs in img tags
+    const fallbackPdfIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#d32f2f" width="40px" height="40px"><path d="M20 2H8c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-8.5 7.5c0 .83-.67 1.5-1.5 1.5H9v2H7.5V7H10c.83 0 1.5.67 1.5 1.5v1zm5 2c0 .83-.67 1.5-1.5 1.5h-2.5V7H15c.83 0 1.5.67 1.5 1.5v3zm4-3H19v1h1.5V11H19v2h-1.5V7h3v1.5zM9 9.5h1v-1H9v1zM4 6H2v14c0 1.1.9 2 2 2h14v-2H4V6zm10 5.5h1v-3h-1v3z"/></svg>`;
+    const fallbackGenericIcon = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="#0288d1" width="40px" height="40px"><path d="M14 2H6c-1.1 0-1.99.9-1.99 2L4 20c0 1.1.89 2 1.99 2H18c1.1 0 2-.9 2-2V8l-6-6zm2 16H8v-2h8v2zm0-4H8v-2h8v2zm-3-5V3.5L18.5 9H13z"/></svg>`;
+
+    // CASE 1 — Image flyer (Uses standard img tag)
     if (/\.(jpg|jpeg|png|gif|webp|svg)$/i.test(url)) {
-        thumbSrc = url;
+        visualContent = `<img src="${url}" style="width:100%; height:auto; max-width:40px; border-radius:4px;" alt="Flyer thumbnail">`;
     }
-
     // CASE 2 — PDF flyer
     else if (/\.pdf$/i.test(url)) {
-        thumbSrc = fallbackPdfIcon;
+        visualContent = fallbackPdfIcon;
     }
-
-    // CASE 3 — Website URL  
-    else if (/^https?:\/\//i.test(url)) {
-        thumbSrc = fallbackGenericIcon;
-    }
-
-    // CASE 4 — Unknown type → fallback icon
+    // CASE 3 & 4 — Website URL or Unknown
     else {
-        thumbSrc = fallbackGenericIcon;
+        visualContent = fallbackGenericIcon;
     }
 
-    // Return safe, non-navigating HTML
+    // Return safe HTML with proper namespaces and dimensions
     return `
         <div class="thumb"
-             onclick="activateEventDetailClick(event, ${eventObj.instance_id})">
-            <img src="${thumbSrc}">
+             style="width:50px; min-width:50px; display:flex; justify-content:center; align-items:center; margin-right:15px; flex-shrink:0;"
+             onclick="window.hoaplugin_activateEventDetailClick(event, ${eventObj.instance_id})">
+            ${visualContent}
         </div>
     `;
 }
 
-function activateEventDetailClick(e, instanceId) {
+window.hoaplugin_activateEventDetailClick = function(e, instanceId) {
     e.preventDefault();
     e.stopPropagation();
 
@@ -903,7 +898,7 @@ function activateEventDetailClick(e, instanceId) {
 
 
 
-function openDayModal(dateStr) {
+window.hoaplugin_openDayModal = function(dateStr) {
     const modal = document.getElementById('hoa-day-modal');
     const content = document.getElementById('hoa-modal-content');
 
@@ -930,7 +925,7 @@ function openDayModal(dateStr) {
             ${canCreate ? `
                 <span title="Add New Event"
                       style="color:#0056b3; cursor:pointer; font-size:2rem; font-weight:900; line-height:1; margin-right:10px;"
-                      onclick="handleAddEventFromModal('${dateStr}')">+</span>
+                      onclick="window.hoaplugin_handleAddEventFromModal('${dateStr}')">+</span>
             ` : ''}
         </div>
         <hr>`;
@@ -948,7 +943,7 @@ function openDayModal(dateStr) {
             html += `
                 <li class="modal-event-card"
                     style="border-bottom:1px solid #eee; padding:12px 0; display:flex; justify-content:space-between; align-items:center;"
-                    onclick="activateEventDetailClick(event, ${e.instance_id})">
+                    onclick="window.hoaplugin_activateEventDetailClick(event, ${e.instance_id})">
             
                     <div style="flex:1; display:flex; align-items:center; gap:15px;">
                         ${renderFlyerThumb(e)}
@@ -971,7 +966,7 @@ function openDayModal(dateStr) {
                         <!-- Info icon -->
                         <span title="View Details"
                               style="color:#0288d1; cursor:pointer;"
-                              onclick="event.stopPropagation(); activateEventDetailClick(event, ${e.instance_id})">
+                              onclick="event.stopPropagation(); window.hoaplugin_activateEventDetailClick(event, ${e.instance_id})">
                             ⓘ
                         </span>
 
@@ -979,7 +974,7 @@ function openDayModal(dateStr) {
                         ${canEdit ? `
                             <span title="Edit Event"
                                   style="color:#f57c00; cursor:pointer;"
-                                  onclick="event.stopPropagation(); window.handleEditClick(${e.id}, '${dateStr}', '${e.start_time}', ${e.pivot_id}, ${e.move_id || 'null'})">
+                                  onclick="event.stopPropagation(); window.hoaplugin_handleEditClick(${e.id}, '${dateStr}', '${e.start_time}', ${e.pivot_id}, ${e.move_id || 'null'})">
                                 ✎
                             </span>
                         ` : ''}
@@ -1043,12 +1038,12 @@ function renderEvents(events) {
                  data-is-single="${!!e.single}"
                  style="background-color: ${e.cat_color}; --event-bg: ${e.cat_color || '#ddd'};"
                  title="${e.flyer_url ? 'Click to open flyer' : 'Click for details'}"
-                 onclick="activateEventDetailClick(event, ${e.instance_id})">
+                 onclick="window.hoaplugin_activateEventDetailClick(event, ${e.instance_id})">
                 <span class="event-title-text" style="flex:1; overflow:hidden; text-overflow:ellipsis;">
                     ${combinedTitle}
                 </span>
                 ${canEdit ? `
-                    <span class="edit-pencil" onclick="event.stopPropagation(); window.handleEditClick(${e.id}, '${e.date}', '${e.start_time}', ${e.pivot_id || e.id}, ${moveId || 'null'})">✎</span>` : ''}
+                    <span class="edit-pencil" onclick="event.stopPropagation(); window.hoaplugin_handleEditClick(${e.id}, '${e.date}', '${e.start_time}', ${e.pivot_id || e.id}, ${moveId || 'null'})">✎</span>` : ''}
             </div>
         `;
     }).join('');
@@ -1142,13 +1137,6 @@ function showEventDetail(ev) {
             <div class="event-description" style="line-height:1.6; font-size:1.1rem;">
                 ${ev.description || '<em>No description provided.</em>'}
             </div>
-
-            ${ev.setup_notes ? `
-                <div class="setup-notes" style="margin-top:25px; padding-top:15px; border-top:1px dashed #ccc; font-style:italic; color:#666;">
-                    <strong>Setup Notes:</strong><br>
-                    ${ev.setup_notes}
-                </div>
-            ` : ''}
         </div>
     `;
     // Lock the background scrolling before showing.
@@ -1217,7 +1205,7 @@ function applyBackgroundStyles(container, url) {
 /**
  * BRIDGING FUNCTIONS
  */
-function updateFlyerHint() {
+window.hoaplugin_updateFlyerHint = function() {
     const input = document.getElementById('flyer_url_input');
     const hint = document.getElementById('flyer-hint');
 
